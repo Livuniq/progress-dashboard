@@ -32,7 +32,7 @@ git remote get-url origin >nul 2>nul
 if %ERRORLEVEL% neq 0 (
     echo [INFO] No remote 'origin' configured yet.
     echo.
-    set /p REPO_URL="Enter your GitHub repository URL (e.g. https://github.com/USERNAME/progress-dashboard.git): "
+    set /p REPO_URL="Enter your GitHub repository URL (e.g. https://github.com/Livuniq/progress-dashboard.git): "
     if "!REPO_URL!"=="" (
         echo [ERROR] No remote URL provided. Aborting push.
         pause

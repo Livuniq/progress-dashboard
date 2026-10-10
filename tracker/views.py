@@ -61,6 +61,7 @@ def dashboard(request):
     # Metrics calculation (all items base)
     all_items = list(ProcessItem.objects.all())
     total_clients = len(all_items)
+    hidden_count = sum(1 for item in all_items if item.is_hidden)
     working_count = sum(1 for item in all_items if item.dynamic_status == 'working')
     no_data_count = sum(1 for item in all_items if item.dynamic_status == 'no_data')
     finished_count = sum(1 for item in all_items if item.dynamic_status == 'finished')
@@ -83,6 +84,7 @@ def dashboard(request):
         'status_filter': status_filter,
         'search_query': search_query,
         'total_clients': total_clients,
+        'hidden_count': hidden_count,
         'working_count': working_count,
         'no_data_count': no_data_count,
         'finished_count': finished_count,
@@ -527,6 +529,73 @@ def item_delete(request, pk):
         name = item.client_name
         item.delete()
         messages.success(request, f"Deleted '{name}' successfully.")
+    return redirect('tracker:dashboard')
+
+
+def item_toggle_hide(request, pk):
+    """Toggle hidden status of a single process item"""
+    item = get_object_or_404(ProcessItem, pk=pk)
+    if request.method == 'POST':
+        item.is_hidden = not item.is_hidden
+        item.save(update_fields=['is_hidden'])
+        
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+            return JsonResponse({
+                'success': True,
+                'id': item.id,
+                'is_hidden': item.is_hidden,
+                'client_name': item.client_name,
+                'message': f"Client '{item.client_name}' {'hidden' if item.is_hidden else 'unhidden'}."
+            })
+        messages.success(request, f"Client '{item.client_name}' {'hidden' if item.is_hidden else 'restored'}.")
+        return redirect('tracker:dashboard')
+    return JsonResponse({'error': 'POST required'}, status=405)
+
+
+def items_bulk_delete(request):
+    """Bulk delete multiple clients protected by password 8264"""
+    if request.method == 'POST':
+        password = request.POST.get('password', '').strip()
+        if password != '8264':
+            messages.error(request, "Incorrect deletion password! Bulk deletion cancelled.")
+            return redirect('tracker:dashboard')
+        
+        ids_str = request.POST.get('selected_ids', '').strip()
+        ids = []
+        if ids_str:
+            ids = [int(x) for x in ids_str.split(',') if x.strip().isdigit()]
+        if not ids:
+            ids = [int(x) for x in request.POST.getlist('selected_ids') if str(x).isdigit()]
+        
+        if ids:
+            deleted_count, _ = ProcessItem.objects.filter(id__in=ids).delete()
+            messages.success(request, f"Successfully deleted {deleted_count} client(s).")
+        else:
+            messages.warning(request, "No clients selected for deletion.")
+            
+    return redirect('tracker:dashboard')
+
+
+def items_bulk_hide(request):
+    """Bulk hide or unhide multiple clients"""
+    if request.method == 'POST':
+        ids_str = request.POST.get('selected_ids', '').strip()
+        ids = []
+        if ids_str:
+            ids = [int(x) for x in ids_str.split(',') if x.strip().isdigit()]
+        if not ids:
+            ids = [int(x) for x in request.POST.getlist('selected_ids') if str(x).isdigit()]
+        
+        action = request.POST.get('action', 'hide').lower()
+        new_val = (action != 'unhide')
+        
+        if ids:
+            updated_count = ProcessItem.objects.filter(id__in=ids).update(is_hidden=new_val)
+            action_word = "hidden" if new_val else "restored"
+            messages.success(request, f"Successfully {action_word} {updated_count} client(s).")
+        else:
+            messages.warning(request, "No clients selected.")
+            
     return redirect('tracker:dashboard')
 
 

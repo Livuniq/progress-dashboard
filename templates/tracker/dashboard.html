@@ -171,21 +171,44 @@
         margin-bottom: 0;
     }
 
-    @media (max-width: 991.98px) {
-        .dashboard-wrapper {
-            flex-direction: column;
-        }
-        .dashboard-sidebar {
-            width: 100%;
-            min-width: 100%;
-            max-width: 100%;
-            position: static;
-            max-height: none;
-        }
-        .dashboard-sidebar.is-collapsed {
-            display: none;
-            margin-left: 0;
-        }
+    /* Hidden Client Rows */
+    .process-row.is-hidden-row {
+        display: none;
+    }
+    .show-hidden-mode .process-row.is-hidden-row {
+        display: table-row !important;
+        opacity: 0.65;
+        background-color: #f8fafc !important;
+    }
+    .show-hidden-mode .process-row.is-hidden-row td {
+        color: #64748b;
+    }
+    .badge-hidden {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background-color: #e2e8f0;
+        color: #475569;
+        font-weight: 600;
+    }
+
+    /* Multi-select row styling */
+    .process-row.is-selected-row {
+        background-color: #eff6ff !important;
+    }
+    .select-all-checkbox, .row-select-checkbox {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+    .select-cell {
+        vertical-align: middle;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+    }
+    #bulkActionBar {
+        border-radius: 10px;
+        border-left: 4px solid #0d6efd !important;
     }
 </style>
 {% endblock %}
@@ -334,6 +357,11 @@
                     <a href="?" class="text-danger ms-1 text-decoration-none fw-bold" title="Clear filter">&times;</a>
                 </span>
                 {% endif %}
+                <button type="button" class="btn btn-sm btn-white border shadow-sm px-2 py-1" id="toggleShowHiddenBtn" title="Toggle visibility of hidden clients">
+                    <i class="bi bi-eye-slash me-1 text-secondary" id="toggleShowHiddenIcon"></i>
+                    <span class="small fw-semibold" id="toggleShowHiddenLabel">Show Hidden</span>
+                    <span class="badge bg-secondary-subtle text-secondary rounded-pill ms-1" id="hiddenCountBadge">{{ hidden_count }}</span>
+                </button>
                 <span class="text-muted small d-none d-sm-inline">
                     Showing <strong>{{ items|length }}</strong> client accounts
                 </span>
@@ -345,12 +373,44 @@
             </div>
         </div>
 
+        <!-- Bulk Selection Action Bar -->
+        <div id="bulkActionBar" class="card shadow-sm border-primary mb-2 bg-light py-2 px-3 d-none align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-primary fs-6 px-2 py-1 rounded-pill" id="selectedCountBadge">0</span>
+                <span class="fw-bold text-dark small" id="selectedCountText">clients selected</span>
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="bulkHideBtn" title="Hide selected client rows">
+                    <i class="bi bi-eye-slash me-1"></i> Hide Selected
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success" id="bulkUnhideBtn" title="Unhide / restore selected client rows">
+                    <i class="bi bi-eye me-1"></i> Restore Selected
+                </button>
+                <button type="button" class="btn btn-sm btn-danger fw-bold" id="bulkDeleteBtn" title="Delete selected clients (PIN 8264 Required)">
+                    <i class="bi bi-trash3-fill me-1"></i> Delete Selected (<span id="deleteSelectedCount">0</span>)
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-dark" id="clearSelectionBtn">
+                    Cancel
+                </button>
+            </div>
+        </div>
+
+        <!-- Hidden Form for Bulk Hide/Unhide -->
+        <form id="bulkActionForm" method="post" action="{% url 'tracker:items_bulk_hide' %}" style="display:none;">
+            {% csrf_token %}
+            <input type="hidden" name="selected_ids" id="bulkActionSelectedIds" value="">
+            <input type="hidden" name="action" id="bulkActionType" value="hide">
+        </form>
+
 <!-- Process Sheet Main Table (Matching User's Excel) -->
-<div class="table-custom">
+<div class="table-custom" id="tableCustomContainer">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0" id="processTable">
             <thead>
                 <tr>
+                    <th style="width: 38px; text-align: center; vertical-align: middle;">
+                        <input class="form-check-input select-all-checkbox" type="checkbox" id="selectAllCheckbox" title="Select / Deselect all rows">
+                    </th>
                     {% for col in ordered_columns %}
                         <th class="{% if col.key in 'status,completed_count,pending_count,ready_count,target_date,days_diff,actions,lot_progress' or col.is_custom %}text-center{% endif %}"
                             style="{% if col.key == 'col_counter' %}width: 50px;{% elif col.key == 'client_name' %}min-width: 220px;{% elif col.key == 'status' %}min-width: 155px;{% elif col.key == 'lot_progress' %}min-width: 160px;{% elif col.key in 'completed_count,pending_count,ready_count' %}width: 80px;{% elif col.key == 'notes' %}min-width: 240px;{% elif col.key == 'target_date' %}min-width: 130px;{% elif col.key == 'days_diff' %}width: 110px;{% elif col.key == 'history_milestone' %}min-width: 160px;{% elif col.key == 'actions' %}width: 90px;{% else %}min-width: 130px;{% endif %}">
@@ -364,16 +424,20 @@
             </thead>
             <tbody>
                 {% for item in items %}
-                <tr class="process-row {% if item.is_priority %}row-priority{% endif %} {% if item.row_highlight_color %}row-has-custom-color{% else %}row-status-{{ item.dynamic_status }}{% endif %}"
+                <tr class="process-row {% if item.is_hidden %}is-hidden-row{% endif %} {% if item.is_priority %}row-priority{% endif %} {% if item.row_highlight_color %}row-has-custom-color{% else %}row-status-{{ item.dynamic_status }}{% endif %}"
                     {% if item.row_highlight_color %}style="background-color: {{ item.row_highlight_color }} !important; border-left: 4px solid {{ item.row_highlight_color }} !important;"{% endif %}
                     data-id="{{ item.id }}"
                     data-client-name="{{ item.client_name }}"
+                    data-hidden="{{ item.is_hidden|yesno:'true,false' }}"
                     data-priority="{{ item.is_priority|yesno:'true,false' }}"
                     data-search="{{ item.client_name }} {{ item.notes }} {{ item.lot_progress }} {{ item.history_milestone }}"
                     data-target-date="{{ item.target_date|date:'Y-m-d' }}"
                     data-status="{{ item.status }}"
                     data-custom-color="{{ item.row_highlight_color|default:'' }}"
                     title="Tip: Long-press or right-click row to open options menu">
+                    <td class="text-center select-cell" style="width: 38px; vertical-align: middle;">
+                        <input class="form-check-input row-select-checkbox" type="checkbox" value="{{ item.id }}" data-name="{{ item.client_name }}" id="check_item_{{ item.id }}" style="cursor: pointer;">
+                    </td>
                     {% for col in ordered_columns %}
                         {% if col.key == 'col_counter' %}
                             <td class="text-muted small fw-medium">{{ forloop.parentloop.counter }}</td>
@@ -383,6 +447,11 @@
                                     <span class="client-name-text {% if item.is_red_client or item.dynamic_status == 'finished' or item.status == 'finished' %}client-red{% else %}fw-semibold text-dark{% endif %}" data-is-red="{{ item.is_red_client|yesno:'true,false' }}">
                                         {{ item.client_name }}
                                     </span>
+                                    {% if item.is_hidden %}
+                                    <span class="badge-hidden" title="Hidden from standard view">
+                                        <i class="bi bi-eye-slash me-1"></i>Hidden
+                                    </span>
+                                    {% endif %}
                                     <span class="badge-priority-neon priority-badge" id="priority_badge_{{ item.id }}" {% if not item.is_priority %}style="display:none;"{% endif %}>
                                         <i class="bi bi-lightning-charge-fill text-warning"></i> PRIORITY
                                     </span>
@@ -508,6 +577,9 @@
                                     <button class="btn btn-light text-primary py-0 px-2 btn-edit" data-id="{{ item.id }}" title="Edit">
                                         <i class="bi bi-pencil-square"></i>
                                     </button>
+                                    <button type="button" class="btn btn-light text-secondary py-0 px-2 btn-toggle-hide" data-id="{{ item.id }}" data-name="{{ item.client_name }}" title="{% if item.is_hidden %}Restore / Unhide Client{% else %}Hide Client Row{% endif %}">
+                                        <i class="bi {% if item.is_hidden %}bi-eye text-primary{% else %}bi-eye-slash{% endif %}"></i>
+                                    </button>
                                     <button type="button" class="btn btn-light text-danger py-0 px-2 btn-delete-client" data-id="{{ item.id }}" data-name="{{ item.client_name }}" data-url="{% url 'tracker:item_delete' item.id %}" title="Delete Client">
                                         <i class="bi bi-trash3"></i>
                                     </button>
@@ -520,7 +592,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="12" class="text-center py-5 text-muted">
+                    <td colspan="15" class="text-center py-5 text-muted">
                         <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary"></i>
                         No process records found. Click <strong>Add Client</strong> or <strong>Reset Demo Data</strong> to populate!
                     </td>
@@ -1068,6 +1140,7 @@
         <div class="modal-content shadow-lg border-danger border-2">
             <form method="post" id="deleteClientForm" action="">
                 {% csrf_token %}
+                <input type="hidden" name="selected_ids" id="deleteSelectedIds" value="">
                 <div class="modal-header bg-danger text-white py-2 px-3">
                     <h6 class="modal-title fw-bold" id="deleteModalLabel">
                         <i class="bi bi-shield-lock-fill me-1"></i> Security: Confirm Client Delete
@@ -1080,7 +1153,7 @@
                             <i class="bi bi-trash3-fill fs-2"></i>
                         </div>
                     </div>
-                    <p class="mb-1 text-secondary small">Are you sure you want to permanently delete client:</p>
+                    <p class="mb-1 text-secondary small" id="deleteClientPromptText">Are you sure you want to permanently delete client:</p>
                     <h5 class="fw-bold text-danger mb-3" id="deleteClientTargetName">Client Name</h5>
                     
                     <div class="text-start bg-light p-3 rounded border">
@@ -1096,7 +1169,7 @@
                 <div class="modal-footer bg-light py-2 px-3 justify-content-between">
                     <button type="button" class="btn btn-sm btn-outline-secondary px-3" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-sm btn-danger fw-bold px-3">
-                        <i class="bi bi-trash3-fill me-1"></i> Delete Client
+                        <i class="bi bi-trash3-fill me-1"></i> <span id="deleteModalSubmitText">Delete Client</span>
                     </button>
                 </div>
             </form>
@@ -1126,6 +1199,10 @@
         <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-secondary" id="contextMenuHistoryBtn">
             <i class="bi bi-clock-history"></i>
             <span>View Edit History</span>
+        </button>
+        <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-secondary" id="contextMenuHideBtn">
+            <i class="bi bi-eye-slash" id="contextMenuHideIcon"></i>
+            <span id="contextMenuHideText">Hide Client Row</span>
         </button>
         <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-danger" id="contextMenuDeleteBtn">
             <i class="bi bi-trash3"></i>
@@ -2555,6 +2632,13 @@
             }
         }
 
+        // Hide toggle presentation in context menu
+        const isHidden = row.classList.contains('is-hidden-row') || row.getAttribute('data-hidden') === 'true';
+        const hideTextEl = document.getElementById('contextMenuHideText');
+        const hideIconEl = document.getElementById('contextMenuHideIcon');
+        if (hideTextEl) hideTextEl.textContent = isHidden ? 'Restore / Unhide Client' : 'Hide Client Row';
+        if (hideIconEl) hideIconEl.className = isHidden ? 'bi bi-eye text-primary me-1' : 'bi bi-eye-slash text-secondary me-1';
+
         // Position menu properly without viewport cutoff
         const menuWidth = 250;
         const menuHeight = 180;
@@ -2647,6 +2731,18 @@
         });
     }
 
+    const hideBtnEl = document.getElementById('contextMenuHideBtn');
+    if (hideBtnEl) {
+        hideBtnEl.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (currentTargetRow) {
+                const btnToggleHide = currentTargetRow.querySelector('.btn-toggle-hide');
+                closeRowContextMenu();
+                if (btnToggleHide) btnToggleHide.click();
+            }
+        });
+    }
+
     const deleteBtnEl = document.getElementById('contextMenuDeleteBtn');
     if (deleteBtnEl) {
         deleteBtnEl.addEventListener('click', function(e) {
@@ -2659,20 +2755,113 @@
         });
     }
 
-    // Client Delete Modal with Password Protection (8264)
+    // Toggle Single Client Hide / Unhide
+    document.querySelectorAll('.btn-toggle-hide').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const itemId = this.getAttribute('data-id');
+            const row = this.closest('.process-row');
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+            fetch(`/item/${itemId}/toggle-hide/`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const isHidden = data.is_hidden;
+                    row.setAttribute('data-hidden', isHidden ? 'true' : 'false');
+                    
+                    const icon = this.querySelector('i');
+                    if (isHidden) {
+                        row.classList.add('is-hidden-row');
+                        this.setAttribute('title', 'Restore / Unhide Client');
+                        if (icon) icon.className = 'bi bi-eye text-primary';
+                        
+                        // Add hidden badge in name cell if not present
+                        const nameCell = row.querySelector('.client-name-cell .d-inline-flex');
+                        if (nameCell && !nameCell.querySelector('.badge-hidden')) {
+                            const badge = document.createElement('span');
+                            badge.className = 'badge-hidden';
+                            badge.title = 'Hidden from standard view';
+                            badge.innerHTML = '<i class="bi bi-eye-slash me-1"></i>Hidden';
+                            nameCell.appendChild(badge);
+                        }
+                    } else {
+                        row.classList.remove('is-hidden-row');
+                        this.setAttribute('title', 'Hide Client Row');
+                        if (icon) icon.className = 'bi bi-eye-slash';
+                        
+                        // Remove badge
+                        const existingBadge = row.querySelector('.badge-hidden');
+                        if (existingBadge) existingBadge.remove();
+                    }
+
+                    // Update hidden count badge in toolbar
+                    const hiddenCountBadge = document.getElementById('hiddenCountBadge');
+                    if (hiddenCountBadge) {
+                        const totalHidden = document.querySelectorAll('.process-row.is-hidden-row').length;
+                        hiddenCountBadge.textContent = totalHidden;
+                    }
+                }
+            })
+            .catch(err => {
+                console.error('Error toggling hide status:', err);
+            });
+        });
+    });
+
+    // Global Show / Hide Hidden toggle in toolbar
+    const toggleShowHiddenBtn = document.getElementById('toggleShowHiddenBtn');
+    const tableCustomContainer = document.getElementById('tableCustomContainer');
+    if (toggleShowHiddenBtn && tableCustomContainer) {
+        toggleShowHiddenBtn.addEventListener('click', function() {
+            const isShowing = tableCustomContainer.classList.toggle('show-hidden-mode');
+            const icon = document.getElementById('toggleShowHiddenIcon');
+            const label = document.getElementById('toggleShowHiddenLabel');
+            
+            if (isShowing) {
+                if (icon) icon.className = 'bi bi-eye text-primary me-1';
+                if (label) label.textContent = 'Hide Hidden';
+                toggleShowHiddenBtn.classList.add('btn-primary-subtle', 'border-primary');
+            } else {
+                if (icon) icon.className = 'bi bi-eye-slash text-secondary me-1';
+                if (label) label.textContent = 'Show Hidden';
+                toggleShowHiddenBtn.classList.remove('btn-primary-subtle', 'border-primary');
+            }
+        });
+    }
+
+    // Client Delete Modal with Password Protection (8264) - Single & Bulk
     const deleteModalEl = document.getElementById('deleteModal');
     const deleteModal = deleteModalEl ? new bootstrap.Modal(deleteModalEl) : null;
     const deleteClientForm = document.getElementById('deleteClientForm');
     const deletePasswordInput = document.getElementById('deletePasswordInput');
     const deleteClientTargetName = document.getElementById('deleteClientTargetName');
+    const deleteSelectedIds = document.getElementById('deleteSelectedIds');
+    const deleteModalLabel = document.getElementById('deleteModalLabel');
+    const deleteClientPromptText = document.getElementById('deleteClientPromptText');
+    const deleteModalSubmitText = document.getElementById('deleteModalSubmitText');
 
+    // Single Delete click
     document.querySelectorAll('.btn-delete-client').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
             const clientName = this.getAttribute('data-name') || 'this client';
             const deleteUrl = this.getAttribute('data-url');
+            
+            if (deleteSelectedIds) deleteSelectedIds.value = '';
             if (deleteClientTargetName) deleteClientTargetName.textContent = clientName;
+            if (deleteClientPromptText) deleteClientPromptText.textContent = 'Are you sure you want to permanently delete client:';
+            if (deleteModalLabel) deleteModalLabel.innerHTML = '<i class="bi bi-shield-lock-fill me-1"></i> Security: Confirm Client Delete';
+            if (deleteModalSubmitText) deleteModalSubmitText.textContent = 'Delete Client';
             if (deleteClientForm) deleteClientForm.action = deleteUrl;
             if (deletePasswordInput) {
                 deletePasswordInput.value = '';
@@ -2706,6 +2895,142 @@
             if (this.classList.contains('is-invalid')) {
                 this.classList.remove('is-invalid');
             }
+        });
+    }
+
+    // Multi-Select and Bulk Actions
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const bulkActionBar = document.getElementById('bulkActionBar');
+    const selectedCountBadge = document.getElementById('selectedCountBadge');
+    const deleteSelectedCount = document.getElementById('deleteSelectedCount');
+    const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const bulkHideBtn = document.getElementById('bulkHideBtn');
+    const bulkUnhideBtn = document.getElementById('bulkUnhideBtn');
+    const bulkActionForm = document.getElementById('bulkActionForm');
+    const bulkActionSelectedIds = document.getElementById('bulkActionSelectedIds');
+    const bulkActionType = document.getElementById('bulkActionType');
+
+    function getSelectedCheckboxes() {
+        return Array.from(document.querySelectorAll('.row-select-checkbox:checked'));
+    }
+
+    function updateBulkActionBar() {
+        const checkedBoxes = getSelectedCheckboxes();
+        const count = checkedBoxes.length;
+
+        // Highlight selected rows
+        document.querySelectorAll('.process-row').forEach(row => {
+            const cb = row.querySelector('.row-select-checkbox');
+            if (cb && cb.checked) {
+                row.classList.add('is-selected-row');
+            } else {
+                row.classList.remove('is-selected-row');
+            }
+        });
+
+        if (count > 0) {
+            if (bulkActionBar) {
+                bulkActionBar.classList.remove('d-none');
+                bulkActionBar.classList.add('d-flex');
+            }
+            if (selectedCountBadge) selectedCountBadge.textContent = count;
+            if (deleteSelectedCount) deleteSelectedCount.textContent = count;
+        } else {
+            if (bulkActionBar) {
+                bulkActionBar.classList.add('d-none');
+                bulkActionBar.classList.remove('d-flex');
+            }
+            if (selectAllCheckbox) selectAllCheckbox.checked = false;
+        }
+
+        // Sync header checkbox with visible rows
+        const visibleCheckboxes = Array.from(document.querySelectorAll('.process-row:not([style*="display: none"]) .row-select-checkbox'));
+        if (selectAllCheckbox && visibleCheckboxes.length > 0) {
+            selectAllCheckbox.checked = visibleCheckboxes.every(cb => cb.checked);
+        }
+    }
+
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            const isChecked = this.checked;
+            const rows = document.querySelectorAll('.process-row');
+            rows.forEach(row => {
+                if (row.offsetParent !== null) { // visible
+                    const cb = row.querySelector('.row-select-checkbox');
+                    if (cb) cb.checked = isChecked;
+                }
+            });
+            updateBulkActionBar();
+        });
+    }
+
+    document.querySelectorAll('.row-select-checkbox').forEach(cb => {
+        cb.addEventListener('change', updateBulkActionBar);
+    });
+
+    if (clearSelectionBtn) {
+        clearSelectionBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.querySelectorAll('.row-select-checkbox').forEach(cb => cb.checked = false);
+            if (selectAllCheckbox) selectAllCheckbox.checked = false;
+            updateBulkActionBar();
+        });
+    }
+
+    // Bulk Delete Click -> Open Modal with Password Protection (8264)
+    if (bulkDeleteBtn) {
+        bulkDeleteBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const checkedBoxes = getSelectedCheckboxes();
+            if (checkedBoxes.length === 0) return;
+
+            const selectedIds = checkedBoxes.map(cb => cb.value);
+            const selectedNames = checkedBoxes.map(cb => cb.getAttribute('data-name') || 'Client');
+            const count = selectedIds.length;
+
+            if (deleteSelectedIds) deleteSelectedIds.value = selectedIds.join(',');
+            if (deleteClientForm) deleteClientForm.action = "{% url 'tracker:items_bulk_delete' %}";
+            if (deleteModalLabel) deleteModalLabel.innerHTML = `<i class="bi bi-shield-lock-fill me-1"></i> Security: Confirm Bulk Delete (${count} Clients)`;
+            if (deleteClientPromptText) deleteClientPromptText.textContent = `Are you sure you want to permanently delete all ${count} selected clients?`;
+            if (deleteClientTargetName) {
+                const preview = selectedNames.slice(0, 3).join(', ');
+                deleteClientTargetName.innerHTML = count > 3 ? `${preview} <span class="badge bg-danger rounded-pill">+${count - 3} more</span>` : preview;
+            }
+            if (deleteModalSubmitText) deleteModalSubmitText.textContent = `Delete ${count} Clients`;
+            if (deletePasswordInput) {
+                deletePasswordInput.value = '';
+                deletePasswordInput.classList.remove('is-invalid');
+            }
+            if (deleteModal) {
+                deleteModal.show();
+            }
+        });
+    }
+
+    // Bulk Hide Click
+    if (bulkHideBtn && bulkActionForm) {
+        bulkHideBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const checkedBoxes = getSelectedCheckboxes();
+            if (checkedBoxes.length === 0) return;
+            const selectedIds = checkedBoxes.map(cb => cb.value);
+            if (bulkActionSelectedIds) bulkActionSelectedIds.value = selectedIds.join(',');
+            if (bulkActionType) bulkActionType.value = 'hide';
+            bulkActionForm.submit();
+        });
+    }
+
+    // Bulk Unhide Click
+    if (bulkUnhideBtn && bulkActionForm) {
+        bulkUnhideBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const checkedBoxes = getSelectedCheckboxes();
+            if (checkedBoxes.length === 0) return;
+            const selectedIds = checkedBoxes.map(cb => cb.value);
+            if (bulkActionSelectedIds) bulkActionSelectedIds.value = selectedIds.join(',');
+            if (bulkActionType) bulkActionType.value = 'unhide';
+            bulkActionForm.submit();
         });
     }
 

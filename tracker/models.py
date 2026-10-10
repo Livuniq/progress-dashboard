@@ -31,6 +31,7 @@ class ProcessItem(models.Model):
     
     row_highlight_color = models.CharField(max_length=25, blank=True, default='', verbose_name="Row Highlight Color (Hex)")
     is_priority = models.BooleanField(default=False, verbose_name="High Priority (Neon Border)")
+    is_hidden = models.BooleanField(default=False, verbose_name="Hidden from Main View")
     custom_fields = models.JSONField(default=dict, blank=True, verbose_name="Custom Fields")
     
     order_index = models.IntegerField(default=0, verbose_name="Sort Order")
