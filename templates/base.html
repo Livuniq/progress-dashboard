@@ -871,6 +871,21 @@
 <body>
     <!-- Security Blank Screen Overlay (Default: Totally Blank until Ctrl + L is pressed) -->
     <div id="privacyLockOverlay"></div>
+    <script>
+        // Fast synchronous check: If user unlocked within last 60 minutes, immediately keep unlocked without flash
+        (function() {
+            try {
+                var until = parseInt(localStorage.getItem('dashboard_privacy_unlocked_until') || '0', 10);
+                if (Date.now() < until) {
+                    var el = document.getElementById('privacyLockOverlay');
+                    if (el) {
+                        el.className = 'unlocked';
+                        el.style.display = 'none';
+                    }
+                }
+            } catch(e) {}
+        })();
+    </script>
 
     <!-- Top Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark navbar-custom py-2">
@@ -931,22 +946,56 @@
     <!-- Bootstrap 5 Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Security Keyboard Listener: Ctrl + L (or Cmd + L) to toggle blank screen / reveal data -->
+    <!-- Security Keyboard Listener: Ctrl + L (or Cmd + L) with 60-Minute Session Memory -->
     <script>
         (function() {
             const overlay = document.getElementById('privacyLockOverlay');
+            const UNLOCK_KEY = 'dashboard_privacy_unlocked_until';
+            const DURATION_MS = 60 * 60 * 1000; // 60 minutes in milliseconds
 
-            window.togglePrivacyLock = function() {
+            function isSessionValid() {
+                try {
+                    const until = parseInt(localStorage.getItem(UNLOCK_KEY) || '0', 10);
+                    return Date.now() < until;
+                } catch(e) {
+                    return false;
+                }
+            }
+
+            function applyInitialState() {
                 if (!overlay) return;
-                const isUnlocked = overlay.classList.contains('unlocked');
-                if (isUnlocked) {
-                    overlay.classList.remove('unlocked');
-                    overlay.style.display = 'block';
-                } else {
+                if (isSessionValid()) {
                     overlay.classList.add('unlocked');
                     overlay.style.display = 'none';
+                } else {
+                    overlay.classList.remove('unlocked');
+                    overlay.style.display = 'block';
+                }
+            }
+
+            window.togglePrivacyLock = function(forceState) {
+                if (!overlay) return;
+                const isCurrentlyUnlocked = overlay.classList.contains('unlocked');
+                const shouldUnlock = (forceState !== undefined) ? forceState : !isCurrentlyUnlocked;
+
+                if (shouldUnlock) {
+                    // Unlock and remember for 60 minutes
+                    try {
+                        localStorage.setItem(UNLOCK_KEY, Date.now() + DURATION_MS);
+                    } catch(e) {}
+                    overlay.classList.add('unlocked');
+                    overlay.style.display = 'none';
+                } else {
+                    // Lock immediately and clear 60-minute session
+                    try {
+                        localStorage.removeItem(UNLOCK_KEY);
+                    } catch(e) {}
+                    overlay.classList.remove('unlocked');
+                    overlay.style.display = 'block';
                 }
             };
+
+            applyInitialState();
 
             window.addEventListener('keydown', function(e) {
                 // Listen for Ctrl+L or Cmd+L
