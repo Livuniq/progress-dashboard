@@ -372,6 +372,13 @@ def item_inline_update(request, pk):
                 }]
             )
 
+            return JsonResponse({
+                'success': True,
+                'field': 'notes',
+                'raw_value': item.notes,
+                'notes_is_red': item.notes_is_red,
+            })
+
         elif field == 'status':
             valid_statuses = dict(ProcessItem.STATUS_CHOICES)
             new_status = str(value or '').strip()
