@@ -18,10 +18,35 @@ echo -e "${BLUE}   Updating progress-dashboard on PythonAnywhere      ${NC}"
 echo -e "${BLUE}======================================================${NC}"
 echo ""
 
-# 1. Switch to project root directory
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 1. Locate and switch to project repository directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CURRENT_DIR="$SCRIPT_DIR"
+
+if [ -d "$CURRENT_DIR/.git" ]; then
+    PROJECT_DIR="$CURRENT_DIR"
+elif [ -d "$CURRENT_DIR/progress-dashboard/.git" ]; then
+    PROJECT_DIR="$CURRENT_DIR/progress-dashboard"
+elif [ -d "$CURRENT_DIR/process_dashboard/.git" ]; then
+    PROJECT_DIR="$CURRENT_DIR/process_dashboard"
+elif [ -d "$HOME/progress-dashboard/.git" ]; then
+    PROJECT_DIR="$HOME/progress-dashboard"
+elif [ -d "$HOME/process_dashboard/.git" ]; then
+    PROJECT_DIR="$HOME/process_dashboard"
+else
+    echo -e "${YELLOW}[!] Current directory is not a git repository: $CURRENT_DIR${NC}"
+    echo -e "${BLUE}    Cloning repository from GitHub...${NC}"
+    echo ""
+    read -p "Enter GitHub repo URL (Press Enter for https://github.com/ppriyank/progress-dashboard.git): " REPO_URL
+    if [ -z "$REPO_URL" ]; then
+        REPO_URL="https://github.com/ppriyank/progress-dashboard.git"
+    fi
+    echo -e "${BLUE}Cloning $REPO_URL into progress-dashboard...${NC}"
+    git clone "$REPO_URL" progress-dashboard
+    PROJECT_DIR="$CURRENT_DIR/progress-dashboard"
+fi
+
 cd "$PROJECT_DIR"
-echo -e "${BLUE}[1/5] Working Directory:${NC} $PROJECT_DIR"
+echo -e "${GREEN}[1/5] Working Directory:${NC} $PROJECT_DIR"
 
 # 2. Activate Virtual Environment
 echo -e "${BLUE}[2/5] Activating virtual environment...${NC}"
@@ -48,7 +73,20 @@ elif [ -n "$VIRTUAL_ENV" ]; then
     VENV_ACTIVATED=true
     echo -e "${GREEN}✓ Already active:${NC} $VIRTUAL_ENV"
 else
-    echo -e "${YELLOW}! No virtualenv found automatically. Using current Python environment.${NC}"
+    # Look for any virtualenv in ~/.virtualenvs/
+    for venv in "$HOME/.virtualenvs/"*/bin/activate; do
+        if [ -f "$venv" ]; then
+            source "$venv"
+            VENV_ACTIVATED=true
+            echo -e "${GREEN}✓ Activated found virtualenv:${NC} $venv"
+            break
+        fi
+    done
+fi
+
+if [ "$VENV_ACTIVATED" = false ]; then
+    echo -e "${YELLOW}! No active virtualenv found.${NC}"
+    echo -e "${YELLOW}  Tip: You can create one via: mkvirtualenv --python=/usr/bin/python3.10 process_env${NC}"
 fi
 
 # 3. Pull latest code from GitHub
