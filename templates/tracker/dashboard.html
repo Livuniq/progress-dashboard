@@ -685,7 +685,7 @@
                             <div class="form-check mt-1 p-2 rounded border bg-light">
                                 {{ form.is_priority }}
                                 <label class="form-check-label text-success fw-bold ms-1" for="{{ form.is_priority.id_for_label }}">
-                                    <i class="bi bi-circle-fill text-success me-1"></i> High Priority (Green Neon Border & Dot)
+                                    <i class="bi bi-circle-fill text-success me-1"></i> High Priority (Green Dot Indicator)
                                 </label>
                             </div>
                         </div>
@@ -790,7 +790,7 @@
                             <div class="form-check mt-1 p-2 rounded border bg-light">
                                 <input type="checkbox" name="is_priority" id="edit_is_priority" class="form-check-input ms-0 me-2">
                                 <label class="form-check-label text-success fw-bold" for="edit_is_priority">
-                                    <i class="bi bi-circle-fill text-success me-1"></i> High Priority (Green Neon Border & Dot)
+                                    <i class="bi bi-circle-fill text-success me-1"></i> High Priority (Green Dot Indicator)
                                 </label>
                             </div>
                         </div>
@@ -1467,7 +1467,7 @@
     <div class="p-1">
         <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2" id="contextMenuPriorityBtn">
             <i class="bi bi-circle-fill text-success fs-6"></i>
-            <span class="fw-bold" id="contextMenuPriorityText">Set Priority (Green Neon)</span>
+            <span class="fw-bold" id="contextMenuPriorityText">Set Priority (Green Dot)</span>
         </button>
         <hr class="dropdown-divider my-1">
         <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-primary" id="contextMenuEditBtn">
@@ -3146,7 +3146,7 @@
                 priorityText.innerHTML = '<i class="bi bi-x-circle me-1"></i> Remove Priority';
             } else {
                 priorityBtn.className = 'dropdown-item d-flex align-items-center gap-2 rounded py-2 text-success';
-                priorityText.innerHTML = '<i class="bi bi-circle-fill text-success me-1"></i> Set Priority (Green Neon)';
+                priorityText.innerHTML = '<i class="bi bi-circle-fill text-success me-1"></i> Set Priority (Green Dot)';
             }
         }
 
