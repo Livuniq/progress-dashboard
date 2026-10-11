@@ -338,26 +338,26 @@
             --bs-table-accent-bg: transparent !important;
         }
 
-        /* High Priority Neon Border & Bolder Font */
+        /* High Priority Green Neon Border & Bolder Font */
         .row-priority {
             position: relative;
-            outline: 2px solid #00f0ff !important;
+            outline: 2px solid #00ff66 !important;
             outline-offset: -2px;
-            box-shadow: 0 0 14px rgba(0, 240, 255, 0.8), inset 0 0 10px rgba(0, 240, 255, 0.45) !important;
-            border-left: 6px solid #00f0ff !important;
-            animation: neon-pulse 2s infinite alternate ease-in-out;
+            box-shadow: 0 0 14px rgba(0, 255, 102, 0.85), inset 0 0 10px rgba(0, 255, 102, 0.35) !important;
+            border-left: 6px solid #00ff66 !important;
+            animation: neon-pulse-green 2s infinite alternate ease-in-out;
             z-index: 2;
         }
 
-        @keyframes neon-pulse {
+        @keyframes neon-pulse-green {
             from {
-                box-shadow: 0 0 8px rgba(0, 240, 255, 0.6), inset 0 0 6px rgba(0, 240, 255, 0.35);
-                outline-color: #00f0ff;
+                box-shadow: 0 0 8px rgba(0, 255, 102, 0.6), inset 0 0 6px rgba(0, 255, 102, 0.25);
+                outline-color: #00ff66;
             }
 
             to {
-                box-shadow: 0 0 16px rgba(0, 240, 255, 1), 0 0 8px rgba(6, 182, 212, 0.8), inset 0 0 12px rgba(0, 240, 255, 0.55);
-                outline-color: #38bdf8;
+                box-shadow: 0 0 18px rgba(0, 255, 102, 0.95), 0 0 8px rgba(34, 197, 94, 0.8), inset 0 0 12px rgba(0, 255, 102, 0.5);
+                outline-color: #22c55e;
             }
         }
 
@@ -376,20 +376,35 @@
             font-weight: 700 !important;
         }
 
+        /* Priority Green Dot Indicator */
+        .priority-green-dot,
         .badge-priority-neon {
-            background: linear-gradient(135deg, #091e3a, #032b43);
-            color: #00f0ff;
-            border: 1px solid #00f0ff;
-            box-shadow: 0 0 6px rgba(0, 240, 255, 0.6);
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 0.5px;
-            padding: 2px 7px;
-            border-radius: 4px;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            text-transform: uppercase;
+            width: 10px !important;
+            height: 10px !important;
+            min-width: 10px !important;
+            min-height: 10px !important;
+            background-color: #00ff66 !important;
+            border-radius: 50% !important;
+            display: inline-block !important;
+            box-shadow: 0 0 0 2px rgba(0, 255, 102, 0.3), 0 0 8px #00ff66, 0 0 14px rgba(0, 255, 102, 0.9) !important;
+            animation: priority-dot-glow 1.8s infinite alternate ease-in-out;
+            margin-left: 5px;
+            vertical-align: middle;
+            border: none !important;
+            padding: 0 !important;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        @keyframes priority-dot-glow {
+            from {
+                transform: scale(0.9);
+                box-shadow: 0 0 0 2px rgba(0, 255, 102, 0.35), 0 0 6px #00ff66;
+            }
+            to {
+                transform: scale(1.2);
+                box-shadow: 0 0 0 3px rgba(0, 255, 102, 0.5), 0 0 10px #00ff66, 0 0 18px rgba(0, 255, 102, 0.95);
+            }
         }
 
         .days-overdue {

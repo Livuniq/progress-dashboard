@@ -466,9 +466,7 @@
                                         <i class="bi bi-eye-slash me-1"></i>Hidden
                                     </span>
                                     {% endif %}
-                                    <span class="badge-priority-neon priority-badge" id="priority_badge_{{ item.id }}" {% if not item.is_priority %}style="display:none;"{% endif %}>
-                                        <i class="bi bi-lightning-charge-fill text-warning"></i> PRIORITY
-                                    </span>
+                                    <span class="priority-green-dot priority-badge" id="priority_badge_{{ item.id }}" {% if not item.is_priority %}style="display:none;"{% endif %} title="High Priority"></span>
                                 </div>
                             </td>
                         {% elif col.key == 'status' %}
@@ -686,8 +684,8 @@
                         <div class="col-12">
                             <div class="form-check mt-1 p-2 rounded border bg-light">
                                 {{ form.is_priority }}
-                                <label class="form-check-label text-primary fw-bold ms-1" for="{{ form.is_priority.id_for_label }}">
-                                    <i class="bi bi-lightning-charge-fill text-warning me-1"></i> High Priority (Highlights row with Neon Border & Bold Font)
+                                <label class="form-check-label text-success fw-bold ms-1" for="{{ form.is_priority.id_for_label }}">
+                                    <i class="bi bi-circle-fill text-success me-1"></i> High Priority (Green Neon Border & Dot)
                                 </label>
                             </div>
                         </div>
@@ -791,8 +789,8 @@
                         <div class="col-12">
                             <div class="form-check mt-1 p-2 rounded border bg-light">
                                 <input type="checkbox" name="is_priority" id="edit_is_priority" class="form-check-input ms-0 me-2">
-                                <label class="form-check-label text-primary fw-bold" for="edit_is_priority">
-                                    <i class="bi bi-lightning-charge-fill text-warning me-1"></i> High Priority (Highlights row with Neon Border & Bold Font)
+                                <label class="form-check-label text-success fw-bold" for="edit_is_priority">
+                                    <i class="bi bi-circle-fill text-success me-1"></i> High Priority (Green Neon Border & Dot)
                                 </label>
                             </div>
                         </div>
@@ -1468,8 +1466,8 @@
     </div>
     <div class="p-1">
         <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2" id="contextMenuPriorityBtn">
-            <i class="bi bi-lightning-charge-fill text-warning fs-5"></i>
-            <span class="fw-bold" id="contextMenuPriorityText">Set Priority (Neon Border)</span>
+            <i class="bi bi-circle-fill text-success fs-6"></i>
+            <span class="fw-bold" id="contextMenuPriorityText">Set Priority (Green Neon)</span>
         </button>
         <hr class="dropdown-divider my-1">
         <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-primary" id="contextMenuEditBtn">
@@ -3145,10 +3143,10 @@
         if (priorityBtn && priorityText) {
             if (isPriority) {
                 priorityBtn.className = 'dropdown-item d-flex align-items-center gap-2 rounded py-2 text-danger';
-                priorityText.innerHTML = '<i class="bi bi-x-circle me-1"></i> Remove Priority (Disable Neon)';
+                priorityText.innerHTML = '<i class="bi bi-x-circle me-1"></i> Remove Priority';
             } else {
-                priorityBtn.className = 'dropdown-item d-flex align-items-center gap-2 rounded py-2 text-primary';
-                priorityText.innerHTML = '<i class="bi bi-lightning-charge-fill text-warning me-1"></i> Set Priority (Neon Border)';
+                priorityBtn.className = 'dropdown-item d-flex align-items-center gap-2 rounded py-2 text-success';
+                priorityText.innerHTML = '<i class="bi bi-circle-fill text-success me-1"></i> Set Priority (Green Neon)';
             }
         }
 
@@ -3201,7 +3199,7 @@
 
                 if (isPriority) {
                     row.classList.add('row-priority');
-                    if (badge) badge.style.display = 'inline-flex';
+                    if (badge) badge.style.display = 'inline-block';
                 } else {
                     row.classList.remove('row-priority');
                     if (badge) badge.style.display = 'none';
