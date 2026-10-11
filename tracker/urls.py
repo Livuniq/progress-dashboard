@@ -33,6 +33,7 @@ urlpatterns = [
     # Party Custom Tabs & Tables
     path('party/<int:pk>/', views.party_detail, name='party_detail'),
     path('party/<int:pk>/tabs/create/', views.party_tab_create, name='party_tab_create'),
+    path('party/<int:pk>/tabs/reorder/', views.party_tabs_reorder, name='party_tabs_reorder'),
     path('party/tabs/<int:tab_id>/update/', views.party_tab_update, name='party_tab_update'),
     path('party/tabs/<int:tab_id>/delete/', views.party_tab_delete, name='party_tab_delete'),
     path('party/tabs/<int:tab_id>/tables/save/', views.party_table_save, name='party_table_save'),

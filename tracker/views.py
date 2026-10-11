@@ -1349,6 +1349,28 @@ def party_tab_delete(request, tab_id):
 
 
 @csrf_exempt
+def party_tabs_reorder(request, pk):
+    """
+    Reorder custom tabs for a party.
+    Payload: {"tab_ids": [3, 1, 2]}
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+    item = get_object_or_404(ProcessItem, pk=pk)
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+        tab_ids = data.get('tab_ids', [])
+        for index, tab_id in enumerate(tab_ids, 1):
+            PartyCustomTab.objects.filter(id=tab_id, item=item).update(order_index=index)
+
+        return JsonResponse({'success': True, 'message': 'Tabs reordered successfully'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+
+@csrf_exempt
 def party_table_save(request, tab_id):
     """
     Create or update a custom table within a tab.

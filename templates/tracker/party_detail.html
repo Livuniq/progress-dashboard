@@ -93,6 +93,35 @@
         color: #0f172a;
     }
 
+    .party-tab-wrapper {
+        display: inline-flex;
+        align-items: center;
+        transition: transform 0.15s ease;
+    }
+
+    .party-tab-wrapper.is-dragging {
+        opacity: 0.45;
+        cursor: grabbing !important;
+    }
+
+    .party-tab-wrapper.drag-over {
+        outline: 2px dashed #0d6efd;
+        border-radius: 10px;
+    }
+
+    .tab-drag-handle {
+        cursor: grab;
+        color: #94a3b8;
+        font-size: 0.85rem;
+        margin-right: -2px;
+        opacity: 0.5;
+        transition: opacity 0.15s ease;
+    }
+
+    .party-tab-btn:hover .tab-drag-handle {
+        opacity: 1;
+    }
+
     .btn-add-tab {
         border-radius: 8px;
         font-size: 0.84rem;
@@ -297,13 +326,14 @@
     <!-- Tabs Navigation Bar -->
     <div class="party-tabs-nav" id="partyTabsContainer">
         {% for tab in tabs %}
-        <div class="party-tab-wrapper position-relative" data-tab-id="{{ tab.id }}" data-tab-title="{{ tab.title }}" data-tab-color="{{ tab.color }}">
+        <div class="party-tab-wrapper position-relative" data-tab-id="{{ tab.id }}" data-tab-title="{{ tab.title }}" data-tab-color="{{ tab.color }}" draggable="true">
             <a href="#tab-pane-{{ tab.id }}" class="party-tab-btn {% if forloop.first %}active{% endif %}" data-bs-toggle="tab" id="tab-nav-{{ tab.id }}" style="--tab-accent: {{ tab.color }}; border-top: 3px solid {{ tab.color }};">
+                <i class="bi bi-grip-vertical tab-drag-handle" title="Drag to reorder"></i>
                 <span class="tab-color-dot" style="background-color: {{ tab.color }};"></span>
                 <span class="tab-title-text">{{ tab.title }}</span>
                 <span class="badge bg-light text-secondary border small rounded-pill ms-1 tables-count-badge">{{ tab.custom_tables.count }}</span>
 
-                <!-- Dropdown Trigger for Tab Customization (Rename, Color, Delete) -->
+                <!-- Dropdown Trigger for Tab Customization (Rename, Color, Move, Delete) -->
                 <div class="dropdown d-inline-block ms-1">
                     <button class="tab-actions-dropdown-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" onclick="event.stopPropagation();" title="Tab Options">
                         <i class="bi bi-three-dots-vertical"></i>
@@ -312,6 +342,17 @@
                         <li>
                             <button class="dropdown-item d-flex align-items-center gap-2 py-2" type="button" onclick="openEditTabModal('{{ tab.id }}', '{{ tab.title|escapejs }}', '{{ tab.color|escapejs }}')">
                                 <i class="bi bi-palette text-primary"></i> Customize Tab (Name & Color)
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider my-1"></li>
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center gap-2 py-2" type="button" onclick="moveTabDirection('{{ tab.id }}', -1)">
+                                <i class="bi bi-arrow-left text-secondary"></i> Move Tab Left
+                            </button>
+                        </li>
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center gap-2 py-2" type="button" onclick="moveTabDirection('{{ tab.id }}', 1)">
+                                <i class="bi bi-arrow-right text-secondary"></i> Move Tab Right
                             </button>
                         </li>
                         <li><hr class="dropdown-divider my-1"></li>
@@ -631,6 +672,106 @@
         });
         // Activate target pane
         targetPane.classList.add('show', 'active');
+    });
+
+    // ==========================================
+    // TAB REORDER ENGINE (Drag-and-Drop + Move Left/Right)
+    // ==========================================
+    function saveTabsOrder() {
+        const wrappers = document.querySelectorAll('#partyTabsContainer .party-tab-wrapper');
+        const tabIds = [];
+        wrappers.forEach(w => {
+            const id = parseInt(w.getAttribute('data-tab-id'), 10);
+            if (id) tabIds.push(id);
+        });
+
+        if (tabIds.length === 0) return;
+
+        fetch(`/party/${PARTY_ITEM_ID}/tabs/reorder/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ tab_ids: tabIds })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                console.error('Failed to save tab order:', data.error);
+            }
+        })
+        .catch(err => console.error('Error saving tab order:', err));
+    }
+
+    // Move Tab Left (-1) or Right (+1)
+    window.moveTabDirection = function(tabId, direction) {
+        const wrapper = document.querySelector(`.party-tab-wrapper[data-tab-id="${tabId}"]`);
+        if (!wrapper) return;
+
+        if (direction === -1) {
+            // Move Left (before previous sibling)
+            const prev = wrapper.previousElementSibling;
+            if (prev && prev.classList.contains('party-tab-wrapper')) {
+                wrapper.parentNode.insertBefore(wrapper, prev);
+                saveTabsOrder();
+            }
+        } else if (direction === 1) {
+            // Move Right (after next sibling)
+            const next = wrapper.nextElementSibling;
+            if (next && next.classList.contains('party-tab-wrapper')) {
+                wrapper.parentNode.insertBefore(next, wrapper);
+                saveTabsOrder();
+            }
+        }
+    };
+
+    // HTML5 Drag and Drop for Tabs
+    let draggedTabWrapper = null;
+
+    document.querySelectorAll('#partyTabsContainer .party-tab-wrapper').forEach(wrapper => {
+        wrapper.addEventListener('dragstart', function(e) {
+            draggedTabWrapper = this;
+            this.classList.add('is-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.getAttribute('data-tab-id'));
+        });
+
+        wrapper.addEventListener('dragend', function() {
+            this.classList.remove('is-dragging');
+            document.querySelectorAll('#partyTabsContainer .party-tab-wrapper').forEach(w => w.classList.remove('drag-over'));
+            draggedTabWrapper = null;
+        });
+
+        wrapper.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (draggedTabWrapper && draggedTabWrapper !== this) {
+                this.classList.add('drag-over');
+            }
+        });
+
+        wrapper.addEventListener('dragleave', function() {
+            this.classList.remove('drag-over');
+        });
+
+        wrapper.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            if (draggedTabWrapper && draggedTabWrapper !== this) {
+                const container = document.getElementById('partyTabsContainer');
+                const allWrappers = Array.from(container.querySelectorAll('.party-tab-wrapper'));
+                const fromIndex = allWrappers.indexOf(draggedTabWrapper);
+                const toIndex = allWrappers.indexOf(this);
+
+                if (fromIndex < toIndex) {
+                    this.after(draggedTabWrapper);
+                } else {
+                    this.before(draggedTabWrapper);
+                }
+                saveTabsOrder();
+            }
+        });
     });
 
     // 1. CREATE NEW TAB
