@@ -68,7 +68,7 @@ if %ERRORLEVEL% equ 0 (
     echo.
     echo [INFO] Committing changes...
     git commit -m "!COMMIT_MSG!"
-    if %ERRORLEVEL% neq 0 (
+    if !ERRORLEVEL! neq 0 (
         echo [ERROR] Commit failed!
         pause
         exit /b 1
