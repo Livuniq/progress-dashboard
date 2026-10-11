@@ -1223,41 +1223,10 @@ def import_excel(request):
 def party_detail(request, pk):
     """
     Detailed page for a specific Party / Client.
-    Displays customizable tabs (default: Tab 1, Tab 2, Tab 3).
-    Each tab can hold customizable tables with dynamic headers and rows.
+    Displays customizable tabs and dynamic tables.
+    No tabs or tables are auto-created initially; the user creates them manually when needed.
     """
     item = get_object_or_404(ProcessItem, pk=pk)
-
-    # Initialize default 3 tabs if none exist
-    if not item.custom_tabs.exists():
-        default_tabs = [
-            {'title': 'Tab 1', 'color': '#3b82f6', 'order_index': 1},
-            {'title': 'Tab 2', 'color': '#10b981', 'order_index': 2},
-            {'title': 'Tab 3', 'color': '#8b5cf6', 'order_index': 3},
-        ]
-        created_tabs = []
-        for t_info in default_tabs:
-            tab_obj = PartyCustomTab.objects.create(
-                item=item,
-                title=t_info['title'],
-                color=t_info['color'],
-                order_index=t_info['order_index']
-            )
-            created_tabs.append(tab_obj)
-
-        # Create a sample default table in Tab 1 for immediate user friendliness
-        if created_tabs:
-            PartyCustomTable.objects.create(
-                tab=created_tabs[0],
-                title="Overview & Specifications",
-                columns=["Item Code", "Description", "Qty", "Remarks"],
-                rows=[
-                    ["#A-101", "Ring Sample 14k White Gold", "25", "Ready for approval"],
-                    ["#B-202", "Pendant 18k Rose Gold", "50", "In polishing"]
-                ],
-                order_index=1
-            )
-
     tabs = item.custom_tabs.prefetch_related('custom_tables').order_by('order_index', 'id')
     today = timezone.localdate() if hasattr(timezone, 'localdate') else date.today()
 
@@ -1270,7 +1239,10 @@ def party_detail(request, pk):
 
 @csrf_exempt
 def party_tab_create(request, pk):
-    """Create a new tab for this party"""
+    """
+    Create a new tab for this party.
+    Optional flag: apply_to_all (boolean) -> if True, creates this tab across all parties!
+    """
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
 
@@ -1279,6 +1251,7 @@ def party_tab_create(request, pk):
         data = json.loads(request.body.decode('utf-8'))
         title = data.get('title', '').strip() or f"Tab {item.custom_tabs.count() + 1}"
         color = data.get('color', '').strip() or '#3b82f6'
+        apply_to_all = bool(data.get('apply_to_all', False))
 
         max_order = item.custom_tabs.count()
         tab = PartyCustomTab.objects.create(
@@ -1287,8 +1260,24 @@ def party_tab_create(request, pk):
             color=color,
             order_index=max_order + 1
         )
+
+        created_count = 1
+        if apply_to_all:
+            other_items = ProcessItem.objects.exclude(id=item.id)
+            for other in other_items:
+                other_order = other.custom_tabs.count() + 1
+                PartyCustomTab.objects.create(
+                    item=other,
+                    title=title,
+                    color=color,
+                    order_index=other_order
+                )
+                created_count += 1
+
         return JsonResponse({
             'success': True,
+            'apply_to_all': apply_to_all,
+            'created_count': created_count,
             'tab': {
                 'id': tab.id,
                 'title': tab.title,
@@ -1410,6 +1399,8 @@ def party_table_save(request, tab_id):
                         cleaned_row.append(str(val))
                     cleaned_rows.append(cleaned_row)
 
+        apply_to_all = bool(data.get('apply_to_all', False))
+
         if table_id:
             table = get_object_or_404(PartyCustomTable, pk=table_id, tab=tab)
             table.title = title
@@ -1428,9 +1419,36 @@ def party_table_save(request, tab_id):
             )
             action = 'created'
 
+            # If user selected 'apply_to_all', create clean matching table across all other parties under tab with same name
+            if apply_to_all:
+                # Clean blank rows template (matching column structure but empty data)
+                blank_rows = [['' for _ in cleaned_columns] for _ in range(len(cleaned_rows))] if cleaned_rows else []
+                other_items = ProcessItem.objects.exclude(id=tab.item_id)
+                for other in other_items:
+                    # Find or create matching tab by title on other party
+                    target_tab = other.custom_tabs.filter(title__iexact=tab.title).first()
+                    if not target_tab:
+                        target_tab = PartyCustomTab.objects.create(
+                            item=other,
+                            title=tab.title,
+                            color=tab.color,
+                            order_index=other.custom_tabs.count() + 1
+                        )
+                    # Check if table with this title already exists in target_tab
+                    existing_tbl = target_tab.custom_tables.filter(title__iexact=title).first()
+                    if not existing_tbl:
+                        PartyCustomTable.objects.create(
+                            tab=target_tab,
+                            title=title,
+                            columns=cleaned_columns,
+                            rows=blank_rows,
+                            order_index=target_tab.custom_tables.count() + 1
+                        )
+
         return JsonResponse({
             'success': True,
             'action': action,
+            'apply_to_all': apply_to_all,
             'table': {
                 'id': table.id,
                 'title': table.title,

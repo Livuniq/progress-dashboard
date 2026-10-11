@@ -486,6 +486,15 @@
                 </button>
             </div>
         </div>
+        {% empty %}
+        <div class="empty-state-box py-5">
+            <i class="bi bi-folder-plus fs-1 text-primary mb-3 d-block"></i>
+            <h4 class="fw-bold text-dark">No Tabs Created Yet</h4>
+            <p class="text-muted small mb-3">Is party ke liye abhi tak koi tab nahi banaya gaya hai. Naya tab banane ke liye neeche button par click karein.</p>
+            <button type="button" class="btn btn-primary fw-semibold px-4 py-2" data-bs-toggle="modal" data-bs-target="#createTabModal">
+                <i class="bi bi-plus-lg me-1"></i> Add First Tab
+            </button>
+        </div>
         {% endfor %}
     </div>
 
@@ -519,6 +528,27 @@
                     <div class="input-group input-group-sm">
                         <span class="input-group-text">Custom Hex</span>
                         <input type="text" class="form-control" id="newTabColorHexInput" value="#3b82f6" placeholder="#3b82f6">
+                    </div>
+                </div>
+
+                <!-- Scope Option: Only this party vs All parties -->
+                <div class="mb-2 p-3 bg-light rounded border">
+                    <label class="form-label fw-bold text-dark d-block mb-2">
+                        <i class="bi bi-people-fill text-primary me-1"></i> Apply Scope
+                    </label>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="newTabScopeOption" id="tabScopeOnlyThis" value="single" checked>
+                        <label class="form-check-label fw-semibold text-dark" for="tabScopeOnlyThis">
+                            Sirf is party ke liye create karein ({{ item.client_name }})
+                        </label>
+                        <div class="form-text small text-muted">Ye tab sirf isi party me dikhai dega.</div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="newTabScopeOption" id="tabScopeAllParties" value="all">
+                        <label class="form-check-label fw-semibold text-primary" for="tabScopeAllParties">
+                            <i class="bi bi-globe me-1"></i> Sabhi parties ke liye create karein (All Parties)
+                        </label>
+                        <div class="form-text small text-muted">Ye tab dashboard ki sabhi parties me ek sath add ho jayega.</div>
                     </div>
                 </div>
             </div>
@@ -599,6 +629,27 @@
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Initial Rows Count</label>
                     <input type="number" class="form-control" id="newTableInitialRowsCount" value="3" min="1" max="50">
+                </div>
+
+                <!-- Scope Option: Only this party vs All parties -->
+                <div class="mb-2 p-3 bg-light rounded border">
+                    <label class="form-label fw-bold text-dark d-block mb-2">
+                        <i class="bi bi-people-fill text-primary me-1"></i> Apply Scope
+                    </label>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="newTableScopeOption" id="tableScopeOnlyThis" value="single" checked>
+                        <label class="form-check-label fw-semibold text-dark" for="tableScopeOnlyThis">
+                            Sirf is party ke liye create karein ({{ item.client_name }})
+                        </label>
+                        <div class="form-text small text-muted">Ye table sirf is party ke tab me banegi.</div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="newTableScopeOption" id="tableScopeAllParties" value="all">
+                        <label class="form-check-label fw-semibold text-primary" for="tableScopeAllParties">
+                            <i class="bi bi-globe me-1"></i> Sabhi parties ke liye create karein (All Parties)
+                        </label>
+                        <div class="form-text small text-muted">Sabhi parties me matching tab ke andar ye clean table template ban jayegi.</div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer bg-light">
@@ -785,6 +836,8 @@
             const colorInput = document.getElementById('newTabColorHexInput');
             const title = (titleInput?.value || '').trim();
             const color = (colorInput?.value || '#3b82f6').trim();
+            const scopeOption = document.querySelector('input[name="newTabScopeOption"]:checked')?.value || 'single';
+            const applyToAll = (scopeOption === 'all');
 
             if (!title) {
                 alert('Please enter a tab title');
@@ -800,7 +853,11 @@
                     'Content-Type': 'application/json',
                     'X-CSRFToken': getCsrfToken()
                 },
-                body: JSON.stringify({ title: title, color: color })
+                body: JSON.stringify({
+                    title: title,
+                    color: color,
+                    apply_to_all: applyToAll
+                })
             })
             .then(res => res.json())
             .then(data => {
@@ -923,6 +980,9 @@
                 initialRows.push(new Array(cols.length).fill(''));
             }
 
+            const scopeOption = document.querySelector('input[name="newTableScopeOption"]:checked')?.value || 'single';
+            const applyToAll = (scopeOption === 'all');
+
             btnSubmitCreateTable.disabled = true;
             btnSubmitCreateTable.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Creating...';
 
@@ -935,7 +995,8 @@
                 body: JSON.stringify({
                     title: title,
                     columns: cols,
-                    rows: initialRows
+                    rows: initialRows,
+                    apply_to_all: applyToAll
                 })
             })
             .then(res => res.json())

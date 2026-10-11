@@ -895,11 +895,6 @@
                     <span class="badge bg-dark border border-secondary text-light px-3 py-2">
                         <i class="bi bi-calendar3 me-1"></i> Today: {{ today|date:"d/m/Y" }}
                     </span>
-                    <a href="{% url 'tracker:reset_demo_data' %}" class="btn btn-sm btn-outline-warning"
-                        onclick="return confirm('Restore all 16 client rows from the Excel screenshot?')"
-                        title="Restore exact Excel demo rows">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Demo Data
-                    </a>
                     <button type="button" class="btn btn-sm btn-outline-light" onclick="togglePrivacyLock()" title="Blank Screen / Lock (Ctrl + L)">
                         <i class="bi bi-shield-lock me-1"></i> Lock
                     </button>
