@@ -38,3 +38,9 @@ class ProcessItemForm(forms.ModelForm):
             'history_milestone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 23-05-2026 (Till lot 19)'}),
             'row_highlight_color': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '#f7fee7'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .models import StatusOption
+        choices = StatusOption.get_status_choices()
+        self.fields['status'].choices = choices

@@ -7,7 +7,7 @@ from datetime import date, datetime
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 
-from .models import ProcessItem, ProcessItemHistory, TableColumnConfig, StatusColorConfig
+from .models import ProcessItem, ProcessItemHistory, TableColumnConfig, StatusColorConfig, StatusOption
 from .forms import ProcessItemForm
 
 TRACKED_FIELDS = [
@@ -44,19 +44,15 @@ def dashboard(request):
             Q(lot_progress__icontains=search_query)
         )
 
+    all_statuses = StatusOption.get_all_statuses()
+    status_keys = {s.key for s in all_statuses}
+
     # Filter logic
-    if status_filter == 'working':
-        items = [item for item in items if item.dynamic_status == 'working']
-    elif status_filter == 'no_data':
-        items = [item for item in items if item.dynamic_status == 'no_data']
-    elif status_filter == 'finished':
-        items = [item for item in items if item.dynamic_status == 'finished']
-    elif status_filter == 'hold':
-        items = [item for item in items if item.dynamic_status == 'hold']
-    elif status_filter == 'pending':
-        items = [item for item in items if item.dynamic_status == 'pending']
-    elif status_filter == 'overdue':
-        items = [item for item in items if item.is_overdue]
+    if status_filter != 'all':
+        if status_filter == 'overdue':
+            items = [item for item in items if item.is_overdue]
+        elif status_filter in status_keys:
+            items = [item for item in items if item.dynamic_status == status_filter]
 
     # Metrics calculation (all items base)
     all_items = list(ProcessItem.objects.all())
@@ -72,11 +68,41 @@ def dashboard(request):
     total_pending = sum((item.pending_count or 0) for item in all_items)
     total_ready = sum((item.ready_count or 0) for item in all_items)
 
+    # Status counts map for all statuses
+    status_counts = {}
+    for s in all_statuses:
+        status_counts[s.key] = sum(1 for item in all_items if item.dynamic_status == s.key)
+
     # Header Column Configuration
     columns_map = TableColumnConfig.get_columns_map()
     all_columns = TableColumnConfig.objects.all().order_by('order_index', 'id')
     ordered_columns = TableColumnConfig.objects.filter(is_visible=True).order_by('order_index', 'id')
-    status_colors = StatusColorConfig.get_colors_map()
+
+    # Status color & badge styling map
+    status_colors = {}
+    for s in all_statuses:
+        status_colors[s.key] = {
+            'key': s.key,
+            'label': s.label,
+            'badge_bg': s.badge_bg,
+            'badge_color': s.badge_color,
+            'hex_color': s.row_bg,
+            'border_color': s.row_border,
+            'is_enabled': s.is_row_highlight,
+            'order_index': s.order_index,
+            'is_system': s.is_system,
+        }
+    overdue_cfg = StatusColorConfig.objects.filter(status_key='overdue').first()
+    if overdue_cfg:
+        status_colors['overdue'] = {
+            'key': 'overdue',
+            'label': overdue_cfg.label,
+            'badge_bg': '#f8d7da',
+            'badge_color': '#842029',
+            'hex_color': overdue_cfg.hex_color,
+            'border_color': overdue_cfg.border_color,
+            'is_enabled': overdue_cfg.is_enabled,
+        }
 
     context = {
         'items': items,
@@ -99,6 +125,8 @@ def dashboard(request):
         'all_columns': all_columns,
         'ordered_columns': ordered_columns,
         'status_colors': status_colors,
+        'all_statuses': all_statuses,
+        'status_counts': status_counts,
     }
     return render(request, 'tracker/dashboard.html', context)
 
@@ -107,7 +135,10 @@ def item_create(request):
     if request.method == 'POST':
         form = ProcessItemForm(request.POST)
         if form.is_valid():
-            item = form.save()
+            item = form.save(commit=False)
+            if item.status:
+                item.is_status_manual = True
+            item.save()
             
             # Record initial history
             initial_changes = []
@@ -144,6 +175,8 @@ def item_create(request):
 def item_update(request, pk):
     item = get_object_or_404(ProcessItem, pk=pk)
     if request.method == 'POST':
+        old_target_date = item.target_date
+        old_status = item.status
         # Capture old values
         old_values = {}
         for field, label in TRACKED_FIELDS:
@@ -160,10 +193,18 @@ def item_update(request, pk):
 
         form = ProcessItemForm(request.POST, instance=item)
         if form.is_valid():
-            updated_item = form.save()
+            updated_item = form.save(commit=False)
+            if updated_item.target_date != old_target_date:
+                # Target date changed: clear manual status lock so dynamic status recalculates!
+                updated_item.is_status_manual = False
+            elif updated_item.status != old_status:
+                # User selected a new status: keep manual status lock active!
+                updated_item.is_status_manual = True
+            updated_item.save()
 
             # Compare and build diff
             changes = []
+            status_map = {s.key: s.label for s in StatusOption.get_all_statuses()}
             for field, label in TRACKED_FIELDS:
                 new_val = getattr(updated_item, field)
                 if isinstance(new_val, date):
@@ -176,8 +217,8 @@ def item_update(request, pk):
                     new_val = str(new_val)
 
                 if old_values[field] != new_val:
-                    old_disp = dict(ProcessItem.STATUS_CHOICES).get(old_values[field], old_values[field]) if field == 'status' else old_values[field]
-                    new_disp = dict(ProcessItem.STATUS_CHOICES).get(new_val, new_val) if field == 'status' else new_val
+                    old_disp = status_map.get(old_values[field], old_values[field]) if field == 'status' else old_values[field]
+                    new_disp = status_map.get(new_val, new_val) if field == 'status' else new_val
                     changes.append({
                         'field': field,
                         'label': label,
@@ -209,6 +250,7 @@ def item_get_json(request, pk):
         'client_name': item.client_name,
         'is_red_client': item.is_red_client,
         'status': item.status,
+        'is_status_manual': item.is_status_manual,
         'lot_progress': item.lot_progress,
         'current_lot': item.current_lot,
         'total_lot': item.total_lot,
@@ -235,33 +277,36 @@ def item_quick_status(request, pk):
         except Exception:
             new_status = request.POST.get('status')
 
-        valid_statuses = dict(ProcessItem.STATUS_CHOICES)
+        valid_statuses = {s.key: s.label for s in StatusOption.get_all_statuses()}
         if new_status in valid_statuses:
             old_status = item.status
-            if old_status != new_status:
-                item.status = new_status
-                item.row_highlight_color = ''
-                item.save()
+            item.status = new_status
+            item.is_status_manual = True
+            item.row_highlight_color = ''
+            item.save()
 
-                # Record in history
-                old_label = valid_statuses.get(old_status, old_status)
-                new_label = valid_statuses.get(new_status, new_status)
-                ProcessItemHistory.objects.create(
-                    item=item,
-                    action_type='updated',
-                    summary=f"Status changed from '{old_label}' to '{new_label}'",
-                    changes=[{
-                        'field': 'status',
-                        'label': 'Status',
-                        'old': old_label,
-                        'new': new_label
-                    }]
-                )
+            # Record in history
+            old_label = valid_statuses.get(old_status, old_status)
+            new_label = valid_statuses.get(new_status, new_status)
+            ProcessItemHistory.objects.create(
+                item=item,
+                action_type='updated',
+                summary=f"Status set to '{new_label}' (Manual selection)",
+                changes=[{
+                    'field': 'status',
+                    'label': 'Status',
+                    'old': old_label,
+                    'new': new_label
+                }]
+            )
 
             return JsonResponse({
                 'success': True,
                 'status': item.status,
-                'status_display': item.get_status_display(),
+                'is_status_manual': item.is_status_manual,
+                'status_display': item.dynamic_status_display,
+                'dynamic_status': item.dynamic_status,
+                'dynamic_status_display': item.dynamic_status_display,
                 'is_overdue': item.is_overdue,
                 'days_diff': item.days_diff,
                 'client_name': item.client_name,
@@ -328,13 +373,14 @@ def item_inline_update(request, pk):
                         pass
 
             item.target_date = new_date
+            item.is_status_manual = False  # Reset manual lock so status changes dynamically!
             item.save()
 
             new_date_display = item.target_date.strftime('%d/%m/%Y') if item.target_date else '-'
             ProcessItemHistory.objects.create(
                 item=item,
                 action_type='updated',
-                summary=f"Target Date updated from '{old_date_str}' to '{new_date_display}'",
+                summary=f"Target Date updated from '{old_date_str}' to '{new_date_display}' (Dynamic status recalculated)",
                 changes=[{
                     'field': 'target_date',
                     'label': 'Target Date',
@@ -350,6 +396,7 @@ def item_inline_update(request, pk):
                 'target_date_display': new_date_display,
                 'days_diff': item.days_diff,
                 'is_overdue': item.is_overdue,
+                'is_status_manual': item.is_status_manual,
                 'dynamic_status': item.dynamic_status,
                 'dynamic_status_display': item.dynamic_status_display,
             })
@@ -381,36 +428,37 @@ def item_inline_update(request, pk):
             })
 
         elif field == 'status':
-            valid_statuses = dict(ProcessItem.STATUS_CHOICES)
+            status_map = {s.key: s.label for s in StatusOption.get_all_statuses()}
             new_status = str(value or '').strip()
-            if new_status not in valid_statuses:
-                return JsonResponse({'success': False, 'error': 'Invalid status choice'}, status=400)
+            if new_status not in status_map:
+                return JsonResponse({'success': False, 'error': f'Invalid status choice: {new_status}'}, status=400)
 
             old_status = item.status
-            if old_status != new_status:
-                item.status = new_status
-                item.row_highlight_color = ''
-                item.save()
+            item.status = new_status
+            item.is_status_manual = True  # User explicitly selected status: lock it until target date changes!
+            item.row_highlight_color = ''
+            item.save()
 
-                old_label = valid_statuses.get(old_status, old_status)
-                new_label = valid_statuses.get(new_status, new_status)
-                ProcessItemHistory.objects.create(
-                    item=item,
-                    action_type='updated',
-                    summary=f"Status changed from '{old_label}' to '{new_label}'",
-                    changes=[{
-                        'field': 'status',
-                        'label': 'Status',
-                        'old': old_label,
-                        'new': new_label
-                    }]
-                )
+            old_label = status_map.get(old_status, old_status)
+            new_label = status_map.get(new_status, new_status)
+            ProcessItemHistory.objects.create(
+                item=item,
+                action_type='updated',
+                summary=f"Status set to '{new_label}' (Manual selection)",
+                changes=[{
+                    'field': 'status',
+                    'label': 'Status',
+                    'old': old_label,
+                    'new': new_label
+                }]
+            )
 
             return JsonResponse({
                 'success': True,
                 'field': 'status',
                 'status': item.status,
-                'status_display': item.get_status_display(),
+                'is_status_manual': item.is_status_manual,
+                'status_display': item.dynamic_status_display,
                 'dynamic_status': item.dynamic_status,
                 'dynamic_status_display': item.dynamic_status_display,
                 'row_highlight_color': item.row_highlight_color or '',
@@ -708,6 +756,163 @@ def reset_status_colors(request):
     """Resets status highlight hex colors back to system defaults"""
     StatusColorConfig.reset_to_defaults()
     messages.success(request, "Status highlight colors reset to default hex colors!")
+    return redirect('tracker:dashboard')
+
+
+def status_list_api(request):
+    """Returns JSON array of all status options for dynamic frontend consumption."""
+    statuses = StatusOption.get_all_statuses()
+    data = []
+    for s in statuses:
+        data.append({
+            'key': s.key,
+            'label': s.label,
+            'badge_bg': s.badge_bg,
+            'badge_color': s.badge_color,
+            'row_bg': s.row_bg,
+            'row_border': s.row_border,
+            'is_row_highlight': s.is_row_highlight,
+            'order_index': s.order_index,
+            'is_system': s.is_system,
+        })
+    return JsonResponse({'success': True, 'statuses': data})
+
+
+def status_save(request):
+    """
+    Creates or updates a StatusOption.
+    Accepts both JSON (AJAX) and standard form POST.
+    """
+    if request.method == 'POST':
+        import json, re
+        data = {}
+        if request.content_type == 'application/json':
+            try:
+                data = json.loads(request.body)
+            except Exception:
+                data = {}
+        else:
+            data = request.POST
+
+        key = str(data.get('key') or '').strip().lower()
+        label = str(data.get('label') or '').strip()
+        badge_bg = str(data.get('badge_bg') or '#e2e3e5').strip()
+        badge_color = str(data.get('badge_color') or '#333333').strip()
+        row_bg = str(data.get('row_bg') or '#ffffff').strip()
+        row_border = str(data.get('row_border') or '#84cc16').strip()
+        is_row_highlight = bool(data.get('is_row_highlight') in [True, 'true', '1', 'on'])
+        order_index_raw = data.get('order_index')
+        try:
+            order_index = int(order_index_raw) if order_index_raw is not None and str(order_index_raw).strip() != '' else (StatusOption.objects.count() + 1)
+        except (ValueError, TypeError):
+            order_index = StatusOption.objects.count() + 1
+
+        if not label:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                return JsonResponse({'success': False, 'error': 'Status name/label is required.'}, status=400)
+            messages.error(request, "Status name/label is required.")
+            return redirect('tracker:dashboard')
+
+        if not key:
+            # Auto-generate slug key from label
+            base_key = re.sub(r'[^a-zA-Z0-9_]', '_', label.lower()).strip('_')
+            if not base_key:
+                base_key = 'custom_status'
+            key = base_key
+            counter = 1
+            while StatusOption.objects.filter(key=key).exists():
+                key = f"{base_key}_{counter}"
+                counter += 1
+
+        obj, created = StatusOption.objects.update_or_create(
+            key=key,
+            defaults={
+                'label': label,
+                'badge_bg': badge_bg,
+                'badge_color': badge_color,
+                'row_bg': row_bg,
+                'row_border': row_border,
+                'is_row_highlight': is_row_highlight,
+                'order_index': order_index,
+            }
+        )
+
+        # Sync with StatusColorConfig for color highlights
+        StatusColorConfig.objects.update_or_create(
+            status_key=key,
+            defaults={
+                'label': label,
+                'hex_color': row_bg,
+                'border_color': row_border,
+                'is_enabled': is_row_highlight,
+            }
+        )
+
+        msg = f"Status '{label}' created successfully!" if created else f"Status '{label}' updated successfully!"
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+            return JsonResponse({
+                'success': True,
+                'created': created,
+                'message': msg,
+                'status': {
+                    'key': obj.key,
+                    'label': obj.label,
+                    'badge_bg': obj.badge_bg,
+                    'badge_color': obj.badge_color,
+                    'row_bg': obj.row_bg,
+                    'row_border': obj.row_border,
+                    'is_row_highlight': obj.is_row_highlight,
+                    'order_index': obj.order_index,
+                    'is_system': obj.is_system,
+                }
+            })
+        messages.success(request, msg)
+        return redirect('tracker:dashboard')
+    return redirect('tracker:dashboard')
+
+
+def status_delete(request, key):
+    """
+    Deletes a StatusOption. Reassigns existing items with this status to 'working'.
+    """
+    if request.method == 'POST':
+        if StatusOption.objects.count() <= 1:
+            err = "Cannot delete the only remaining status."
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': err}, status=400)
+            messages.error(request, err)
+            return redirect('tracker:dashboard')
+
+        opt = StatusOption.objects.filter(key=key).first()
+        if not opt:
+            err = "Status not found."
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': err}, status=404)
+            messages.error(request, err)
+            return redirect('tracker:dashboard')
+
+        # Reassign items with deleted status to 'working' or first available status
+        fallback = StatusOption.objects.exclude(key=key).first()
+        fallback_key = fallback.key if fallback else 'working'
+        ProcessItem.objects.filter(status=key).update(status=fallback_key)
+
+        label = opt.label
+        opt.delete()
+        StatusColorConfig.objects.filter(status_key=key).delete()
+
+        msg = f"Status '{label}' removed successfully! Associated clients updated to '{fallback.label if fallback else 'Working'}'."
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'message': msg, 'fallback_key': fallback_key})
+        messages.success(request, msg)
+        return redirect('tracker:dashboard')
+    return redirect('tracker:dashboard')
+
+
+def status_reset_defaults(request):
+    """Resets all statuses back to system defaults"""
+    if request.method == 'POST':
+        StatusOption.reset_to_defaults()
+        messages.success(request, "Statuses restored to system defaults!")
     return redirect('tracker:dashboard')
 
 

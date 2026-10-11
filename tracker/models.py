@@ -32,6 +32,7 @@ class ProcessItem(models.Model):
     row_highlight_color = models.CharField(max_length=25, blank=True, default='', verbose_name="Row Highlight Color (Hex)")
     is_priority = models.BooleanField(default=False, verbose_name="High Priority (Neon Border)")
     is_hidden = models.BooleanField(default=False, verbose_name="Hidden from Main View")
+    is_status_manual = models.BooleanField(default=False, verbose_name="Is Status Manually Selected")
     custom_fields = models.JSONField(default=dict, blank=True, verbose_name="Custom Fields")
     
     order_index = models.IntegerField(default=0, verbose_name="Sort Order")
@@ -62,6 +63,8 @@ class ProcessItem(models.Model):
 
     @property
     def is_overdue(self):
+        if self.is_status_manual and self.status != 'finished':
+            return False
         if self.status in ['hold', 'pending']:
             return False
         diff = self.days_diff
@@ -70,10 +73,13 @@ class ProcessItem(models.Model):
     @property
     def dynamic_status(self):
         """
-        Dynamically returns 'finished' if target date has passed (today > target_date),
-        unless status is 'hold' (On Hold) or 'pending' (Pending).
-        For 'hold' and 'pending', dynamic condition is NOT applied.
+        If user manually selected the status (is_status_manual is True),
+        show that selected status until target date is changed!
+        When target date changes, is_status_manual is reset to False and
+        dynamic calculation takes effect.
         """
+        if self.is_status_manual:
+            return self.status
         if self.status in ['hold', 'pending']:
             return self.status
         if self.days_diff is not None and self.days_diff > 0:
@@ -82,6 +88,9 @@ class ProcessItem(models.Model):
 
     @property
     def dynamic_status_display(self):
+        opt = StatusOption.objects.filter(key=self.dynamic_status).first()
+        if opt:
+            return opt.label
         if self.dynamic_status == 'hold':
             return 'On Hold'
         if self.dynamic_status == 'pending':
@@ -272,6 +281,116 @@ class StatusColorConfig(models.Model):
                     'hex_color': conf['hex_color'],
                     'border_color': conf['border_color'],
                     'is_enabled': conf['is_enabled'],
+                }
+            )
+
+
+class StatusOption(models.Model):
+    key = models.CharField(max_length=50, unique=True, verbose_name="Status Key / ID")
+    label = models.CharField(max_length=100, verbose_name="Status Name / Label")
+    badge_bg = models.CharField(max_length=25, default='#e2e3e5', verbose_name="Badge Background Color")
+    badge_color = models.CharField(max_length=25, default='#333333', verbose_name="Badge Text Color")
+    row_bg = models.CharField(max_length=25, default='#ffffff', verbose_name="Row Highlight Color")
+    row_border = models.CharField(max_length=25, default='#84cc16', verbose_name="Row Border Color")
+    is_row_highlight = models.BooleanField(default=False, verbose_name="Enable Row Highlight")
+    order_index = models.IntegerField(default=0, verbose_name="Order")
+    is_system = models.BooleanField(default=False, verbose_name="Is Core System Status")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order_index', 'id']
+        verbose_name = "Status Option"
+        verbose_name_plural = "Status Options"
+
+    def __str__(self):
+        return f"{self.label} ({self.key})"
+
+    DEFAULT_STATUSES = [
+        {
+            'key': 'working',
+            'label': 'Working',
+            'badge_bg': '#d1e7dd',
+            'badge_color': '#0f5132',
+            'row_bg': '#f0fdf4',
+            'row_border': '#22c55e',
+            'is_row_highlight': False,
+            'order_index': 1,
+            'is_system': True,
+        },
+        {
+            'key': 'pending',
+            'label': 'Pending',
+            'badge_bg': '#fff3cd',
+            'badge_color': '#664d03',
+            'row_bg': '#fefce8',
+            'row_border': '#eab308',
+            'is_row_highlight': True,
+            'order_index': 2,
+            'is_system': True,
+        },
+        {
+            'key': 'hold',
+            'label': 'On Hold',
+            'badge_bg': '#f7fee7',
+            'badge_color': '#3f6212',
+            'row_bg': '#f7fee7',
+            'row_border': '#84cc16',
+            'is_row_highlight': True,
+            'order_index': 3,
+            'is_system': True,
+        },
+        {
+            'key': 'finished',
+            'label': 'Finished',
+            'badge_bg': '#e2e3e5',
+            'badge_color': '#41464b',
+            'row_bg': '#f8fafc',
+            'row_border': '#94a3b8',
+            'is_row_highlight': False,
+            'order_index': 4,
+            'is_system': True,
+        },
+        {
+            'key': 'no_data',
+            'label': 'No data',
+            'badge_bg': '#f8d7da',
+            'badge_color': '#842029',
+            'row_bg': '#fff1f2',
+            'row_border': '#f43f5e',
+            'is_row_highlight': True,
+            'order_index': 5,
+            'is_system': True,
+        },
+    ]
+
+    @classmethod
+    def get_all_statuses(cls):
+        if not cls.objects.exists():
+            cls.reset_to_defaults()
+        return list(cls.objects.all().order_by('order_index', 'id'))
+
+    @classmethod
+    def get_status_choices(cls):
+        statuses = cls.get_all_statuses()
+        return [(s.key, s.label) for s in statuses]
+
+    @classmethod
+    def reset_to_defaults(cls):
+        for data in cls.DEFAULT_STATUSES:
+            cls.objects.update_or_create(
+                key=data['key'],
+                defaults=data
+            )
+        # Also sync StatusColorConfig for colors modal
+        for data in cls.DEFAULT_STATUSES:
+            StatusColorConfig.objects.update_or_create(
+                status_key=data['key'],
+                defaults={
+                    'label': data['label'],
+                    'hex_color': data['row_bg'],
+                    'border_color': data['row_border'],
+                    'is_enabled': data['is_row_highlight'],
                 }
             )
 

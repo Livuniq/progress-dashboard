@@ -241,14 +241,19 @@
                 <i class="bi bi-plus-lg"></i> Add New Client
             </button>
             <div class="row g-1">
-                <div class="col-6">
-                    <button class="btn btn-sm btn-outline-dark w-100 text-truncate py-1 px-1" data-bs-toggle="modal" data-bs-target="#headerModal" title="Add, edit, or remove header columns" style="font-size: 11.5px;">
+                <div class="col-4">
+                    <button class="btn btn-sm btn-outline-dark w-100 text-truncate py-1 px-1" data-bs-toggle="modal" data-bs-target="#headerModal" title="Add, edit, or remove header columns" style="font-size: 11px;">
                         <i class="bi bi-layout-three-columns me-1"></i> Headers
                     </button>
                 </div>
-                <div class="col-6">
-                    <button class="btn btn-sm btn-outline-dark w-100 text-truncate py-1 px-1" data-bs-toggle="modal" data-bs-target="#colorsModal" title="Change row highlight colors using Hex" style="font-size: 11.5px;">
+                <div class="col-4">
+                    <button class="btn btn-sm btn-outline-dark w-100 text-truncate py-1 px-1" data-bs-toggle="modal" data-bs-target="#colorsModal" title="Change row highlight colors using Hex" style="font-size: 11px;">
                         <i class="bi bi-palette me-1"></i> Colors
+                    </button>
+                </div>
+                <div class="col-4">
+                    <button class="btn btn-sm btn-outline-primary w-100 text-truncate py-1 px-1" data-bs-toggle="modal" data-bs-target="#statusManagerModal" title="Add, edit, or remove status options" style="font-size: 11px;">
+                        <i class="bi bi-tags me-1"></i> Statuses
                     </button>
                 </div>
                 <div class="col-6">
@@ -433,6 +438,8 @@
                     data-search="{{ item.client_name }} {{ item.notes }} {{ item.lot_progress }} {{ item.history_milestone }}"
                     data-target-date="{{ item.target_date|date:'Y-m-d' }}"
                     data-status="{{ item.status }}"
+                    data-dynamic="{{ item.dynamic_status }}"
+                    data-status-manual="{{ item.is_status_manual|yesno:'true,false' }}"
                     data-custom-color="{{ item.row_highlight_color|default:'' }}"
                     title="Tip: Long-press or right-click row to open options menu">
                     <td class="text-center select-cell" style="width: 38px; vertical-align: middle;">
@@ -1200,8 +1207,196 @@
     </div>
 </div>
 
-<!-- Hidden Delete Column Form for CSRF POST -->
-<form id="deleteColumnForm" method="post" style="display:none;">
+<!-- STATUS MANAGEMENT MODAL (Add / Edit / Remove) -->
+<div class="modal fade" id="statusManagerModal" tabindex="-1" aria-labelledby="statusManagerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header bg-primary text-white py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-tags-fill fs-4"></i>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="statusManagerModalLabel">Status Management (Add / Edit / Remove)</h5>
+                        <small class="opacity-75">Create custom statuses, customize badge & highlight colors, or remove unused statuses.</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <div class="row g-4">
+                    <!-- Left Column: Existing Statuses List -->
+                    <div class="col-lg-7">
+                        <div class="card border shadow-sm h-100">
+                            <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center">
+                                <span class="fw-bold text-dark"><i class="bi bi-list-check text-primary me-1"></i> Active Status Options (<span id="statusCountBadge">{{ all_statuses|length }}</span>)</span>
+                                <span class="text-muted small">Click Edit or Delete to manage</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0" id="statusManagerTable">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="ps-3" style="width: 140px;">Badge Preview</th>
+                                                <th>Status Name / Key</th>
+                                                <th class="text-center" style="width: 120px;">Row Highlight</th>
+                                                <th class="text-end pe-3" style="width: 110px;">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="statusTableBody">
+                                            {% for s in all_statuses %}
+                                            <tr id="status_tr_{{ s.key }}" data-key="{{ s.key }}" data-label="{{ s.label }}" data-badge-bg="{{ s.badge_bg }}" data-badge-color="{{ s.badge_color }}" data-row-bg="{{ s.row_bg }}" data-row-border="{{ s.row_border }}" data-row-highlight="{{ s.is_row_highlight|yesno:'true,false' }}" data-order="{{ s.order_index }}" data-system="{{ s.is_system|yesno:'true,false' }}">
+                                                <td class="ps-3">
+                                                    <span class="status-badge px-2 py-1 rounded" style="background-color: {{ s.badge_bg }}; color: {{ s.badge_color }}; font-weight: 600; font-size: 12px;">
+                                                        {{ s.label }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <div class="fw-bold text-dark status-label-text">{{ s.label }}</div>
+                                                    <div class="text-muted small font-monospace" style="font-size: 11px;">
+                                                        key: <code>{{ s.key }}</code>
+                                                        {% if s.is_system %}<span class="badge bg-light text-secondary border ms-1">Default</span>{% endif %}
+                                                    </div>
+                                                </td>
+                                                <td class="text-center">
+                                                    {% if s.is_row_highlight %}
+                                                    <div class="d-inline-flex align-items-center gap-1 border px-2 py-1 rounded small" style="background-color: {{ s.row_bg }}; border-left: 3px solid {{ s.row_border }} !important; font-size: 11px;">
+                                                        <span class="d-inline-block rounded-circle" style="width: 8px; height: 8px; background-color: {{ s.row_border }};"></span>
+                                                        <span>{{ s.row_bg }}</span>
+                                                    </div>
+                                                    {% else %}
+                                                    <span class="text-muted small">None</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td class="text-end pe-3">
+                                                    <div class="btn-group btn-group-sm">
+                                                        <button type="button" class="btn btn-outline-primary btn-edit-status" title="Edit this status" data-key="{{ s.key }}">
+                                                            <i class="bi bi-pencil-fill"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-danger btn-delete-status" title="Delete this status" data-key="{{ s.key }}" data-label="{{ s.label }}">
+                                                            <i class="bi bi-trash-fill"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Add / Edit Status Form -->
+                    <div class="col-lg-5">
+                        <div class="card border shadow-sm">
+                            <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center">
+                                <span class="fw-bold text-dark" id="statusFormTitle"><i class="bi bi-plus-circle-fill text-success me-1"></i> Add New Status</span>
+                                <button type="button" class="btn btn-xs btn-outline-secondary" id="btnResetStatusForm" style="display: none;">Cancel Edit</button>
+                            </div>
+                            <div class="card-body p-3">
+                                <form id="statusEditorForm" method="post" action="{% url 'tracker:status_save' %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="key" id="statusFormKey" value="">
+
+                                    <!-- Status Name / Label -->
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-bold">Status Name / Label <span class="text-danger">*</span></label>
+                                        <input type="text" name="label" id="statusFormLabel" class="form-control form-control-sm" placeholder="e.g. In Review, QC Pass, Urgent" required>
+                                    </div>
+
+                                    <!-- Quick Color Presets -->
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-bold d-block mb-1">Color Palette Presets</label>
+                                        <div class="d-flex flex-wrap gap-1" id="statusColorPresets">
+                                            <button type="button" class="btn btn-xs preset-btn border" data-bg="#d1e7dd" data-color="#0f5132" data-rowbg="#f0fdf4" data-rowborder="#22c55e" style="background: #d1e7dd; color: #0f5132; font-size: 11px;">Green</button>
+                                            <button type="button" class="btn btn-xs preset-btn border" data-bg="#cfe2ff" data-color="#084298" data-rowbg="#eff6ff" data-rowborder="#3b82f6" style="background: #cfe2ff; color: #084298; font-size: 11px;">Blue</button>
+                                            <button type="button" class="btn btn-xs preset-btn border" data-bg="#e0cffc" data-color="#432874" data-rowbg="#faf5ff" data-rowborder="#a855f7" style="background: #e0cffc; color: #432874; font-size: 11px;">Purple</button>
+                                            <button type="button" class="btn btn-xs preset-btn border" data-bg="#fff3cd" data-color="#664d03" data-rowbg="#fefce8" data-rowborder="#eab308" style="background: #fff3cd; color: #664d03; font-size: 11px;">Yellow</button>
+                                            <button type="button" class="btn btn-xs preset-btn border" data-bg="#ffe5d0" data-color="#7c2d12" data-rowbg="#fff7ed" data-rowborder="#f97316" style="background: #ffe5d0; color: #7c2d12; font-size: 11px;">Orange</button>
+                                            <button type="button" class="btn btn-xs preset-btn border" data-bg="#f8d7da" data-color="#842029" data-rowbg="#fff1f2" data-rowborder="#f43f5e" style="background: #f8d7da; color: #842029; font-size: 11px;">Red/Pink</button>
+                                            <button type="button" class="btn btn-xs preset-btn border" data-bg="#e2e3e5" data-color="#41464b" data-rowbg="#f8fafc" data-rowborder="#94a3b8" style="background: #e2e3e5; color: #41464b; font-size: 11px;">Gray</button>
+                                            <button type="button" class="btn btn-xs preset-btn border" data-bg="#d1fae5" data-color="#065f46" data-rowbg="#ecfdf5" data-rowborder="#10b981" style="background: #d1fae5; color: #065f46; font-size: 11px;">Teal</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Badge Colors -->
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-6">
+                                            <label class="form-label small fw-bold">Badge Background</label>
+                                            <div class="input-group input-group-sm">
+                                                <input type="color" id="statusFormBadgeBgColor" class="form-control form-control-color" value="#cfe2ff" style="width: 36px; padding: 2px;">
+                                                <input type="text" name="badge_bg" id="statusFormBadgeBg" class="form-control" value="#cfe2ff">
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label small fw-bold">Badge Text Color</label>
+                                            <div class="input-group input-group-sm">
+                                                <input type="color" id="statusFormBadgeTextColor" class="form-control form-control-color" value="#084298" style="width: 36px; padding: 2px;">
+                                                <input type="text" name="badge_color" id="statusFormBadgeColor" class="form-control" value="#084298">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Row Highlight Colors -->
+                                    <div class="p-2 border rounded bg-white mb-3">
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" name="is_row_highlight" id="statusFormRowHighlight" value="1">
+                                            <label class="form-check-label small fw-bold" for="statusFormRowHighlight">Enable Row Highlight for this Status</label>
+                                        </div>
+                                        <div class="row g-2" id="statusRowColorsGroup">
+                                            <div class="col-6">
+                                                <label class="form-label small text-muted" style="font-size: 11px;">Row Background (Hex)</label>
+                                                <div class="input-group input-group-sm">
+                                                    <input type="color" id="statusFormRowBgColor" class="form-control form-control-color" value="#eff6ff" style="width: 36px; padding: 2px;">
+                                                    <input type="text" name="row_bg" id="statusFormRowBg" class="form-control" value="#eff6ff">
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small text-muted" style="font-size: 11px;">Row Left Border (Hex)</label>
+                                                <div class="input-group input-group-sm">
+                                                    <input type="color" id="statusFormRowBorderColor" class="form-control form-control-color" value="#3b82f6" style="width: 36px; padding: 2px;">
+                                                    <input type="text" name="row_border" id="statusFormRowBorder" class="form-control" value="#3b82f6">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Live Preview Box -->
+                                    <div class="p-3 border rounded text-center mb-3" id="statusLivePreviewBox" style="background-color: #eff6ff; border-left: 4px solid #3b82f6 !important;">
+                                        <div class="small text-muted mb-1" style="font-size: 11px;">Live Badge & Row Preview:</div>
+                                        <span id="statusLiveBadge" class="status-badge px-2 py-1 rounded" style="background-color: #cfe2ff; color: #084298; font-weight: 600; font-size: 13px;">
+                                            New Status
+                                        </span>
+                                    </div>
+
+                                    <div class="d-flex gap-2">
+                                        <button type="submit" class="btn btn-primary btn-sm flex-grow-1" id="btnSaveStatus">
+                                            <i class="bi bi-check-circle-fill me-1"></i> Save Status
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnCancelStatusEdit">
+                                            Reset
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2 d-flex justify-content-between align-items-center">
+                <form method="post" action="{% url 'tracker:status_reset_defaults' %}" onsubmit="return confirm('Are you sure you want to restore default statuses (Working, Pending, On Hold, Finished, No data)?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-warning btn-sm">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Restore Default Statuses
+                    </button>
+                </form>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden Delete Status Form for CSRF POST -->
+<form id="deleteStatusForm" method="post" style="display:none;">
     {% csrf_token %}
 </form>
 
@@ -1318,31 +1513,27 @@
 </div>
 
 <!-- Custom Floating Status Dropdown Popup (Opens directly on double-click) -->
-<div id="statusDropdownPopup" class="status-dropdown-card">
-    <div class="status-dropdown-header">
-        <span><i class="bi bi-tag-fill text-primary me-1"></i> Change Status</span>
-        <button type="button" class="btn-close btn-close-sm" id="closeStatusDropdownBtn" style="font-size: 8px;"></button>
+<div id="statusDropdownPopup" class="status-dropdown-card shadow border">
+    <div class="status-dropdown-header d-flex justify-content-between align-items-center py-2 px-3 border-bottom bg-light">
+        <span class="fw-bold fs-7 text-dark"><i class="bi bi-tag-fill text-primary me-1"></i> Change Status</span>
+        <div class="d-flex align-items-center gap-1">
+            <button type="button" class="btn btn-xs btn-outline-primary py-0 px-1 rounded" title="Manage Statuses (Add, Edit, Remove)" data-bs-toggle="modal" data-bs-target="#statusManagerModal" style="font-size: 11px;">
+                <i class="bi bi-gear-fill"></i>
+            </button>
+            <button type="button" class="btn-close btn-close-sm" id="closeStatusDropdownBtn" style="font-size: 8px;"></button>
+        </div>
     </div>
-    <div class="status-dropdown-list" id="statusDropdownList">
-        <button type="button" class="status-dropdown-item" data-value="working">
-            <span class="badge-status-working status-badge status-badge-sm">Working</span>
-            <i class="bi bi-check-lg status-item-check d-none"></i>
+    <div class="status-dropdown-list py-1" id="statusDropdownList" style="max-height: 260px; overflow-y: auto;">
+        {% for s in all_statuses %}
+        <button type="button" class="status-dropdown-item d-flex align-items-center justify-content-between px-3 py-2 w-100 border-0 bg-transparent text-start" data-value="{{ s.key }}">
+            <span class="status-badge status-badge-sm px-2 py-1 rounded" style="background-color: {{ s.badge_bg }}; color: {{ s.badge_color }}; font-weight: 600; font-size: 12px;">{{ s.label }}</span>
+            <i class="bi bi-check-lg status-item-check text-primary fw-bold d-none"></i>
         </button>
-        <button type="button" class="status-dropdown-item" data-value="pending">
-            <span class="badge-status-pending status-badge status-badge-sm">Pending</span>
-            <i class="bi bi-check-lg status-item-check d-none"></i>
-        </button>
-        <button type="button" class="status-dropdown-item" data-value="hold">
-            <span class="badge-status-hold status-badge status-badge-sm">On Hold</span>
-            <i class="bi bi-check-lg status-item-check d-none"></i>
-        </button>
-        <button type="button" class="status-dropdown-item" data-value="finished">
-            <span class="badge-status-finished status-badge status-badge-sm">Finished</span>
-            <i class="bi bi-check-lg status-item-check d-none"></i>
-        </button>
-        <button type="button" class="status-dropdown-item" data-value="no_data">
-            <span class="badge-status-nodata status-badge status-badge-sm">No data</span>
-            <i class="bi bi-check-lg status-item-check d-none"></i>
+        {% endfor %}
+    </div>
+    <div class="status-dropdown-footer border-top p-2 text-center bg-white rounded-bottom">
+        <button type="button" class="btn btn-sm btn-outline-primary w-100 py-1" data-bs-toggle="modal" data-bs-target="#statusManagerModal" style="font-size: 11px;">
+            <i class="bi bi-plus-circle me-1"></i> Manage / Add Status
         </button>
     </div>
 </div>
@@ -1355,6 +1546,9 @@
     const STATUS_CONFIGS = {
         {% for key, cfg in status_colors.items %}
         '{{ key }}': {
+            'label': '{{ cfg.label|escapejs }}',
+            'badge_bg': '{{ cfg.badge_bg|escapejs }}',
+            'badge_color': '{{ cfg.badge_color|escapejs }}',
             'enabled': {{ cfg.is_enabled|yesno:"true,false" }},
             'bg': '{{ cfg.hex_color|escapejs }}',
             'border': '{{ cfg.border_color|escapejs }}'
@@ -1784,44 +1978,27 @@
 
     function renderStatusBadges(status) {
         const s = (status || '').toLowerCase();
+        const cfg = STATUS_CONFIGS[s];
         if (s === 'finished') {
             return `<span class="cell-view-content">
                 <div class="d-inline-flex flex-row align-items-center justify-content-center gap-1 status-two-badges flex-nowrap text-nowrap">
-                    <span class="badge-status-finished status-badge status-badge-sm">Finished</span>
+                    <span class="badge-status-finished status-badge status-badge-sm">${cfg ? escapeHtml(cfg.label) : 'Finished'}</span>
                     <span class="badge-status-nodata status-badge status-badge-sm">No data</span>
-                </div>
-            </span>`;
-        } else if (s === 'working') {
-            return `<span class="cell-view-content">
-                <div class="d-inline-flex flex-row align-items-center justify-content-center gap-1 status-two-badges flex-nowrap text-nowrap">
-                    <span class="badge-status-working status-badge status-badge-sm">Working</span>
-                </div>
-            </span>`;
-        } else if (s === 'pending') {
-            return `<span class="cell-view-content">
-                <div class="d-inline-flex flex-row align-items-center justify-content-center gap-1 status-two-badges flex-nowrap text-nowrap">
-                    <span class="badge-status-pending status-badge status-badge-sm">Pending</span>
-                </div>
-            </span>`;
-        } else if (s === 'hold') {
-            return `<span class="cell-view-content">
-                <div class="d-inline-flex flex-row align-items-center justify-content-center gap-1 status-two-badges flex-nowrap text-nowrap">
-                    <span class="badge-status-hold status-badge status-badge-sm">On Hold</span>
-                </div>
-            </span>`;
-        } else if (s === 'no_data') {
-            return `<span class="cell-view-content">
-                <div class="d-inline-flex flex-row align-items-center justify-content-center gap-1 status-two-badges flex-nowrap text-nowrap">
-                    <span class="badge-status-nodata status-badge status-badge-sm">No data</span>
-                </div>
-            </span>`;
-        } else {
-            return `<span class="cell-view-content">
-                <div class="d-inline-flex flex-row align-items-center justify-content-center gap-1 status-two-badges flex-nowrap text-nowrap">
-                    <span class="badge bg-secondary status-badge status-badge-sm">${escapeHtml(status || '-')}</span>
                 </div>
             </span>`;
         }
+        if (cfg) {
+            return `<span class="cell-view-content">
+                <div class="d-inline-flex flex-row align-items-center justify-content-center gap-1 status-two-badges flex-nowrap text-nowrap">
+                    <span class="status-badge status-badge-sm px-2 py-1 rounded" style="background-color: ${escapeHtml(cfg.badge_bg)}; color: ${escapeHtml(cfg.badge_color)}; font-weight: 600; font-size: 12px;">${escapeHtml(cfg.label)}</span>
+                </div>
+            </span>`;
+        }
+        return `<span class="cell-view-content">
+            <div class="d-inline-flex flex-row align-items-center justify-content-center gap-1 status-two-badges flex-nowrap text-nowrap">
+                <span class="badge bg-secondary status-badge status-badge-sm">${escapeHtml(status || '-')}</span>
+            </div>
+        </span>`;
     }
 
     // Dynamic Engine: Auto-checks today's date against target date
@@ -1839,6 +2016,7 @@
         document.querySelectorAll('.process-row').forEach(row => {
             const targetDateStr = row.getAttribute('data-target-date');
             const initialStatus = (row.getAttribute('data-status') || '').toLowerCase();
+            const isStatusManual = row.getAttribute('data-status-manual') === 'true';
             const customColor = row.getAttribute('data-custom-color');
             const statusCell = row.querySelector('.status-cell');
             const diffCell = row.querySelector('.days-diff-cell');
@@ -1858,11 +2036,23 @@
                 }
             }
 
-            // 1. Check if status is exempted from dynamic auto-finished / overdue (Pending or On Hold)
+            // 1. Determine dynamic status:
+            // If user manually selected the status (isStatusManual is true), show that selected status
+            // until user changes target date!
+            let dynamicStatus = initialStatus;
             const isExempted = (initialStatus === 'hold' || initialStatus === 'pending');
 
-            // Do NOT apply dynamic condition for status pending or on hold!
-            const dynamicStatus = isExempted ? initialStatus : (isPassed ? 'finished' : initialStatus);
+            if (isStatusManual) {
+                // User explicitly selected status: lock it until target date changes!
+                dynamicStatus = initialStatus;
+            } else {
+                // Dynamic auto-calculation based on target date:
+                if (!isExempted && isPassed) {
+                    dynamicStatus = 'finished';
+                } else {
+                    dynamicStatus = initialStatus;
+                }
+            }
 
             // 2. Count KPIs based on dynamic status
             if (dynamicStatus === 'hold') {
@@ -1936,8 +2126,10 @@
             }
 
             // 5. Determine effective status key for row highlight color
-            let effectiveStatusKey = initialStatus;
-            if (isExempted) {
+            let effectiveStatusKey = dynamicStatus;
+            if (isStatusManual) {
+                effectiveStatusKey = initialStatus;
+            } else if (isExempted) {
                 effectiveStatusKey = initialStatus; // Pending & Hold keep their respective configured row colors
             } else if (isPassed) {
                 effectiveStatusKey = 'overdue';
@@ -2072,6 +2264,7 @@
         const row = cell.closest('tr');
         if (row) {
             row.setAttribute('data-target-date', data.target_date_iso || '');
+            row.setAttribute('data-status-manual', 'false'); // Target date changed: clear manual lock so dynamic status applies!
         }
         if (data.target_date_iso) {
             cell.innerHTML = `<span class="cell-view-content"><span class="fw-medium text-dark">${escapeHtml(data.target_date_display)}</span></span>`;
@@ -2431,6 +2624,7 @@
                     const row = cell.closest('tr');
                     if (row) {
                         row.setAttribute('data-status', newStatusVal);
+                        row.setAttribute('data-status-manual', 'true');
                         row.removeAttribute('data-custom-color');
                         row.classList.remove('row-has-custom-color');
                     }
@@ -3213,6 +3407,172 @@
             e.preventDefault();
             openRowContextMenu(e.clientX, e.clientY, row);
         }
+    });
+
+    // ==========================================
+    // STATUS MANAGER MODAL ENGINE (Add / Edit / Remove)
+    // ==========================================
+    const statusFormTitle = document.getElementById('statusFormTitle');
+    const statusFormKey = document.getElementById('statusFormKey');
+    const statusFormLabel = document.getElementById('statusFormLabel');
+    const statusFormBadgeBg = document.getElementById('statusFormBadgeBg');
+    const statusFormBadgeBgColor = document.getElementById('statusFormBadgeBgColor');
+    const statusFormBadgeColor = document.getElementById('statusFormBadgeColor');
+    const statusFormBadgeTextColor = document.getElementById('statusFormBadgeTextColor');
+    const statusFormRowHighlight = document.getElementById('statusFormRowHighlight');
+    const statusFormRowBg = document.getElementById('statusFormRowBg');
+    const statusFormRowBgColor = document.getElementById('statusFormRowBgColor');
+    const statusFormRowBorder = document.getElementById('statusFormRowBorder');
+    const statusFormRowBorderColor = document.getElementById('statusFormRowBorderColor');
+    const statusLiveBadge = document.getElementById('statusLiveBadge');
+    const statusLivePreviewBox = document.getElementById('statusLivePreviewBox');
+    const btnResetStatusForm = document.getElementById('btnResetStatusForm');
+    const btnCancelStatusEdit = document.getElementById('btnCancelStatusEdit');
+    const deleteStatusForm = document.getElementById('deleteStatusForm');
+
+    function updateStatusLivePreview() {
+        if (!statusLiveBadge) return;
+        const label = statusFormLabel?.value?.trim() || 'Status Preview';
+        const badgeBg = statusFormBadgeBg?.value?.trim() || '#cfe2ff';
+        const badgeColor = statusFormBadgeColor?.value?.trim() || '#084298';
+        const isHighlight = statusFormRowHighlight?.checked;
+        const rowBg = statusFormRowBg?.value?.trim() || '#eff6ff';
+        const rowBorder = statusFormRowBorder?.value?.trim() || '#3b82f6';
+
+        statusLiveBadge.textContent = label;
+        statusLiveBadge.style.backgroundColor = badgeBg;
+        statusLiveBadge.style.color = badgeColor;
+
+        if (statusLivePreviewBox) {
+            if (isHighlight) {
+                statusLivePreviewBox.style.backgroundColor = rowBg;
+                statusLivePreviewBox.style.borderLeft = `4px solid ${rowBorder}`;
+            } else {
+                statusLivePreviewBox.style.backgroundColor = '#ffffff';
+                statusLivePreviewBox.style.borderLeft = '1px solid #dee2e6';
+            }
+        }
+    }
+
+    // Sync color picker with text inputs
+    function syncColorInputs(picker, text) {
+        if (!picker || !text) return;
+        picker.addEventListener('input', function() {
+            text.value = this.value;
+            updateStatusLivePreview();
+        });
+        text.addEventListener('input', function() {
+            if (/^#[0-9A-Fa-f]{6}$/.test(this.value)) {
+                picker.value = this.value;
+            }
+            updateStatusLivePreview();
+        });
+    }
+
+    syncColorInputs(statusFormBadgeBgColor, statusFormBadgeBg);
+    syncColorInputs(statusFormBadgeTextColor, statusFormBadgeColor);
+    syncColorInputs(statusFormRowBgColor, statusFormRowBg);
+    syncColorInputs(statusFormRowBorderColor, statusFormRowBorder);
+
+    if (statusFormLabel) {
+        statusFormLabel.addEventListener('input', updateStatusLivePreview);
+    }
+    if (statusFormRowHighlight) {
+        statusFormRowHighlight.addEventListener('change', updateStatusLivePreview);
+    }
+
+    // Palette preset buttons
+    document.querySelectorAll('#statusColorPresets .preset-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const bg = this.getAttribute('data-bg');
+            const color = this.getAttribute('data-color');
+            const rowbg = this.getAttribute('data-rowbg');
+            const rowborder = this.getAttribute('data-rowborder');
+
+            if (statusFormBadgeBg) statusFormBadgeBg.value = bg;
+            if (statusFormBadgeBgColor) statusFormBadgeBgColor.value = bg;
+            if (statusFormBadgeColor) statusFormBadgeColor.value = color;
+            if (statusFormBadgeTextColor) statusFormBadgeTextColor.value = color;
+            if (statusFormRowBg) statusFormRowBg.value = rowbg;
+            if (statusFormRowBgColor) statusFormRowBgColor.value = rowbg;
+            if (statusFormRowBorder) statusFormRowBorder.value = rowborder;
+            if (statusFormRowBorderColor) statusFormRowBorderColor.value = rowborder;
+            if (statusFormRowHighlight) statusFormRowHighlight.checked = true;
+
+            updateStatusLivePreview();
+        });
+    });
+
+    // Reset Form to "Add New Status" mode
+    function resetStatusForm() {
+        if (statusFormKey) statusFormKey.value = '';
+        if (statusFormLabel) statusFormLabel.value = '';
+        if (statusFormBadgeBg) statusFormBadgeBg.value = '#cfe2ff';
+        if (statusFormBadgeBgColor) statusFormBadgeBgColor.value = '#cfe2ff';
+        if (statusFormBadgeColor) statusFormBadgeColor.value = '#084298';
+        if (statusFormBadgeTextColor) statusFormBadgeTextColor.value = '#084298';
+        if (statusFormRowHighlight) statusFormRowHighlight.checked = false;
+        if (statusFormRowBg) statusFormRowBg.value = '#eff6ff';
+        if (statusFormRowBgColor) statusFormRowBgColor.value = '#eff6ff';
+        if (statusFormRowBorder) statusFormRowBorder.value = '#3b82f6';
+        if (statusFormRowBorderColor) statusFormRowBorderColor.value = '#3b82f6';
+        if (statusFormTitle) statusFormTitle.innerHTML = '<i class="bi bi-plus-circle-fill text-success me-1"></i> Add New Status';
+        if (btnResetStatusForm) btnResetStatusForm.style.display = 'none';
+        updateStatusLivePreview();
+    }
+
+    if (btnResetStatusForm) btnResetStatusForm.addEventListener('click', resetStatusForm);
+    if (btnCancelStatusEdit) btnCancelStatusEdit.addEventListener('click', resetStatusForm);
+
+    // Edit Status Click
+    document.querySelectorAll('#statusTableBody .btn-edit-status').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const tr = this.closest('tr');
+            if (!tr) return;
+
+            const key = tr.getAttribute('data-key');
+            const label = tr.getAttribute('data-label');
+            const badgeBg = tr.getAttribute('data-badge-bg');
+            const badgeColor = tr.getAttribute('data-badge-color');
+            const rowBg = tr.getAttribute('data-row-bg');
+            const rowBorder = tr.getAttribute('data-row-border');
+            const rowHighlight = tr.getAttribute('data-row-highlight') === 'true';
+
+            if (statusFormKey) statusFormKey.value = key;
+            if (statusFormLabel) statusFormLabel.value = label;
+            if (statusFormBadgeBg) statusFormBadgeBg.value = badgeBg;
+            if (statusFormBadgeBgColor && /^#[0-9A-Fa-f]{6}$/.test(badgeBg)) statusFormBadgeBgColor.value = badgeBg;
+            if (statusFormBadgeColor) statusFormBadgeColor.value = badgeColor;
+            if (statusFormBadgeTextColor && /^#[0-9A-Fa-f]{6}$/.test(badgeColor)) statusFormBadgeTextColor.value = badgeColor;
+            if (statusFormRowHighlight) statusFormRowHighlight.checked = rowHighlight;
+            if (statusFormRowBg) statusFormRowBg.value = rowBg;
+            if (statusFormRowBgColor && /^#[0-9A-Fa-f]{6}$/.test(rowBg)) statusFormRowBgColor.value = rowBg;
+            if (statusFormRowBorder) statusFormRowBorder.value = rowBorder;
+            if (statusFormRowBorderColor && /^#[0-9A-Fa-f]{6}$/.test(rowBorder)) statusFormRowBorderColor.value = rowBorder;
+
+            if (statusFormTitle) statusFormTitle.innerHTML = `<i class="bi bi-pencil-fill text-primary me-1"></i> Edit Status: <strong>${escapeHtml(label)}</strong>`;
+            if (btnResetStatusForm) btnResetStatusForm.style.display = 'inline-block';
+
+            updateStatusLivePreview();
+            statusFormLabel?.focus();
+        });
+    });
+
+    // Delete Status Click
+    document.querySelectorAll('#statusTableBody .btn-delete-status').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const key = this.getAttribute('data-key');
+            const label = this.getAttribute('data-label') || key;
+            if (confirm(`Are you sure you want to delete status "${label}"? Any clients currently with this status will be reassigned.`)) {
+                if (deleteStatusForm) {
+                    deleteStatusForm.action = `/statuses/${encodeURIComponent(key)}/delete/`;
+                    deleteStatusForm.submit();
+                }
+            }
+        });
     });
 </script>
 {% endblock %}

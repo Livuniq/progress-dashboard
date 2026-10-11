@@ -23,4 +23,8 @@ urlpatterns = [
     path('columns/reset/', views.reset_column_config, name='reset_column_config'),
     path('colors/save/', views.save_status_colors, name='save_status_colors'),
     path('colors/reset/', views.reset_status_colors, name='reset_status_colors'),
+    path('statuses/save/', views.status_save, name='status_save'),
+    path('statuses/<str:key>/delete/', views.status_delete, name='status_delete'),
+    path('statuses/reset/', views.status_reset_defaults, name='status_reset_defaults'),
+    path('statuses/list/', views.status_list_api, name='status_list_api'),
 ]
