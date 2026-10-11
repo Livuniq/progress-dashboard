@@ -7,7 +7,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from datetime import date, datetime
 import json
-import requests
+import urllib.request
+import urllib.error
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 
@@ -1218,21 +1219,27 @@ def import_excel(request):
 # ==========================================
 
 def send_whatsapp_reply(phone_number_id, recipient_phone, message_text, access_token):
-    """Send WhatsApp reply back to user via Meta Graph API"""
+    """Send WhatsApp reply back to user via Meta Graph API using built-in urllib"""
     try:
         url = f"https://graph.facebook.com/v20.0/{phone_number_id}/messages"
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json"
-        }
-        payload = {
+        payload_bytes = json.dumps({
             "messaging_product": "whatsapp",
             "to": recipient_phone,
             "type": "text",
             "text": {"body": message_text}
-        }
-        resp = requests.post(url, json=payload, headers=headers, timeout=10)
-        return resp.status_code == 200
+        }).encode('utf-8')
+
+        req = urllib.request.Request(
+            url,
+            data=payload_bytes,
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json"
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.status == 200
     except Exception as e:
         print(f"Error sending WhatsApp reply: {e}")
         return False
