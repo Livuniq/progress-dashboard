@@ -992,9 +992,18 @@ def export_excel(request):
         target_str = item.target_date.strftime("%d/%m/%Y") if item.target_date else ""
         days_diff_val = item.days_diff if item.days_diff is not None else ""
 
+        # In exported excel if status is finished, display 'No data' instead of 'Finished'
+        current_status = item.dynamic_status
+        if current_status == 'finished' or item.status == 'finished':
+            status_text = "No data"
+            effective_status = "no_data"
+        else:
+            status_text = item.dynamic_status_display
+            effective_status = current_status
+
         row_data = [
             item.client_name,
-            item.get_status_display(),
+            status_text,
             item.formatted_lot or item.lot_progress,
             item.completed_count or 0,
             item.pending_count or 0,
@@ -1018,13 +1027,19 @@ def export_excel(request):
         # Status
         c2 = ws.cell(row=row_idx, column=2)
         c2.alignment = Alignment(horizontal="center")
-        if item.status == 'working':
+        if effective_status == 'working':
             c2.fill = green_fill
             c2.font = green_font
-        elif item.status == 'no_data':
+        elif effective_status == 'no_data':
             c2.fill = pink_fill
             c2.font = pink_font
-        elif item.status == 'finished':
+        elif effective_status == 'pending':
+            c2.fill = PatternFill(start_color="FFF3CD", end_color="FFF3CD", fill_type="solid")
+            c2.font = Font(name="Calibri", size=11, color="664D03", bold=True)
+        elif effective_status == 'hold':
+            c2.fill = PatternFill(start_color="F7FEE7", end_color="F7FEE7", fill_type="solid")
+            c2.font = Font(name="Calibri", size=11, color="3F6212", bold=True)
+        else:
             c2.fill = gray_fill
             c2.font = gray_font
 
