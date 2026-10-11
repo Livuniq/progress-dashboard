@@ -955,6 +955,7 @@ def export_excel(request):
     
     pink_fill = PatternFill(start_color="F8D7DA", end_color="F8D7DA", fill_type="solid")
     pink_font = Font(name="Calibri", size=11, color="842029", bold=True)
+    red_font = Font(name="Calibri", size=11, color="DC3545", bold=True)
     
     gray_fill = PatternFill(start_color="E2E3E5", end_color="E2E3E5", fill_type="solid")
     gray_font = Font(name="Calibri", size=11, color="41464B", bold=True)
@@ -1032,7 +1033,7 @@ def export_excel(request):
             c2.font = green_font
         elif effective_status == 'no_data':
             c2.fill = pink_fill
-            c2.font = pink_font
+            c2.font = red_font
         elif effective_status == 'pending':
             c2.fill = PatternFill(start_color="FFF3CD", end_color="FFF3CD", fill_type="solid")
             c2.font = Font(name="Calibri", size=11, color="664D03", bold=True)
