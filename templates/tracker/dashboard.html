@@ -458,7 +458,7 @@
                         {% elif col.key == 'client_name' %}
                             <td class="client-name-cell">
                                 <div class="d-inline-flex align-items-center flex-wrap gap-1">
-                                    <span class="client-name-text {% if item.is_red_client or item.dynamic_status == 'finished' or item.status == 'finished' %}client-red{% else %}fw-semibold text-dark{% endif %}" data-is-red="{{ item.is_red_client|yesno:'true,false' }}">
+                                    <span class="client-name-text {% if item.is_red_client or item.dynamic_status in 'finished,no_data' or item.status in 'finished,no_data' %}client-red{% else %}fw-semibold text-dark{% endif %}" data-is-red="{{ item.is_red_client|yesno:'true,false' }}">
                                         {{ item.client_name }}
                                     </span>
                                     {% if item.is_hidden %}
@@ -2326,10 +2326,11 @@
                 statusCell.innerHTML = renderStatusBadges(dynamicStatus);
             }
 
-            // 3b. Update Client Name color: if finished (dynamic or manual), turn client name in RED
+            // 3b. Update Client Name color: if finished or no_data (dynamic or manual), turn client name in RED
             const clientNameText = row.querySelector('.client-name-text');
             const isExplicitRed = clientNameText?.getAttribute('data-is-red') === 'true';
-            if (dynamicStatus === 'finished' || initialStatus === 'finished') {
+            const isFinishedOrNoData = (dynamicStatus === 'finished' || dynamicStatus === 'no_data' || initialStatus === 'finished' || initialStatus === 'no_data');
+            if (isFinishedOrNoData) {
                 if (clientNameText) {
                     clientNameText.classList.add('client-red');
                     clientNameText.classList.remove('fw-semibold', 'text-dark');

@@ -1055,7 +1055,7 @@ def export_excel(request):
         # Cell styling
         # Client Name
         c1 = ws.cell(row=row_idx, column=1)
-        if item.is_red_client or current_status == 'finished' or item.status == 'finished':
+        if item.is_red_client or current_status in ('finished', 'no_data') or item.status in ('finished', 'no_data'):
             c1.font = Font(name="Calibri", size=11, color="DC3545", bold=True)
         
         # Status
