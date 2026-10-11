@@ -30,4 +30,6 @@ urlpatterns = [
     path('statuses/<str:key>/delete/', views.status_delete, name='status_delete'),
     path('statuses/reset/', views.status_reset_defaults, name='status_reset_defaults'),
     path('statuses/list/', views.status_list_api, name='status_list_api'),
+    path('api/whatsapp/webhook/', views.whatsapp_webhook, name='whatsapp_webhook'),
+    path('api/whatsapp/test/', views.whatsapp_test_api, name='whatsapp_test_api'),
 ]

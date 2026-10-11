@@ -3,7 +3,11 @@ from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.db.models import Sum, Q
 from django.contrib import messages
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 from datetime import date, datetime
+import json
+import requests
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 
@@ -1207,3 +1211,235 @@ def import_excel(request):
             messages.error(request, f"Failed to import Excel: {str(e)}")
 
     return redirect('tracker:dashboard')
+
+
+# ==========================================
+# WHATSAPP CLOUD API INTEGRATION & WEBHOOK
+# ==========================================
+
+def send_whatsapp_reply(phone_number_id, recipient_phone, message_text, access_token):
+    """Send WhatsApp reply back to user via Meta Graph API"""
+    try:
+        url = f"https://graph.facebook.com/v20.0/{phone_number_id}/messages"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": recipient_phone,
+            "type": "text",
+            "text": {"body": message_text}
+        }
+        resp = requests.post(url, json=payload, headers=headers, timeout=10)
+        return resp.status_code == 200
+    except Exception as e:
+        print(f"Error sending WhatsApp reply: {e}")
+        return False
+
+
+def process_whatsapp_command(text):
+    """
+    Parse and execute WhatsApp text commands to update client remarks/details.
+    Supported formats:
+      - Client Name : Remarks text
+      - Client Name - Remarks text
+      - Client Name : milestone : Milestone text
+      - Client Name : status : working / finished / no_data
+      - help / list
+    """
+    clean_text = text.strip()
+    lower_text = clean_text.lower()
+
+    if lower_text in ['help', 'hi', 'hello', 'start', '?']:
+        return (
+            "📱 *Process Dashboard WhatsApp Bot*\n\n"
+            "Aap in formats me message bhej sakte hain:\n\n"
+            "1️⃣ *Remarks update karne ke liye:*\n"
+            "👉 `Client Name : Remarks text`\n"
+            "Example: `Ananta jewels : Casting ready, stone pending`\n\n"
+            "2️⃣ *Milestone update karne ke liye:*\n"
+            "👉 `Client Name : milestone : New milestone`\n\n"
+            "3️⃣ *Status update karne ke liye:*\n"
+            "👉 `Client Name : status : working / finished`\n\n"
+            "4️⃣ *Clients ki list dekhne ke liye:*\n"
+            "👉 `list`"
+        )
+
+    if lower_text == 'list':
+        items = ProcessItem.objects.filter(is_hidden=False).order_by('order_index', 'client_name')[:15]
+        if not items.exists():
+            return "Dashboard me koi client nahi mila."
+        lines = ["📋 *Active Clients (Top 15):*"]
+        for idx, it in enumerate(items, 1):
+            lines.append(f"{idx}. {it.client_name}")
+        lines.append("\nRemark update karne ke liye type karein:\n`Client Name : Remarks`")
+        return "\n".join(lines)
+
+    # Determine delimiter: ':' or '-' or '='
+    delim = None
+    if ':' in clean_text:
+        delim = ':'
+    elif '-' in clean_text:
+        delim = '-'
+    elif '=' in clean_text:
+        delim = '='
+
+    if not delim:
+        return (
+            "⚠️ Format samajh nahi aaya.\n\n"
+            "Remarks update karne ke liye is format me bhejein:\n"
+            "`Client Name : Remarks text`\n\n"
+            "Example:\n`Ananta jewels : Casting work in progress`\n\n"
+            "Madad ke liye `help` type karein."
+        )
+
+    parts = clean_text.split(delim, 1)
+    client_query = parts[0].strip()
+    content_part = parts[1].strip()
+
+    if not client_query or not content_part:
+        return "⚠️ Client name ya remarks text missing hai. Example: `Ananta jewels : Stone ready`"
+
+    # Check for sub-commands in content_part: "milestone : ..." or "status : ..."
+    field_to_update = 'notes'
+    field_display_name = 'Process Notes / Remarks'
+    new_value = content_part
+
+    if ':' in content_part:
+        sub_parts = content_part.split(':', 1)
+        sub_cmd = sub_parts[0].strip().lower()
+        sub_val = sub_parts[1].strip()
+        if sub_cmd in ['milestone', 'history', 'history_milestone']:
+            field_to_update = 'history_milestone'
+            field_display_name = 'History / Milestone'
+            new_value = sub_val
+        elif sub_cmd in ['status', 'st']:
+            field_to_update = 'status'
+            field_display_name = 'Status'
+            new_value = sub_val.lower().replace(' ', '_')
+
+    # Find matching client
+    # 1. Exact match (case-insensitive)
+    items = ProcessItem.objects.filter(client_name__iexact=client_query)
+    
+    # 2. Contains match
+    if not items.exists():
+        items = ProcessItem.objects.filter(client_name__icontains=client_query)
+
+    # 3. Clean word match
+    if not items.exists() and len(client_query.split()) > 1:
+        first_word = client_query.split()[0].strip()
+        if len(first_word) >= 3:
+            items = ProcessItem.objects.filter(client_name__icontains=first_word)
+
+    if not items.exists():
+        return (
+            f"❌ Client *\"{client_query}\"* dashboard me nahi mila.\n"
+            "Kripya spelling check karein ya `list` type karke clients dekhein."
+        )
+
+    if items.count() > 1:
+        # Check if one is exact match ignoring case and extra spaces
+        exact_match = [it for it in items if it.client_name.strip().lower() == client_query.lower()]
+        if len(exact_match) == 1:
+            target_item = exact_match[0]
+        else:
+            names = ", ".join([f"'{it.client_name}'" for it in items[:4]])
+            return f"⚠️ Ek se zyada clients match huye: {names}.\nKripya pura aur exact naam likhein."
+    else:
+        target_item = items.first()
+
+    # Apply Update
+    old_value = getattr(target_item, field_to_update, '')
+    setattr(target_item, field_to_update, new_value)
+    if field_to_update == 'status':
+        target_item.is_status_manual = True
+    target_item.save()
+
+    # Log in ProcessItemHistory
+    ProcessItemHistory.objects.create(
+        item=target_item,
+        action_type='updated',
+        summary=f'{field_display_name} updated via WhatsApp',
+        changes=[{
+            'field': field_display_name,
+            'old': str(old_value),
+            'new': str(new_value)
+        }]
+    )
+
+    return (
+        f"✅ *{target_item.client_name}* update ho gaya!\n\n"
+        f"📝 *{field_display_name}:*\n{new_value}\n\n"
+        f"🕒 _Updated at {timezone.localtime(timezone.now()).strftime('%d/%m/%Y %I:%M %p')}_"
+    )
+
+
+@csrf_exempt
+def whatsapp_webhook(request):
+    """
+    Meta WhatsApp Cloud API Webhook endpoint:
+    - GET: Webhook verification challenge
+    - POST: Incoming WhatsApp message
+    """
+    verify_token = getattr(settings, 'WHATSAPP_VERIFY_TOKEN', 'dashboard_wa_token_8264')
+
+    if request.method == 'GET':
+        mode = request.GET.get('hub.mode')
+        token = request.GET.get('hub.verify_token')
+        challenge = request.GET.get('hub.challenge')
+
+        if mode == 'subscribe' and token == verify_token:
+            return HttpResponse(challenge, status=200)
+        return HttpResponse('Verification token mismatch', status=403)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body.decode('utf-8'))
+        except Exception:
+            return HttpResponse('Invalid JSON', status=400)
+
+        entries = data.get('entry', [])
+        for entry in entries:
+            for change in entry.get('changes', []):
+                value = change.get('value', {})
+                messages_list = value.get('messages', [])
+                metadata = value.get('metadata', {})
+                phone_number_id = metadata.get('phone_number_id')
+
+                for msg in messages_list:
+                    if msg.get('type') != 'text':
+                        continue
+
+                    sender = msg.get('from')  # Sender's WhatsApp number
+                    text = msg.get('text', {}).get('body', '').strip()
+
+                    reply_text = process_whatsapp_command(text)
+
+                    access_token = getattr(settings, 'WHATSAPP_ACCESS_TOKEN', '')
+                    active_phone_id = getattr(settings, 'WHATSAPP_PHONE_NUMBER_ID', '') or phone_number_id
+
+                    if access_token and active_phone_id and sender:
+                        send_whatsapp_reply(active_phone_id, sender, reply_text, access_token)
+
+        return HttpResponse('EVENT_RECEIVED', status=200)
+
+    return HttpResponse('Method not allowed', status=405)
+
+
+def whatsapp_test_api(request):
+    """Test endpoint to simulate WhatsApp text commands directly in browser / Postman"""
+    msg = request.GET.get('msg', '').strip()
+    if not msg:
+        return JsonResponse({
+            'success': False,
+            'message': 'Please provide ?msg=Client Name : Remark text in the URL'
+        })
+
+    reply = process_whatsapp_command(msg)
+    return JsonResponse({
+        'success': True,
+        'input_message': msg,
+        'reply': reply
+    })
