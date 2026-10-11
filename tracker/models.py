@@ -120,6 +120,49 @@ class ProcessItem(models.Model):
                 return f"#LOT={parts[0].strip()}, ITEM {parts[1].strip()}"
         return val
 
+    @property
+    def undiscussed_problems_count(self):
+        """
+        Calculates undiscussed rows in the party's 'Problems' tab.
+        Searches all tables in tabs titled 'Problems' (case-insensitive).
+        If a column contains 'discuss' or 'status' or is a checkbox,
+        checks if the cell is 'no', 'false', '0', '', 'pending', or unchecked.
+        If no such column exists, all rows are treated as open problems.
+        """
+        problems_tab = self.custom_tabs.filter(title__iexact='problems').first()
+        if not problems_tab:
+            return 0
+
+        count = 0
+        for table in problems_tab.custom_tables.all():
+            cols = table.columns or []
+            rows = table.rows or []
+            
+            # Find discussed / done column index if exists
+            disc_idx = -1
+            for idx, c in enumerate(cols):
+                c_name = c.get('name', '') if isinstance(c, dict) else str(c)
+                if 'discuss' in c_name.lower() or 'done' in c_name.lower():
+                    disc_idx = idx
+                    break
+
+            for row in rows:
+                if not isinstance(row, list) or len(row) == 0:
+                    continue
+                # If row is entirely empty, skip it
+                if not any(str(cell).strip() for cell in row):
+                    continue
+
+                if disc_idx != -1 and disc_idx < len(row):
+                    val = str(row[disc_idx]).strip().lower()
+                    if val in ['no', 'false', '0', '', 'pending', 'undiscussed', 'none']:
+                        count += 1
+                else:
+                    # No discussed column, count every non-empty row
+                    count += 1
+
+        return count
+
 
 class ProcessItemHistory(models.Model):
     item = models.ForeignKey(ProcessItem, on_delete=models.CASCADE, related_name='history_logs')
@@ -436,5 +479,46 @@ class PartyCustomTable(models.Model):
 
     def __str__(self):
         return f"{self.tab.title} - {self.title}"
+
+    @property
+    def parsed_columns(self):
+        """
+        Returns list of dicts with standardized structure:
+        [{'name': 'Col Name', 'type': 'text|date|checkbox'}]
+        """
+        cols = self.columns or []
+        res = []
+        for i, c in enumerate(cols):
+            if isinstance(c, dict):
+                col_name = str(c.get('name', '')).strip() or f"Col {i+1}"
+                col_type = str(c.get('type', 'text')).strip().lower()
+                if col_type not in ['text', 'date', 'checkbox']:
+                    col_type = 'text'
+                res.append({'name': col_name, 'type': col_type})
+            else:
+                res.append({'name': str(c), 'type': 'text'})
+        return res
+
+    @property
+    def structured_rows(self):
+        """
+        Pairs each cell in row with its column definition:
+        returns list of rows, each row is a list of {'val': cell_val, 'col': col_def, 'col_idx': idx}
+        """
+        cols = self.parsed_columns
+        result = []
+        for row in self.rows or []:
+            if not isinstance(row, list):
+                continue
+            cells = []
+            for idx, col in enumerate(cols):
+                val = row[idx] if idx < len(row) else ''
+                cells.append({
+                    'val': val,
+                    'col': col,
+                    'col_idx': idx
+                })
+            result.append(cells)
+        return result
 
 

@@ -231,6 +231,49 @@
         color: #dc2626;
     }
 
+    /* Expand remarks button */
+    .btn-expand-remarks {
+        opacity: 0.2;
+        transition: opacity 0.15s ease, color 0.15s ease;
+        padding: 2px 5px;
+        border: none;
+        background: transparent;
+        color: #0d6efd;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
+    .table-data-cell:hover .btn-expand-remarks {
+        opacity: 0.9;
+    }
+
+    .btn-expand-remarks:hover {
+        background-color: #eff6ff;
+        opacity: 1;
+        color: #0b5ed7;
+    }
+
+    /* Checkbox cell */
+    .table-checkbox-input {
+        width: 19px;
+        height: 19px;
+        cursor: pointer;
+        accent-color: #10b981;
+    }
+
+    /* Column Type Pill */
+    .col-type-pill {
+        font-size: 0.65rem;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .col-type-text { background-color: #e2e8f0; color: #475569; }
+    .col-type-date { background-color: #e0e7ff; color: #4338ca; }
+    .col-type-checkbox { background-color: #d1fae5; color: #065f46; }
+
     /* Color picker circles */
     .color-preset-circle {
         width: 26px;
@@ -426,10 +469,13 @@
                             <thead>
                                 <tr class="table-columns-header-row">
                                     <th style="width: 45px;" class="text-center">#</th>
-                                    {% for col in table.columns %}
-                                    <th class="table-column-header position-relative" data-col-idx="{{ forloop.counter0 }}">
+                                    {% for col in table.parsed_columns %}
+                                    <th class="table-column-header position-relative" data-col-idx="{{ forloop.counter0 }}" data-col-type="{{ col.type }}">
                                         <div class="d-flex align-items-center justify-content-between gap-1">
-                                            <span class="column-header-text" contenteditable="true" onblur="onColumnHeaderEdited('{{ table.id }}')" title="Click to rename header">{{ col }}</span>
+                                            <div class="d-flex align-items-center gap-1 overflow-hidden">
+                                                <span class="column-header-text" contenteditable="true" onblur="onColumnHeaderEdited('{{ table.id }}')" title="Click to rename header">{{ col.name }}</span>
+                                                <span class="col-type-pill col-type-{{ col.type }}" title="Format: {{ col.type }}">{{ col.type }}</span>
+                                            </div>
                                             <button type="button" class="btn-row-action" onclick="deleteColumnFromTable('{{ table.id }}', {{ forloop.counter0 }})" title="Delete Column">
                                                 <i class="bi bi-x-circle"></i>
                                             </button>
@@ -440,12 +486,27 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for row in table.rows %}
+                                {% for row in table.structured_rows %}
                                 <tr class="table-data-row">
                                     <td class="text-center text-muted small row-num-cell">{{ forloop.counter }}</td>
                                     {% for cell in row %}
-                                    <td class="table-data-cell" data-col-idx="{{ forloop.counter0 }}">
-                                        <input type="text" class="table-cell-input" value="{{ cell }}" placeholder="Enter data..." onchange="markTableDirty('{{ table.id }}')">
+                                    <td class="table-data-cell" data-col-idx="{{ cell.col_idx }}" data-col-type="{{ cell.col.type }}">
+                                        {% if cell.col.type == 'checkbox' %}
+                                            <div class="d-flex align-items-center justify-content-center">
+                                                <input type="checkbox" class="table-checkbox-input" {% if cell.val|lower in 'true,yes,1,checked' %}checked{% endif %} onchange="onCheckboxCellChange(this, '{{ table.id }}')">
+                                            </div>
+                                        {% elif cell.col.type == 'date' %}
+                                            <div class="d-flex align-items-center gap-1">
+                                                <input type="date" class="table-cell-input py-1" value="{{ cell.val }}" onchange="markTableDirty('{{ table.id }}')">
+                                            </div>
+                                        {% else %}
+                                            <div class="d-flex align-items-center gap-1">
+                                                <input type="text" class="table-cell-input" value="{{ cell.val }}" placeholder="Enter data..." onchange="markTableDirty('{{ table.id }}')" title="Double click to open large editor">
+                                                <button type="button" class="btn-expand-remarks" onclick="openRemarksEditor(this, '{{ table.id }}')" title="Open large editor for remarks / text">
+                                                    <i class="bi bi-arrows-angle-expand"></i>
+                                                </button>
+                                            </div>
+                                        {% endif %}
                                     </td>
                                     {% endfor %}
                                     <td class="text-center">
@@ -655,6 +716,68 @@
             <div class="modal-footer bg-light">
                 <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary fw-semibold" id="btnSubmitCreateTable">Create Table</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LARGE REMARKS / TEXT EDITOR MODAL -->
+<div class="modal fade" id="remarksEditorModal" tabindex="-1" aria-labelledby="remarksEditorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="remarksEditorModalLabel">
+                    <i class="bi bi-textarea-resize text-primary me-2"></i>Cell / Remarks Editor
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small mb-2">Edit multiline remarks, notes, or detailed issue descriptions comfortably:</p>
+                <textarea id="modalRemarksTextarea" class="form-control" rows="10" placeholder="Type detailed remarks or notes here..." style="font-size: 0.95rem; line-height: 1.6; border-radius: 8px;"></textarea>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary fw-semibold px-4" id="btnSaveRemarksModal">
+                    <i class="bi bi-check2 me-1"></i> Apply & Update Cell
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ADD COLUMN WITH FORMAT TYPE MODAL -->
+<div class="modal fade" id="addColumnModal" tabindex="-1" aria-labelledby="addColumnModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="addColumnModalLabel">
+                    <i class="bi bi-layout-three-columns text-primary me-2"></i>Add New Column
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="addColumnTargetTableId">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Column Header Name</label>
+                    <input type="text" class="form-control" id="newColumnNameInput" placeholder="e.g. Remarks, Due Date, Discussed..." required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Format / Data Type</label>
+                    <select class="form-select" id="newColumnTypeSelect">
+                        <option value="text" selected>Text / Remarks (With Large Popup Editor)</option>
+                        <option value="date">Date (Calendar Picker)</option>
+                        <option value="checkbox">Checkbox (Yes / No / Done)</option>
+                    </select>
+                    <div class="form-text small text-muted">
+                        - <strong>Text</strong>: Standard input with expand modal for long text.<br>
+                        - <strong>Date</strong>: HTML5 calendar date picker.<br>
+                        - <strong>Checkbox</strong>: Clickable toggle box.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary fw-semibold" id="btnSubmitAddColumn">Add Column</button>
             </div>
         </div>
     </div>
@@ -1048,11 +1171,37 @@
 
         let cellsHtml = `<td class="text-center text-muted small row-num-cell">${newRowNum}</td>`;
         for (let i = 0; i < colCount; i++) {
-            cellsHtml += `
-                <td class="table-data-cell" data-col-idx="${i}">
-                    <input type="text" class="table-cell-input" value="" placeholder="Enter data..." onchange="markTableDirty('${tableId}')">
-                </td>
-            `;
+            const colHeader = colHeaders[i];
+            const colType = colHeader ? (colHeader.getAttribute('data-col-type') || 'text') : 'text';
+
+            if (colType === 'checkbox') {
+                cellsHtml += `
+                    <td class="table-data-cell" data-col-idx="${i}" data-col-type="checkbox">
+                        <div class="d-flex align-items-center justify-content-center">
+                            <input type="checkbox" class="table-checkbox-input" onchange="onCheckboxCellChange(this, '${tableId}')">
+                        </div>
+                    </td>
+                `;
+            } else if (colType === 'date') {
+                cellsHtml += `
+                    <td class="table-data-cell" data-col-idx="${i}" data-col-type="date">
+                        <div class="d-flex align-items-center gap-1">
+                            <input type="date" class="table-cell-input py-1" value="" onchange="markTableDirty('${tableId}')">
+                        </div>
+                    </td>
+                `;
+            } else {
+                cellsHtml += `
+                    <td class="table-data-cell" data-col-idx="${i}" data-col-type="text">
+                        <div class="d-flex align-items-center gap-1">
+                            <input type="text" class="table-cell-input" value="" placeholder="Enter data..." onchange="markTableDirty('${tableId}')" title="Double click to open large editor">
+                            <button type="button" class="btn-expand-remarks" onclick="openRemarksEditor(this, '${tableId}')" title="Open large editor for remarks / text">
+                                <i class="bi bi-arrows-angle-expand"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+            }
         }
         cellsHtml += `
             <td class="text-center">
@@ -1066,7 +1215,7 @@
         tbody.appendChild(tr);
 
         // Focus first cell of new row
-        const firstInput = tr.querySelector('.table-cell-input');
+        const firstInput = tr.querySelector('.table-cell-input, .table-checkbox-input');
         if (firstInput) firstInput.focus();
 
         markTableDirty(tableId);
@@ -1105,43 +1254,169 @@
         });
     }
 
-    function addColumnToTable(tableId) {
-        const newColName = prompt("Enter new column header name:", "New Column");
-        if (!newColName) return;
+    // Modal instances
+    const addColumnModalEl = document.getElementById('addColumnModal');
+    const addColumnModal = addColumnModalEl ? new bootstrap.Modal(addColumnModalEl) : null;
 
-        const table = document.getElementById(`gridTable-${tableId}`);
-        if (!table) return;
+    const remarksEditorModalEl = document.getElementById('remarksEditorModal');
+    const remarksEditorModal = remarksEditorModalEl ? new bootstrap.Modal(remarksEditorModalEl) : null;
 
-        const theadRow = table.querySelector('thead tr');
-        const actionTh = theadRow.querySelector('th:last-child');
-        const currentCols = theadRow.querySelectorAll('th.table-column-header');
-        const newColIdx = currentCols.length;
+    let activeRemarksInput = null;
+    let activeRemarksTableId = null;
 
-        // Create new TH
-        const newTh = document.createElement('th');
-        newTh.className = 'table-column-header position-relative';
-        newTh.setAttribute('data-col-idx', newColIdx);
-        newTh.innerHTML = `
-            <div class="d-flex align-items-center justify-content-between gap-1">
-                <span class="column-header-text" contenteditable="true" onblur="onColumnHeaderEdited('${tableId}')" title="Click to rename header">${escapeHtml(newColName)}</span>
-                <button type="button" class="btn-row-action" onclick="deleteColumnFromTable('${tableId}', ${newColIdx})" title="Delete Column">
-                    <i class="bi bi-x-circle"></i>
-                </button>
-            </div>
-        `;
-        theadRow.insertBefore(newTh, actionTh);
+    // 1. OPEN LARGE REMARKS EDITOR
+    window.openRemarksEditor = function(elemOrInput, tableId) {
+        let input = null;
+        if (elemOrInput.tagName === 'INPUT' || elemOrInput.tagName === 'TEXTAREA') {
+            input = elemOrInput;
+        } else {
+            const cell = elemOrInput.closest('.table-data-cell');
+            if (cell) {
+                input = cell.querySelector('.table-cell-input');
+            }
+        }
+        if (!input) return;
 
-        // Add TD to each row in tbody
-        table.querySelectorAll('tbody tr.table-data-row').forEach(tr => {
-            const rowActionTd = tr.querySelector('td:last-child');
-            const newTd = document.createElement('td');
-            newTd.className = 'table-data-cell';
-            newTd.setAttribute('data-col-idx', newColIdx);
-            newTd.innerHTML = `<input type="text" class="table-cell-input" value="" placeholder="Enter data..." onchange="markTableDirty('${tableId}')">`;
-            tr.insertBefore(newTd, rowActionTd);
+        activeRemarksInput = input;
+        activeRemarksTableId = tableId;
+
+        const modalTextarea = document.getElementById('modalRemarksTextarea');
+        if (modalTextarea) {
+            modalTextarea.value = input.value || '';
+        }
+
+        if (remarksEditorModal) {
+            remarksEditorModal.show();
+            setTimeout(() => {
+                if (modalTextarea) {
+                    modalTextarea.focus();
+                    modalTextarea.setSelectionRange(modalTextarea.value.length, modalTextarea.value.length);
+                }
+            }, 300);
+        }
+    };
+
+    // Double-click on text cell input opens remarks editor
+    document.addEventListener('dblclick', function(e) {
+        const input = e.target.closest('.table-data-cell[data-col-type="text"] .table-cell-input');
+        if (input) {
+            const card = input.closest('.party-table-card');
+            const tableId = card ? card.getAttribute('data-table-id') : null;
+            openRemarksEditor(input, tableId);
+        }
+    });
+
+    const btnSaveRemarksModal = document.getElementById('btnSaveRemarksModal');
+    if (btnSaveRemarksModal) {
+        btnSaveRemarksModal.addEventListener('click', function() {
+            const modalTextarea = document.getElementById('modalRemarksTextarea');
+            if (activeRemarksInput && modalTextarea) {
+                activeRemarksInput.value = modalTextarea.value;
+                if (activeRemarksTableId) {
+                    markTableDirty(activeRemarksTableId);
+                }
+            }
+            if (remarksEditorModal) {
+                remarksEditorModal.hide();
+            }
         });
+    }
 
+    // Checkbox change handler
+    window.onCheckboxCellChange = function(chk, tableId) {
         markTableDirty(tableId);
+    };
+
+    // 2. ADD COLUMN MODAL & LOGIC
+    window.addColumnToTable = function(tableId) {
+        document.getElementById('addColumnTargetTableId').value = tableId;
+        const nameInput = document.getElementById('newColumnNameInput');
+        const typeSelect = document.getElementById('newColumnTypeSelect');
+        if (nameInput) nameInput.value = '';
+        if (typeSelect) typeSelect.value = 'text';
+
+        if (addColumnModal) {
+            addColumnModal.show();
+            setTimeout(() => { if (nameInput) nameInput.focus(); }, 300);
+        }
+    };
+
+    const btnSubmitAddColumn = document.getElementById('btnSubmitAddColumn');
+    if (btnSubmitAddColumn) {
+        btnSubmitAddColumn.addEventListener('click', function() {
+            const tableId = document.getElementById('addColumnTargetTableId').value;
+            const nameInput = document.getElementById('newColumnNameInput');
+            const typeSelect = document.getElementById('newColumnTypeSelect');
+            const colName = (nameInput?.value || '').trim();
+            const colType = typeSelect?.value || 'text';
+
+            if (!colName) {
+                alert('Please enter a column header name!');
+                return;
+            }
+
+            const table = document.getElementById(`gridTable-${tableId}`);
+            if (!table) return;
+
+            const theadRow = table.querySelector('thead tr');
+            const actionTh = theadRow.querySelector('th:last-child');
+            const currentCols = theadRow.querySelectorAll('th.table-column-header');
+            const newColIdx = currentCols.length;
+
+            // Create new TH
+            const newTh = document.createElement('th');
+            newTh.className = 'table-column-header position-relative';
+            newTh.setAttribute('data-col-idx', newColIdx);
+            newTh.setAttribute('data-col-type', colType);
+            newTh.innerHTML = `
+                <div class="d-flex align-items-center justify-content-between gap-1">
+                    <div class="d-flex align-items-center gap-1 overflow-hidden">
+                        <span class="column-header-text" contenteditable="true" onblur="onColumnHeaderEdited('${tableId}')" title="Click to rename header">${escapeHtml(colName)}</span>
+                        <span class="col-type-pill col-type-${colType}" title="Format: ${colType}">${colType}</span>
+                    </div>
+                    <button type="button" class="btn-row-action" onclick="deleteColumnFromTable('${tableId}', ${newColIdx})" title="Delete Column">
+                        <i class="bi bi-x-circle"></i>
+                    </button>
+                </div>
+            `;
+            theadRow.insertBefore(newTh, actionTh);
+
+            // Add TD to each row in tbody based on colType
+            table.querySelectorAll('tbody tr.table-data-row').forEach(tr => {
+                const rowActionTd = tr.querySelector('td:last-child');
+                const newTd = document.createElement('td');
+                newTd.className = 'table-data-cell';
+                newTd.setAttribute('data-col-idx', newColIdx);
+                newTd.setAttribute('data-col-type', colType);
+
+                if (colType === 'checkbox') {
+                    newTd.innerHTML = `
+                        <div class="d-flex align-items-center justify-content-center">
+                            <input type="checkbox" class="table-checkbox-input" onchange="onCheckboxCellChange(this, '${tableId}')">
+                        </div>
+                    `;
+                } else if (colType === 'date') {
+                    newTd.innerHTML = `
+                        <div class="d-flex align-items-center gap-1">
+                            <input type="date" class="table-cell-input py-1" value="" onchange="markTableDirty('${tableId}')">
+                        </div>
+                    `;
+                } else {
+                    newTd.innerHTML = `
+                        <div class="d-flex align-items-center gap-1">
+                            <input type="text" class="table-cell-input" value="" placeholder="Enter data..." onchange="markTableDirty('${tableId}')" title="Double click to open large editor">
+                            <button type="button" class="btn-expand-remarks" onclick="openRemarksEditor(this, '${tableId}')" title="Open large editor for remarks / text">
+                                <i class="bi bi-arrows-angle-expand"></i>
+                            </button>
+                        </div>
+                    `;
+                }
+                tr.insertBefore(newTd, rowActionTd);
+            });
+
+            if (addColumnModal) addColumnModal.hide();
+            markTableDirty(tableId);
+        });
     }
 
     function deleteColumnFromTable(tableId, colIdx) {
@@ -1198,6 +1473,7 @@
         }
     }
 
+    // 3. SAVE TABLE CHANGES (Persisting Column Types + Values)
     function saveTableChanges(tableId) {
         const card = document.getElementById(`tableCard-${tableId}`);
         const table = document.getElementById(`gridTable-${tableId}`);
@@ -1207,18 +1483,30 @@
         const titleEl = document.getElementById(`tableTitleDisplay-${tableId}`);
         const title = titleEl ? titleEl.textContent.trim() : 'Table';
 
-        // Extract columns
+        // Extract columns definitions with format types
         const columns = [];
-        table.querySelectorAll('thead th.table-column-header .column-header-text').forEach(thText => {
-            columns.push(thText.textContent.trim());
+        table.querySelectorAll('thead th.table-column-header').forEach(th => {
+            const name = th.querySelector('.column-header-text')?.textContent.trim() || 'Column';
+            const type = th.getAttribute('data-col-type') || 'text';
+            columns.push({
+                name: name,
+                type: type
+            });
         });
 
         // Extract rows
         const rows = [];
         table.querySelectorAll('tbody tr.table-data-row').forEach(tr => {
             const rowValues = [];
-            tr.querySelectorAll('td.table-data-cell .table-cell-input').forEach(input => {
-                rowValues.push(input.value);
+            tr.querySelectorAll('td.table-data-cell').forEach(td => {
+                const type = td.getAttribute('data-col-type') || 'text';
+                if (type === 'checkbox') {
+                    const chk = td.querySelector('.table-checkbox-input');
+                    rowValues.push(chk && chk.checked ? 'Yes' : 'No');
+                } else {
+                    const input = td.querySelector('.table-cell-input');
+                    rowValues.push(input ? input.value : '');
+                }
             });
             rows.push(rowValues);
         });

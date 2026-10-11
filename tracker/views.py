@@ -1384,8 +1384,18 @@ def party_table_save(request, tab_id):
         if not isinstance(columns, list) or len(columns) == 0:
             columns = ['Column 1', 'Column 2', 'Column 3']
 
-        # Clean columns strings
-        cleaned_columns = [str(c).strip() if str(c).strip() else f"Col {i+1}" for i, c in enumerate(columns)]
+        # Clean columns: each column can be a string name or a dict {'name': '...', 'type': 'text|date|checkbox'}
+        cleaned_columns = []
+        for i, c in enumerate(columns):
+            if isinstance(c, dict):
+                col_name = str(c.get('name', '')).strip() or f"Col {i+1}"
+                col_type = str(c.get('type', 'text')).strip().lower()
+                if col_type not in ['text', 'date', 'checkbox']:
+                    col_type = 'text'
+                cleaned_columns.append({'name': col_name, 'type': col_type})
+            else:
+                col_name = str(c).strip() if str(c).strip() else f"Col {i+1}"
+                cleaned_columns.append(col_name)
 
         # Clean rows
         cleaned_rows = []
