@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from datetime import date, datetime
+import os
 import json
 import urllib.request
 import urllib.error
