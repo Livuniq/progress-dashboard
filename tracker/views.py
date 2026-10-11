@@ -1418,6 +1418,30 @@ def party_table_save(request, tab_id):
             table.rows = cleaned_rows
             table.save()
             action = 'updated'
+
+            # User requirement: If same TAB and same Table name exists across parties,
+            # sync columns header/type/order changes to all of them!
+            matching_tabs = PartyCustomTab.objects.filter(title__iexact=tab.title).exclude(id=tab.id)
+            for m_tab in matching_tabs:
+                m_table = m_tab.custom_tables.filter(title__iexact=title).first()
+                if m_table:
+                    # Update column definitions
+                    m_table.columns = cleaned_columns
+                    # Ensure each existing row matches new column count
+                    synced_rows = []
+                    for m_r in m_table.rows or []:
+                        if isinstance(m_r, list):
+                            new_r = []
+                            for c_idx, c_def in enumerate(cleaned_columns):
+                                if c_idx < len(m_r):
+                                    new_r.append(m_r[c_idx])
+                                else:
+                                    # New padded cell
+                                    is_chk = isinstance(c_def, dict) and c_def.get('type') == 'checkbox'
+                                    new_r.append('No' if is_chk else '')
+                            synced_rows.append(new_r)
+                    m_table.rows = synced_rows
+                    m_table.save()
         else:
             max_order = tab.custom_tables.count()
             table = PartyCustomTable.objects.create(

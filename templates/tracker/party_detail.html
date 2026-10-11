@@ -261,18 +261,59 @@
         accent-color: #10b981;
     }
 
-    /* Column Type Pill */
-    .col-type-pill {
-        font-size: 0.65rem;
-        padding: 1px 5px;
-        border-radius: 4px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
+    /* Resizable Columns & Drag-and-Drop Headers */
+    .custom-grid-table th.table-column-header {
+        position: relative;
+        user-select: none;
     }
-    .col-type-text { background-color: #e2e8f0; color: #475569; }
-    .col-type-date { background-color: #e0e7ff; color: #4338ca; }
-    .col-type-checkbox { background-color: #d1fae5; color: #065f46; }
+
+    .col-resizer {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 6px;
+        cursor: col-resize;
+        user-select: none;
+        height: 100%;
+        z-index: 5;
+    }
+    .col-resizer:hover, .col-resizer.is-resizing {
+        background-color: #3b82f6;
+    }
+
+    .col-drag-handle {
+        cursor: grab;
+        color: #94a3b8;
+        font-size: 0.8rem;
+        margin-right: 3px;
+        opacity: 0.4;
+        transition: opacity 0.15s ease;
+    }
+    .table-column-header:hover .col-drag-handle {
+        opacity: 1;
+    }
+    .table-column-header.is-col-dragging {
+        opacity: 0.4;
+        background-color: #e2e8f0;
+    }
+    .table-column-header.col-drag-over {
+        border-left: 3px solid #0d6efd !important;
+        background-color: #eff6ff !important;
+    }
+
+    /* Column format icon */
+    .col-format-icon {
+        font-size: 0.8rem;
+        color: #64748b;
+        cursor: pointer;
+        padding: 2px 4px;
+        border-radius: 4px;
+        transition: all 0.15s ease;
+    }
+    .col-format-icon:hover {
+        background-color: #e2e8f0;
+        color: #0f172a;
+    }
 
     /* Color picker circles */
     .color-preset-circle {
@@ -470,16 +511,36 @@
                                 <tr class="table-columns-header-row">
                                     <th style="width: 45px;" class="text-center">#</th>
                                     {% for col in table.parsed_columns %}
-                                    <th class="table-column-header position-relative" data-col-idx="{{ forloop.counter0 }}" data-col-type="{{ col.type }}">
+                                    <th class="table-column-header position-relative" data-col-idx="{{ forloop.counter0 }}" data-col-type="{{ col.type }}" draggable="false">
                                         <div class="d-flex align-items-center justify-content-between gap-1">
-                                            <div class="d-flex align-items-center gap-1 overflow-hidden">
-                                                <span class="column-header-text" contenteditable="true" onblur="onColumnHeaderEdited('{{ table.id }}')" title="Click to rename header">{{ col.name }}</span>
-                                                <span class="col-type-pill col-type-{{ col.type }}" title="Format: {{ col.type }}">{{ col.type }}</span>
+                                            <div class="d-flex align-items-center gap-1 overflow-hidden flex-grow-1">
+                                                <i class="bi bi-grip-vertical col-drag-handle" title="Drag to reorder column"></i>
+                                                <span class="column-header-text flex-grow-1" contenteditable="true" onblur="onColumnHeaderEdited('{{ table.id }}')" title="Click to rename header">{{ col.name }}</span>
                                             </div>
-                                            <button type="button" class="btn-row-action" onclick="deleteColumnFromTable('{{ table.id }}', {{ forloop.counter0 }})" title="Delete Column">
-                                                <i class="bi bi-x-circle"></i>
-                                            </button>
+                                            <div class="d-flex align-items-center gap-1">
+                                                <div class="dropdown">
+                                                    <span class="col-format-icon" data-bs-toggle="dropdown" title="Change column format (Current: {{ col.type }})">
+                                                        {% if col.type == 'checkbox' %}
+                                                            <i class="bi bi-check-square text-success"></i>
+                                                        {% elif col.type == 'date' %}
+                                                            <i class="bi bi-calendar3 text-primary"></i>
+                                                        {% else %}
+                                                            <i class="bi bi-fonts text-secondary"></i>
+                                                        {% endif %}
+                                                    </span>
+                                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-1" style="font-size: 0.82rem; min-width: 140px;">
+                                                        <li><h6 class="dropdown-header py-1 text-muted small">Change Format</h6></li>
+                                                        <li><button class="dropdown-item d-flex align-items-center gap-2 py-1 {% if col.type == 'text' %}active{% endif %}" type="button" onclick="changeColumnType('{{ table.id }}', {{ forloop.counter0 }}, 'text')"><i class="bi bi-fonts"></i> Text</button></li>
+                                                        <li><button class="dropdown-item d-flex align-items-center gap-2 py-1 {% if col.type == 'date' %}active{% endif %}" type="button" onclick="changeColumnType('{{ table.id }}', {{ forloop.counter0 }}, 'date')"><i class="bi bi-calendar3 text-primary"></i> Date</button></li>
+                                                        <li><button class="dropdown-item d-flex align-items-center gap-2 py-1 {% if col.type == 'checkbox' %}active{% endif %}" type="button" onclick="changeColumnType('{{ table.id }}', {{ forloop.counter0 }}, 'checkbox')"><i class="bi bi-check-square text-success"></i> Checkbox</button></li>
+                                                    </ul>
+                                                </div>
+                                                <button type="button" class="btn-row-action" onclick="deleteColumnFromTable('{{ table.id }}', {{ forloop.counter0 }})" title="Delete Column">
+                                                    <i class="bi bi-x-circle"></i>
+                                                </button>
+                                            </div>
                                         </div>
+                                        <div class="col-resizer"></div>
                                     </th>
                                     {% endfor %}
                                     <th style="width: 50px;" class="text-center">Action</th>
@@ -1327,7 +1388,84 @@
         markTableDirty(tableId);
     };
 
-    // 2. ADD COLUMN MODAL & LOGIC
+    // 2. CHANGE COLUMN FORMAT DYNAMICALLY
+    window.changeColumnType = function(tableId, colIdx, newType) {
+        const table = document.getElementById(`gridTable-${tableId}`);
+        if (!table) return;
+
+        const th = table.querySelector(`thead th.table-column-header[data-col-idx="${colIdx}"]`);
+        if (!th) return;
+
+        th.setAttribute('data-col-type', newType);
+        
+        // Update format icon in TH dropdown
+        const iconContainer = th.querySelector('.col-format-icon');
+        if (iconContainer) {
+            iconContainer.setAttribute('title', `Change column format (Current: ${newType})`);
+            if (newType === 'checkbox') {
+                iconContainer.innerHTML = '<i class="bi bi-check-square text-success"></i>';
+            } else if (newType === 'date') {
+                iconContainer.innerHTML = '<i class="bi bi-calendar3 text-primary"></i>';
+            } else {
+                iconContainer.innerHTML = '<i class="bi bi-fonts text-secondary"></i>';
+            }
+        }
+
+        // Update active class in dropdown items
+        th.querySelectorAll('.dropdown-item').forEach(item => {
+            if (item.getAttribute('onclick')?.includes(`'${newType}'`)) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+
+        // Convert each cell in tbody for this column
+        table.querySelectorAll('tbody tr.table-data-row').forEach(tr => {
+            const td = tr.querySelectorAll('td.table-data-cell')[colIdx];
+            if (!td) return;
+
+            td.setAttribute('data-col-type', newType);
+
+            // Extract current value
+            let currentVal = '';
+            const existingInput = td.querySelector('.table-cell-input');
+            const existingChk = td.querySelector('.table-checkbox-input');
+            if (existingChk) {
+                currentVal = existingChk.checked ? 'Yes' : 'No';
+            } else if (existingInput) {
+                currentVal = existingInput.value;
+            }
+
+            if (newType === 'checkbox') {
+                const isChecked = ['yes', 'true', '1', 'checked'].includes(currentVal.toLowerCase().trim());
+                td.innerHTML = `
+                    <div class="d-flex align-items-center justify-content-center">
+                        <input type="checkbox" class="table-checkbox-input" ${isChecked ? 'checked' : ''} onchange="onCheckboxCellChange(this, '${tableId}')">
+                    </div>
+                `;
+            } else if (newType === 'date') {
+                td.innerHTML = `
+                    <div class="d-flex align-items-center gap-1">
+                        <input type="date" class="table-cell-input py-1" value="${escapeHtml(currentVal)}" onchange="markTableDirty('${tableId}')">
+                    </div>
+                `;
+            } else {
+                td.innerHTML = `
+                    <div class="d-flex align-items-center gap-1">
+                        <input type="text" class="table-cell-input" value="${escapeHtml(currentVal)}" placeholder="Enter data..." onchange="markTableDirty('${tableId}')" title="Double click to open large editor">
+                        <button type="button" class="btn-expand-remarks" onclick="openRemarksEditor(this, '${tableId}')" title="Open large editor for remarks / text">
+                            <i class="bi bi-arrows-angle-expand"></i>
+                        </button>
+                    </div>
+                `;
+            }
+        });
+
+        markTableDirty(tableId);
+    };
+
+    // 3. ADD COLUMN MODAL & LOGIC
     window.addColumnToTable = function(tableId) {
         document.getElementById('addColumnTargetTableId').value = tableId;
         const nameInput = document.getElementById('newColumnNameInput');
@@ -1363,21 +1501,41 @@
             const currentCols = theadRow.querySelectorAll('th.table-column-header');
             const newColIdx = currentCols.length;
 
-            // Create new TH
+            // Format icon HTML
+            let iconHtml = '<i class="bi bi-fonts text-secondary"></i>';
+            if (colType === 'checkbox') iconHtml = '<i class="bi bi-check-square text-success"></i>';
+            else if (colType === 'date') iconHtml = '<i class="bi bi-calendar3 text-primary"></i>';
+
+            // Create new TH (NO LABELS)
             const newTh = document.createElement('th');
             newTh.className = 'table-column-header position-relative';
             newTh.setAttribute('data-col-idx', newColIdx);
             newTh.setAttribute('data-col-type', colType);
+            newTh.setAttribute('draggable', 'false');
             newTh.innerHTML = `
                 <div class="d-flex align-items-center justify-content-between gap-1">
-                    <div class="d-flex align-items-center gap-1 overflow-hidden">
-                        <span class="column-header-text" contenteditable="true" onblur="onColumnHeaderEdited('${tableId}')" title="Click to rename header">${escapeHtml(colName)}</span>
-                        <span class="col-type-pill col-type-${colType}" title="Format: ${colType}">${colType}</span>
+                    <div class="d-flex align-items-center gap-1 overflow-hidden flex-grow-1">
+                        <i class="bi bi-grip-vertical col-drag-handle" title="Drag to reorder column"></i>
+                        <span class="column-header-text flex-grow-1" contenteditable="true" onblur="onColumnHeaderEdited('${tableId}')" title="Click to rename header">${escapeHtml(colName)}</span>
                     </div>
-                    <button type="button" class="btn-row-action" onclick="deleteColumnFromTable('${tableId}', ${newColIdx})" title="Delete Column">
-                        <i class="bi bi-x-circle"></i>
-                    </button>
+                    <div class="d-flex align-items-center gap-1">
+                        <div class="dropdown">
+                            <span class="col-format-icon" data-bs-toggle="dropdown" title="Change column format (Current: ${colType})">
+                                ${iconHtml}
+                            </span>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-1" style="font-size: 0.82rem; min-width: 140px;">
+                                <li><h6 class="dropdown-header py-1 text-muted small">Change Format</h6></li>
+                                <li><button class="dropdown-item d-flex align-items-center gap-2 py-1 ${colType === 'text' ? 'active' : ''}" type="button" onclick="changeColumnType('${tableId}', ${newColIdx}, 'text')"><i class="bi bi-fonts"></i> Text</button></li>
+                                <li><button class="dropdown-item d-flex align-items-center gap-2 py-1 ${colType === 'date' ? 'active' : ''}" type="button" onclick="changeColumnType('${tableId}', ${newColIdx}, 'date')"><i class="bi bi-calendar3 text-primary"></i> Date</button></li>
+                                <li><button class="dropdown-item d-flex align-items-center gap-2 py-1 ${colType === 'checkbox' ? 'active' : ''}" type="button" onclick="changeColumnType('${tableId}', ${newColIdx}, 'checkbox')"><i class="bi bi-check-square text-success"></i> Checkbox</button></li>
+                            </ul>
+                        </div>
+                        <button type="button" class="btn-row-action" onclick="deleteColumnFromTable('${tableId}', ${newColIdx})" title="Delete Column">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                    </div>
                 </div>
+                <div class="col-resizer"></div>
             `;
             theadRow.insertBefore(newTh, actionTh);
 
@@ -1414,6 +1572,9 @@
                 tr.insertBefore(newTd, rowActionTd);
             });
 
+            // Re-bind listeners for resizing and drag-reorder
+            bindColumnInteractions(table);
+
             if (addColumnModal) addColumnModal.hide();
             markTableDirty(tableId);
         });
@@ -1443,21 +1604,164 @@
             });
 
             // Re-index remaining TH and TD
-            table.querySelectorAll('thead th.table-column-header').forEach((th, idx) => {
-                th.setAttribute('data-col-idx', idx);
-                const delBtn = th.querySelector('.btn-row-action');
-                if (delBtn) delBtn.setAttribute('onclick', `deleteColumnFromTable('${tableId}', ${idx})`);
-            });
-
-            table.querySelectorAll('tbody tr.table-data-row').forEach(tr => {
-                tr.querySelectorAll('td.table-data-cell').forEach((td, idx) => {
-                    td.setAttribute('data-col-idx', idx);
-                });
-            });
-
+            reindexTableColumns(table, tableId);
             markTableDirty(tableId);
         }
     }
+
+    function reindexTableColumns(table, tableId) {
+        table.querySelectorAll('thead th.table-column-header').forEach((th, idx) => {
+            th.setAttribute('data-col-idx', idx);
+            const delBtn = th.querySelector('.btn-row-action');
+            if (delBtn) delBtn.setAttribute('onclick', `deleteColumnFromTable('${tableId}', ${idx})`);
+
+            th.querySelectorAll('.dropdown-item').forEach(btn => {
+                const typeMatch = btn.getAttribute('onclick')?.match(/,\s*'([^']+)'\)/);
+                if (typeMatch) {
+                    btn.setAttribute('onclick', `changeColumnType('${tableId}', ${idx}, '${typeMatch[1]}')`);
+                }
+            });
+        });
+
+        table.querySelectorAll('tbody tr.table-data-row').forEach(tr => {
+            tr.querySelectorAll('td.table-data-cell').forEach((td, idx) => {
+                td.setAttribute('data-col-idx', idx);
+            });
+        });
+    }
+
+    // 4. COLUMN DRAG-AND-DROP REORDERING
+    function reorderColumns(table, fromIdx, toIdx) {
+        if (fromIdx === toIdx) return;
+        const theadRow = table.querySelector('thead tr');
+        const ths = Array.from(theadRow.querySelectorAll('th.table-column-header'));
+        const sourceTh = ths[fromIdx];
+        const targetTh = ths[toIdx];
+        if (!sourceTh || !targetTh) return;
+
+        if (fromIdx < toIdx) {
+            targetTh.after(sourceTh);
+        } else {
+            targetTh.before(sourceTh);
+        }
+
+        // Reorder corresponding td in each row
+        table.querySelectorAll('tbody tr.table-data-row').forEach(tr => {
+            const tds = Array.from(tr.querySelectorAll('td.table-data-cell'));
+            const sourceTd = tds[fromIdx];
+            const targetTd = tds[toIdx];
+            if (sourceTd && targetTd) {
+                if (fromIdx < toIdx) {
+                    targetTd.after(sourceTd);
+                } else {
+                    targetTd.before(sourceTd);
+                }
+            }
+        });
+
+        const card = table.closest('.party-table-card');
+        const tableId = card ? card.getAttribute('data-table-id') : null;
+        if (tableId) {
+            reindexTableColumns(table, tableId);
+            markTableDirty(tableId);
+        }
+    }
+
+    // 5. COLUMN RESIZING (Mouse drag on right edge)
+    function setupColumnResizing(table) {
+        table.querySelectorAll('thead th.table-column-header').forEach(th => {
+            const resizer = th.querySelector('.col-resizer');
+            if (!resizer || resizer._hasResizeEvent) return;
+            resizer._hasResizeEvent = true;
+
+            let startX = 0;
+            let startWidth = 0;
+
+            const onMouseMove = function(e) {
+                const diff = e.pageX - startX;
+                const newWidth = Math.max(60, startWidth + diff);
+                th.style.width = newWidth + 'px';
+                th.style.minWidth = newWidth + 'px';
+            };
+
+            const onMouseUp = function() {
+                resizer.classList.remove('is-resizing');
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            };
+
+            resizer.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                startX = e.pageX;
+                startWidth = th.offsetWidth;
+                resizer.classList.add('is-resizing');
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        });
+    }
+
+    // 6. BIND ALL COLUMN INTERACTIONS (Resize + Drag Reorder)
+    function bindColumnInteractions(table) {
+        setupColumnResizing(table);
+
+        let draggedTh = null;
+        table.querySelectorAll('thead th.table-column-header').forEach(th => {
+            const handle = th.querySelector('.col-drag-handle');
+            if (handle && !handle._hasDragEvent) {
+                handle._hasDragEvent = true;
+                handle.addEventListener('mousedown', function() {
+                    th.setAttribute('draggable', 'true');
+                });
+            }
+
+            if (!th._hasColEvents) {
+                th._hasColEvents = true;
+
+                th.addEventListener('dragstart', function(e) {
+                    draggedTh = this;
+                    this.classList.add('is-col-dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', this.getAttribute('data-col-idx'));
+                });
+
+                th.addEventListener('dragend', function() {
+                    this.classList.remove('is-col-dragging');
+                    this.setAttribute('draggable', 'false');
+                    table.querySelectorAll('thead th.table-column-header').forEach(h => h.classList.remove('col-drag-over'));
+                    draggedTh = null;
+                });
+
+                th.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (draggedTh && draggedTh !== this) {
+                        this.classList.add('col-drag-over');
+                    }
+                });
+
+                th.addEventListener('dragleave', function() {
+                    this.classList.remove('col-drag-over');
+                });
+
+                th.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    this.classList.remove('col-drag-over');
+                    if (draggedTh && draggedTh !== this) {
+                        const fromIdx = parseInt(draggedTh.getAttribute('data-col-idx'), 10);
+                        const toIdx = parseInt(this.getAttribute('data-col-idx'), 10);
+                        reorderColumns(table, fromIdx, toIdx);
+                    }
+                });
+            }
+        });
+    }
+
+    // Initialize all tables on page load
+    document.querySelectorAll('.custom-grid-table').forEach(tbl => {
+        bindColumnInteractions(tbl);
+    });
 
     function onColumnHeaderEdited(tableId) {
         markTableDirty(tableId);
@@ -1473,7 +1777,7 @@
         }
     }
 
-    // 3. SAVE TABLE CHANGES (Persisting Column Types + Values)
+    // 7. SAVE TABLE CHANGES (Persisting Column Types + Values)
     function saveTableChanges(tableId) {
         const card = document.getElementById(`tableCard-${tableId}`);
         const table = document.getElementById(`gridTable-${tableId}`);
