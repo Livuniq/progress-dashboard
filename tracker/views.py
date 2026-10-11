@@ -51,6 +51,8 @@ def dashboard(request):
     if status_filter != 'all':
         if status_filter == 'overdue':
             items = [item for item in items if item.is_overdue]
+        elif status_filter in ('finished', 'no_data'):
+            items = [item for item in items if item.dynamic_status in ('finished', 'no_data')]
         elif status_filter in status_keys:
             items = [item for item in items if item.dynamic_status == status_filter]
 
@@ -60,8 +62,10 @@ def dashboard(request):
     visible_items = [item for item in all_items if not item.is_hidden]
     total_clients = len(visible_items)
     working_count = sum(1 for item in visible_items if item.dynamic_status == 'working')
-    no_data_count = sum(1 for item in visible_items if item.dynamic_status == 'no_data')
-    finished_count = sum(1 for item in visible_items if item.dynamic_status == 'finished')
+    # Since Finished and No Data are synonymous, count them together
+    finished_no_data_count = sum(1 for item in visible_items if item.dynamic_status in ('finished', 'no_data'))
+    no_data_count = finished_no_data_count
+    finished_count = finished_no_data_count
     hold_count = sum(1 for item in visible_items if item.dynamic_status == 'hold')
     pending_count = sum(1 for item in visible_items if item.dynamic_status == 'pending')
     

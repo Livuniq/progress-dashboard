@@ -1623,6 +1623,9 @@
                     matchesMetric = isOverdue;
                 } else if (activeMetricFilter === 'pending_units') {
                     matchesMetric = (dynamicStatus === 'pending') || (pendingUnits > 0);
+                } else if (activeMetricFilter === 'finished' || activeMetricFilter === 'no_data') {
+                    // Finished and No Data are synonymous: show clients with finished or no_data
+                    matchesMetric = (dynamicStatus === 'finished' || dynamicStatus === 'no_data');
                 } else {
                     matchesMetric = (dynamicStatus === activeMetricFilter);
                 }
@@ -1642,7 +1645,7 @@
             if (activeMetricFilter && activeMetricFilter !== 'all') {
                 badge.classList.remove('d-none');
                 let displayLabel = activeMetricFilter;
-                if (activeMetricFilter === 'no_data') displayLabel = 'No Data';
+                if (activeMetricFilter === 'no_data' || activeMetricFilter === 'finished') displayLabel = 'No Data / Finished';
                 else if (activeMetricFilter === 'pending_units') displayLabel = 'Pending';
                 else displayLabel = activeMetricFilter.charAt(0).toUpperCase() + activeMetricFilter.slice(1);
                 label.textContent = displayLabel;
@@ -1651,9 +1654,12 @@
             }
         }
 
-        // Highlight active stat card
+        // Highlight active stat card(s)
         document.querySelectorAll('.stat-card[data-metric-filter]').forEach(card => {
-            if (card.getAttribute('data-metric-filter') === activeMetricFilter && activeMetricFilter !== 'all') {
+            const cardFilter = card.getAttribute('data-metric-filter');
+            const isMatch = (cardFilter === activeMetricFilter && activeMetricFilter !== 'all') ||
+                            ((activeMetricFilter === 'finished' || activeMetricFilter === 'no_data') && (cardFilter === 'finished' || cardFilter === 'no_data'));
+            if (isMatch) {
                 card.classList.add('active-metric-filter');
             } else {
                 card.classList.remove('active-metric-filter');
@@ -2206,11 +2212,11 @@
                 } else if (isPassed && !isExempted) {
                     dynamicOverdueCount++;
                     dynamicFinishedCount++;
+                    dynamicNoDataCount++;
                 } else if (dynamicStatus === 'working') {
                     dynamicWorkingCount++;
-                } else if (dynamicStatus === 'no_data') {
+                } else if (dynamicStatus === 'no_data' || dynamicStatus === 'finished') {
                     dynamicNoDataCount++;
-                } else if (dynamicStatus === 'finished') {
                     dynamicFinishedCount++;
                 }
             }
