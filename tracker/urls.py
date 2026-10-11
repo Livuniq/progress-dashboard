@@ -8,6 +8,7 @@ urlpatterns = [
     path('item/create/', views.item_create, name='item_create'),
     path('item/<int:pk>/update/', views.item_update, name='item_update'),
     path('item/<int:pk>/json/', views.item_get_json, name='item_get_json'),
+    path('item/<int:pk>/history/', views.item_history_json, name='item_history_json'),
     path('item/<int:pk>/status/', views.item_quick_status, name='item_quick_status'),
     path('item/<int:pk>/priority/', views.item_toggle_priority, name='item_toggle_priority'),
     path('item/<int:pk>/inline-update/', views.item_inline_update, name='item_inline_update'),
