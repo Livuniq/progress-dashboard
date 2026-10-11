@@ -566,7 +566,7 @@
 </div>
 {% endblock %}
 
-{% block extra_scripts %}
+{% block extra_js %}
 <script>
     const PARTY_ITEM_ID = {{ item.id }};
 
@@ -603,6 +603,35 @@
 
     setupColorPresets('newTabColorPresets', 'newTabColorHexInput');
     setupColorPresets('editTabColorPresets', 'editTabColorHexInput');
+
+    // Robust Tab Switching
+    document.addEventListener('click', function(e) {
+        const tabBtn = e.target.closest('.party-tab-btn');
+        if (!tabBtn) return;
+        // If clicking the three-dots button or inside its dropdown, don't switch tab
+        if (e.target.closest('.tab-actions-dropdown-btn') || e.target.closest('.dropdown-menu')) {
+            return;
+        }
+
+        e.preventDefault();
+        const targetSelector = tabBtn.getAttribute('href') || tabBtn.getAttribute('data-bs-target');
+        if (!targetSelector) return;
+
+        const targetPane = document.querySelector(targetSelector);
+        if (!targetPane) return;
+
+        // Deactivate all tab buttons
+        document.querySelectorAll('.party-tab-btn').forEach(btn => btn.classList.remove('active'));
+        // Activate clicked tab button
+        tabBtn.classList.add('active');
+
+        // Deactivate all tab panes
+        document.querySelectorAll('#partyTabContentPanes .tab-pane').forEach(pane => {
+            pane.classList.remove('show', 'active');
+        });
+        // Activate target pane
+        targetPane.classList.add('show', 'active');
+    });
 
     // 1. CREATE NEW TAB
     const btnSubmitCreateTab = document.getElementById('btnSubmitCreateTab');
