@@ -368,7 +368,7 @@
                     <span class="badge bg-secondary-subtle text-secondary rounded-pill ms-1" id="hiddenCountBadge">{{ hidden_count }}</span>
                 </button>
                 <span class="text-muted small d-none d-sm-inline">
-                    Showing <strong>{{ items|length }}</strong> client accounts
+                    Showing <strong id="showingClientsCount">{{ visible_count }}</strong> client accounts
                 </span>
             </div>
             <div class="d-flex align-items-center gap-2">
@@ -447,7 +447,7 @@
                     </td>
                     {% for col in ordered_columns %}
                         {% if col.key == 'col_counter' %}
-                            <td class="text-muted small fw-medium">{{ forloop.parentloop.counter }}</td>
+                            <td class="text-muted small fw-medium row-counter-num">{{ forloop.parentloop.counter }}</td>
                         {% elif col.key == 'client_name' %}
                             <td class="client-name-cell">
                                 <div class="d-inline-flex align-items-center flex-wrap gap-1">
@@ -1594,6 +1594,39 @@
         });
     }
 
+    // Visible Client Count and Sequential Row Counter updater
+    window.updateVisibleClientCount = function() {
+        const tableContainer = document.getElementById('tableCustomContainer');
+        const isShowHiddenMode = tableContainer && tableContainer.classList.contains('show-hidden-mode');
+        const allRows = document.querySelectorAll('.process-row');
+        let visibleCount = 0;
+
+        allRows.forEach(row => {
+            const isHiddenRow = row.classList.contains('is-hidden-row');
+            const isFilteredOut = row.style.display === 'none';
+
+            let isRowVisible = false;
+            if (!isFilteredOut) {
+                if (!isHiddenRow || isShowHiddenMode) {
+                    isRowVisible = true;
+                }
+            }
+
+            if (isRowVisible) {
+                visibleCount++;
+                const counterCell = row.querySelector('.row-counter-num');
+                if (counterCell) {
+                    counterCell.textContent = visibleCount;
+                }
+            }
+        });
+
+        const showingCountEl = document.getElementById('showingClientsCount');
+        if (showingCountEl) {
+            showingCountEl.textContent = visibleCount;
+        }
+    };
+
     // Live Search Filter
     const liveSearchInput = document.getElementById('liveSearchInput');
     const rows = document.querySelectorAll('.process-row');
@@ -1609,8 +1642,12 @@
                     row.style.display = 'none';
                 }
             });
+            window.updateVisibleClientCount();
         });
     }
+
+    // Run on initial page load
+    window.updateVisibleClientCount();
 
     // Modal Edit loader
     const editModal = new bootstrap.Modal(document.getElementById('editModal'));
@@ -3074,6 +3111,9 @@
                         const totalHidden = document.querySelectorAll('.process-row.is-hidden-row').length;
                         hiddenCountBadge.textContent = totalHidden;
                     }
+                    if (window.updateVisibleClientCount) {
+                        window.updateVisibleClientCount();
+                    }
                 }
             })
             .catch(err => {
@@ -3099,6 +3139,10 @@
                 if (icon) icon.className = 'bi bi-eye-slash text-secondary me-1';
                 if (label) label.textContent = 'Show Hidden';
                 toggleShowHiddenBtn.classList.remove('btn-primary-subtle', 'border-primary');
+            }
+
+            if (window.updateVisibleClientCount) {
+                window.updateVisibleClientCount();
             }
         });
     }
