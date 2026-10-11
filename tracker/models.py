@@ -394,3 +394,47 @@ class StatusOption(models.Model):
                 }
             )
 
+
+class PartyCustomTab(models.Model):
+    """
+    Customizable tabs for a party / client.
+    Users can add, remove, rename tabs, and customize badge / accent color.
+    """
+    item = models.ForeignKey(ProcessItem, on_delete=models.CASCADE, related_name='custom_tabs')
+    title = models.CharField(max_length=120, default='Tab 1', verbose_name="Tab Title")
+    color = models.CharField(max_length=30, default='#3b82f6', verbose_name="Tab Accent Color")
+    order_index = models.IntegerField(default=1, verbose_name="Tab Order")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order_index', 'id']
+        verbose_name = "Party Custom Tab"
+        verbose_name_plural = "Party Custom Tabs"
+
+    def __str__(self):
+        return f"{self.item.client_name} - {self.title}"
+
+
+class PartyCustomTable(models.Model):
+    """
+    Custom user-created table inside a Party Tab.
+    Contains customizable headers/columns and rows data.
+    """
+    tab = models.ForeignKey(PartyCustomTab, on_delete=models.CASCADE, related_name='custom_tables')
+    title = models.CharField(max_length=150, default='Table 1', verbose_name="Table Title")
+    columns = models.JSONField(default=list, blank=True, verbose_name="Columns / Headers list")
+    rows = models.JSONField(default=list, blank=True, verbose_name="Rows Data")
+    order_index = models.IntegerField(default=1, verbose_name="Table Order")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order_index', 'id']
+        verbose_name = "Party Custom Table"
+        verbose_name_plural = "Party Custom Tables"
+
+    def __str__(self):
+        return f"{self.tab.title} - {self.title}"
+
+

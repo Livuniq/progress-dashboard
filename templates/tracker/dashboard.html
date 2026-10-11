@@ -217,6 +217,15 @@
         border-radius: 10px;
         border-left: 4px solid #0d6efd !important;
     }
+    .client-name-link {
+        color: inherit;
+        display: inline-block;
+        transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+    .client-name-link:hover .client-name-text {
+        text-decoration: underline !important;
+        opacity: 0.85;
+    }
 </style>
 {% endblock %}
 
@@ -458,9 +467,11 @@
                         {% elif col.key == 'client_name' %}
                             <td class="client-name-cell">
                                 <div class="d-inline-flex align-items-center flex-wrap gap-1">
-                                    <span class="client-name-text {% if item.is_red_client or item.dynamic_status in 'finished,no_data' or item.status in 'finished,no_data' %}client-red{% else %}fw-semibold text-dark{% endif %}" data-is-red="{{ item.is_red_client|yesno:'true,false' }}">
-                                        {{ item.client_name }}
-                                    </span>
+                                    <a href="{% url 'tracker:party_detail' item.id %}" class="client-name-link text-decoration-none" title="Click to open {{ item.client_name }} details & custom tabs">
+                                        <span class="client-name-text {% if item.is_red_client or item.dynamic_status in 'finished,no_data' or item.status in 'finished,no_data' %}client-red{% else %}fw-semibold text-dark{% endif %}" data-is-red="{{ item.is_red_client|yesno:'true,false' }}">
+                                            {{ item.client_name }}
+                                        </span>
+                                    </a>
                                     {% if item.is_hidden %}
                                     <span class="badge-hidden" title="Hidden from standard view">
                                         <i class="bi bi-eye-slash me-1"></i>Hidden
@@ -583,6 +594,9 @@
                         {% elif col.key == 'actions' %}
                             <td class="text-center text-nowrap">
                                 <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'tracker:party_detail' item.id %}" class="btn btn-light text-primary py-0 px-2" title="Open Custom Tabs & Tables">
+                                        <i class="bi bi-folder2-open"></i>
+                                    </a>
                                     <button class="btn btn-light text-secondary py-0 px-2 btn-history" data-id="{{ item.id }}" title="View Edit History">
                                         <i class="bi bi-clock-history"></i>
                                     </button>
@@ -1469,7 +1483,10 @@
             <i class="bi bi-circle-fill text-success fs-6"></i>
             <span class="fw-bold" id="contextMenuPriorityText">Set Priority (Green Dot)</span>
         </button>
-        <hr class="dropdown-divider my-1">
+        <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-primary fw-semibold" id="contextMenuPartyDetailBtn">
+            <i class="bi bi-folder2-open"></i>
+            <span>Open Custom Tabs & Tables</span>
+        </button>
         <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-primary" id="contextMenuEditBtn">
             <i class="bi bi-pencil-square"></i>
             <span>Edit Process Item</span>
@@ -3221,6 +3238,20 @@
                 const targetRow = currentTargetRow;
                 closeRowContextMenu();
                 toggleRowPriority(targetRow);
+            }
+        });
+    }
+
+    const partyDetailBtnEl = document.getElementById('contextMenuPartyDetailBtn');
+    if (partyDetailBtnEl) {
+        partyDetailBtnEl.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (currentTargetRow) {
+                const itemId = currentTargetRow.getAttribute('data-id');
+                closeRowContextMenu();
+                if (itemId) {
+                    window.location.href = `/party/${itemId}/`;
+                }
             }
         });
     }

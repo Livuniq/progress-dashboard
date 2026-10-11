@@ -11,7 +11,10 @@ import json
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 
-from .models import ProcessItem, ProcessItemHistory, TableColumnConfig, StatusColorConfig, StatusOption
+from .models import (
+    ProcessItem, ProcessItemHistory, TableColumnConfig, StatusColorConfig,
+    StatusOption, PartyCustomTab, PartyCustomTable
+)
 from .forms import ProcessItemForm
 
 TRACKED_FIELDS = [
@@ -1211,5 +1214,226 @@ def import_excel(request):
             messages.error(request, f"Failed to import Excel: {str(e)}")
 
     return redirect('tracker:dashboard')
+
+
+# ==========================================
+# PARTY DETAIL & CUSTOM TABS / TABLES SYSTEM
+# ==========================================
+
+def party_detail(request, pk):
+    """
+    Detailed page for a specific Party / Client.
+    Displays customizable tabs (default: Tab 1, Tab 2, Tab 3).
+    Each tab can hold customizable tables with dynamic headers and rows.
+    """
+    item = get_object_or_404(ProcessItem, pk=pk)
+
+    # Initialize default 3 tabs if none exist
+    if not item.custom_tabs.exists():
+        default_tabs = [
+            {'title': 'Tab 1', 'color': '#3b82f6', 'order_index': 1},
+            {'title': 'Tab 2', 'color': '#10b981', 'order_index': 2},
+            {'title': 'Tab 3', 'color': '#8b5cf6', 'order_index': 3},
+        ]
+        created_tabs = []
+        for t_info in default_tabs:
+            tab_obj = PartyCustomTab.objects.create(
+                item=item,
+                title=t_info['title'],
+                color=t_info['color'],
+                order_index=t_info['order_index']
+            )
+            created_tabs.append(tab_obj)
+
+        # Create a sample default table in Tab 1 for immediate user friendliness
+        if created_tabs:
+            PartyCustomTable.objects.create(
+                tab=created_tabs[0],
+                title="Overview & Specifications",
+                columns=["Item Code", "Description", "Qty", "Remarks"],
+                rows=[
+                    ["#A-101", "Ring Sample 14k White Gold", "25", "Ready for approval"],
+                    ["#B-202", "Pendant 18k Rose Gold", "50", "In polishing"]
+                ],
+                order_index=1
+            )
+
+    tabs = item.custom_tabs.prefetch_related('custom_tables').order_by('order_index', 'id')
+    today = timezone.localdate() if hasattr(timezone, 'localdate') else date.today()
+
+    return render(request, 'tracker/party_detail.html', {
+        'item': item,
+        'tabs': tabs,
+        'today': today,
+    })
+
+
+@csrf_exempt
+def party_tab_create(request, pk):
+    """Create a new tab for this party"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+    item = get_object_or_404(ProcessItem, pk=pk)
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+        title = data.get('title', '').strip() or f"Tab {item.custom_tabs.count() + 1}"
+        color = data.get('color', '').strip() or '#3b82f6'
+
+        max_order = item.custom_tabs.count()
+        tab = PartyCustomTab.objects.create(
+            item=item,
+            title=title,
+            color=color,
+            order_index=max_order + 1
+        )
+        return JsonResponse({
+            'success': True,
+            'tab': {
+                'id': tab.id,
+                'title': tab.title,
+                'color': tab.color,
+                'order_index': tab.order_index,
+                'tables_count': 0
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def party_tab_update(request, tab_id):
+    """Update tab title or color pattern"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+    tab = get_object_or_404(PartyCustomTab, pk=tab_id)
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+        if 'title' in data and data['title'].strip():
+            tab.title = data['title'].strip()
+        if 'color' in data and data['color'].strip():
+            tab.color = data['color'].strip()
+        if 'order_index' in data:
+            try:
+                tab.order_index = int(data['order_index'])
+            except (ValueError, TypeError):
+                pass
+        tab.save()
+        return JsonResponse({
+            'success': True,
+            'tab': {
+                'id': tab.id,
+                'title': tab.title,
+                'color': tab.color,
+                'order_index': tab.order_index
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def party_tab_delete(request, tab_id):
+    """Delete a custom tab and its tables"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+    tab = get_object_or_404(PartyCustomTab, pk=tab_id)
+    try:
+        tab_title = tab.title
+        tab.delete()
+        return JsonResponse({'success': True, 'message': f'Tab "{tab_title}" deleted successfully'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def party_table_save(request, tab_id):
+    """
+    Create or update a custom table within a tab.
+    Payload:
+      - table_id (optional, if updating existing table)
+      - title
+      - columns (array of string header names, e.g. ["Col 1", "Col 2"])
+      - rows (array of arrays containing cell strings)
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+    tab = get_object_or_404(PartyCustomTab, pk=tab_id)
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+        table_id = data.get('table_id')
+        title = data.get('title', '').strip() or 'Custom Table'
+        columns = data.get('columns', [])
+        rows = data.get('rows', [])
+
+        # Validate columns
+        if not isinstance(columns, list) or len(columns) == 0:
+            columns = ['Column 1', 'Column 2', 'Column 3']
+
+        # Clean columns strings
+        cleaned_columns = [str(c).strip() if str(c).strip() else f"Col {i+1}" for i, c in enumerate(columns)]
+
+        # Clean rows
+        cleaned_rows = []
+        if isinstance(rows, list):
+            for row in rows:
+                if isinstance(row, list):
+                    # Pad or truncate to match columns length
+                    cleaned_row = []
+                    for c_idx in range(len(cleaned_columns)):
+                        val = row[c_idx] if c_idx < len(row) else ''
+                        cleaned_row.append(str(val))
+                    cleaned_rows.append(cleaned_row)
+
+        if table_id:
+            table = get_object_or_404(PartyCustomTable, pk=table_id, tab=tab)
+            table.title = title
+            table.columns = cleaned_columns
+            table.rows = cleaned_rows
+            table.save()
+            action = 'updated'
+        else:
+            max_order = tab.custom_tables.count()
+            table = PartyCustomTable.objects.create(
+                tab=tab,
+                title=title,
+                columns=cleaned_columns,
+                rows=cleaned_rows,
+                order_index=max_order + 1
+            )
+            action = 'created'
+
+        return JsonResponse({
+            'success': True,
+            'action': action,
+            'table': {
+                'id': table.id,
+                'title': table.title,
+                'columns': table.columns,
+                'rows': table.rows,
+                'order_index': table.order_index
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def party_table_delete(request, table_id):
+    """Delete a table inside a tab"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+    table = get_object_or_404(PartyCustomTable, pk=table_id)
+    try:
+        title = table.title
+        table.delete()
+        return JsonResponse({'success': True, 'message': f'Table "{title}" deleted successfully'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
 
 

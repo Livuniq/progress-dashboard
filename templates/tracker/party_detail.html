@@ -1,0 +1,1055 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ item.client_name }} - Party Details & Custom Workspaces{% endblock %}
+
+{% block extra_head %}
+<style>
+    .party-header-card {
+        background: #ffffff;
+        border: 1px solid var(--card-border);
+        border-radius: 14px;
+        padding: 20px 24px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+    }
+
+    .party-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+        color: #0f172a;
+    }
+
+    /* Custom Navigation Tabs Bar */
+    .party-tabs-nav {
+        border-bottom: 2px solid #e2e8f0;
+        gap: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 4px;
+    }
+
+    .party-tab-btn {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px 10px 0 0;
+        padding: 8px 18px;
+        font-weight: 600;
+        font-size: 0.92rem;
+        color: #475569;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.15s ease-in-out;
+        position: relative;
+        text-decoration: none;
+        user-select: none;
+    }
+
+    .party-tab-btn:hover {
+        background: #ffffff;
+        color: #0f172a;
+        border-color: #94a3b8;
+    }
+
+    .party-tab-btn.active {
+        background: #ffffff;
+        color: #0f172a;
+        border-color: #0d6efd #0d6efd transparent #0d6efd;
+        border-bottom: 3px solid #0d6efd;
+        box-shadow: 0 -2px 6px rgba(0,0,0,0.03);
+    }
+
+    .tab-color-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        flex-shrink: 0;
+        box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+    }
+
+    .tab-actions-dropdown-btn {
+        padding: 0 4px;
+        border: none;
+        background: transparent;
+        color: #64748b;
+        font-size: 0.85rem;
+        border-radius: 4px;
+        opacity: 0.6;
+        transition: opacity 0.15s ease;
+    }
+
+    .party-tab-btn:hover .tab-actions-dropdown-btn,
+    .party-tab-btn.active .tab-actions-dropdown-btn {
+        opacity: 1;
+    }
+
+    .tab-actions-dropdown-btn:hover {
+        background-color: rgba(0,0,0,0.08);
+        color: #0f172a;
+    }
+
+    .btn-add-tab {
+        border-radius: 8px;
+        font-size: 0.84rem;
+        font-weight: 600;
+        padding: 6px 14px;
+    }
+
+    /* Table Container inside Tabs */
+    .party-table-card {
+        background: #ffffff;
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        margin-bottom: 24px;
+        overflow: hidden;
+    }
+
+    .party-table-header {
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 12px 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .party-table-title {
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: #1e293b;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .custom-grid-table {
+        margin-bottom: 0;
+        width: 100%;
+        font-size: 0.88rem;
+    }
+
+    .custom-grid-table th {
+        background: #f1f5f9;
+        color: #334155;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.76rem;
+        letter-spacing: 0.4px;
+        padding: 10px 14px;
+        border-bottom: 2px solid #cbd5e1;
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+
+    .custom-grid-table td {
+        padding: 8px 12px;
+        vertical-align: middle;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .custom-grid-table tr:hover td {
+        background-color: #f8fafc;
+    }
+
+    .table-cell-input {
+        width: 100%;
+        border: 1px solid transparent;
+        background: transparent;
+        padding: 4px 6px;
+        border-radius: 4px;
+        font-size: 0.88rem;
+        color: #1e293b;
+        transition: all 0.15s ease;
+    }
+
+    .table-cell-input:hover {
+        background-color: #ffffff;
+        border-color: #cbd5e1;
+    }
+
+    .table-cell-input:focus {
+        background-color: #ffffff;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        outline: none;
+    }
+
+    .btn-row-action {
+        opacity: 0.3;
+        transition: opacity 0.15s ease;
+        padding: 2px 6px;
+        border: none;
+        background: transparent;
+        color: #64748b;
+        border-radius: 4px;
+    }
+
+    .custom-grid-table tr:hover .btn-row-action {
+        opacity: 1;
+    }
+
+    .btn-row-action:hover {
+        background-color: #fee2e2;
+        color: #dc2626;
+    }
+
+    /* Color picker circles */
+    .color-preset-circle {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        display: inline-block;
+        cursor: pointer;
+        border: 2px solid #ffffff;
+        box-shadow: 0 0 0 1px #cbd5e1;
+        transition: transform 0.12s ease;
+    }
+
+    .color-preset-circle:hover {
+        transform: scale(1.15);
+    }
+
+    .color-preset-circle.selected {
+        box-shadow: 0 0 0 2px #0f172a;
+    }
+
+    .empty-state-box {
+        padding: 48px 20px;
+        text-align: center;
+        background: #ffffff;
+        border: 2px dashed #cbd5e1;
+        border-radius: 14px;
+        margin: 20px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+
+    <!-- Top Breadcrumb & Return to Dashboard -->
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item">
+                    <a href="{% url 'tracker:dashboard' %}" class="text-decoration-none fw-semibold">
+                        <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+                    </a>
+                </li>
+                <li class="breadcrumb-item active text-dark fw-bold" aria-current="page">
+                    {{ item.client_name }}
+                </li>
+            </ol>
+        </nav>
+
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-light text-secondary border px-3 py-2">
+                <i class="bi bi-tag-fill me-1"></i> Status: <strong>{{ item.dynamic_status_display }}</strong>
+            </span>
+            {% if item.lot_progress %}
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2">
+                <i class="bi bi-boxes me-1"></i> {{ item.formatted_lot }}
+            </span>
+            {% endif %}
+            {% if item.target_date %}
+            <span class="badge bg-light text-dark border px-3 py-2">
+                <i class="bi bi-calendar-event me-1"></i> Target: {{ item.target_date|date:"d/m/Y" }}
+            </span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Party Header Card -->
+    <div class="party-header-card d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <h1 class="party-title mb-0">{{ item.client_name }}</h1>
+                {% if item.is_priority %}
+                <span class="priority-green-dot" title="High Priority Client" style="display:inline-block !important;"></span>
+                {% endif %}
+            </div>
+            <p class="text-muted small mb-0">
+                Party ID: <strong>#{{ item.id }}</strong> | 
+                Remarks: <span class="{% if item.notes_is_red %}text-danger fw-semibold{% else %}text-secondary{% endif %}">{{ item.notes|default:"No remarks" }}</span> | 
+                Milestone: <span class="text-secondary">{{ item.history_milestone|default:"-" }}</span>
+            </p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-outline-primary btn-sm fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#createTableModal">
+                <i class="bi bi-table me-1"></i> Create New Table
+            </button>
+            <button type="button" class="btn btn-primary btn-sm fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#createTabModal">
+                <i class="bi bi-plus-lg me-1"></i> Add New Tab
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabs Navigation Bar -->
+    <div class="party-tabs-nav" id="partyTabsContainer">
+        {% for tab in tabs %}
+        <div class="party-tab-wrapper position-relative" data-tab-id="{{ tab.id }}" data-tab-title="{{ tab.title }}" data-tab-color="{{ tab.color }}">
+            <a href="#tab-pane-{{ tab.id }}" class="party-tab-btn {% if forloop.first %}active{% endif %}" data-bs-toggle="tab" id="tab-nav-{{ tab.id }}" style="--tab-accent: {{ tab.color }}; border-top: 3px solid {{ tab.color }};">
+                <span class="tab-color-dot" style="background-color: {{ tab.color }};"></span>
+                <span class="tab-title-text">{{ tab.title }}</span>
+                <span class="badge bg-light text-secondary border small rounded-pill ms-1 tables-count-badge">{{ tab.custom_tables.count }}</span>
+
+                <!-- Dropdown Trigger for Tab Customization (Rename, Color, Delete) -->
+                <div class="dropdown d-inline-block ms-1">
+                    <button class="tab-actions-dropdown-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" onclick="event.stopPropagation();" title="Tab Options">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-2" style="border-radius: 10px; font-size: 0.88rem;">
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center gap-2 py-2" type="button" onclick="openEditTabModal('{{ tab.id }}', '{{ tab.title|escapejs }}', '{{ tab.color|escapejs }}')">
+                                <i class="bi bi-palette text-primary"></i> Customize Tab (Name & Color)
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider my-1"></li>
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" type="button" onclick="confirmDeleteTab('{{ tab.id }}', '{{ tab.title|escapejs }}')">
+                                <i class="bi bi-trash3 text-danger"></i> Remove Tab
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </a>
+        </div>
+        {% empty %}
+        <p class="text-muted small py-2 mb-0">No tabs found. Click "Add New Tab" to create one.</p>
+        {% endfor %}
+
+        <!-- Quick Add Tab Button -->
+        <button type="button" class="btn btn-outline-secondary btn-sm btn-add-tab ms-auto" data-bs-toggle="modal" data-bs-target="#createTabModal" title="Add another tab">
+            <i class="bi bi-folder-plus me-1"></i> Add Tab
+        </button>
+    </div>
+
+    <!-- Tab Contents Panes -->
+    <div class="tab-content" id="partyTabContentPanes">
+        {% for tab in tabs %}
+        <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="tab-pane-{{ tab.id }}" role="tabpanel" tabindex="0">
+            
+            <!-- Tables inside this Tab -->
+            <div class="tab-tables-wrapper" id="tablesContainer-{{ tab.id }}">
+                {% for table in tab.custom_tables.all %}
+                <div class="party-table-card" id="tableCard-{{ table.id }}" data-table-id="{{ table.id }}" data-tab-id="{{ tab.id }}">
+                    <div class="party-table-header">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-grid-3x3-gap-fill" style="color: {{ tab.color }};"></i>
+                            <h3 class="party-table-title" id="tableTitleDisplay-{{ table.id }}">{{ table.title }}</h3>
+                            <span class="badge bg-light text-muted border small">{{ table.rows|length }} rows</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-1">
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="addRowToTable('{{ table.id }}')">
+                                <i class="bi bi-plus-lg me-1"></i> Add Row
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addColumnToTable('{{ table.id }}')">
+                                <i class="bi bi-layout-three-columns me-1"></i> Add Column
+                            </button>
+                            <button type="button" class="btn btn-sm btn-primary fw-semibold" onclick="saveTableChanges('{{ table.id }}')">
+                                <i class="bi bi-check2-circle me-1"></i> Save Changes
+                            </button>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-light border text-secondary" type="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-three-dots"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                    <li>
+                                        <button class="dropdown-item" type="button" onclick="editTableTitlePrompt('{{ table.id }}')">
+                                            <i class="bi bi-pencil me-2 text-primary"></i> Rename Table
+                                        </button>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <button class="dropdown-item text-danger" type="button" onclick="confirmDeleteTable('{{ table.id }}', '{{ table.title|escapejs }}')">
+                                            <i class="bi bi-trash3 me-2 text-danger"></i> Delete Table
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered custom-grid-table" id="gridTable-{{ table.id }}">
+                            <thead>
+                                <tr class="table-columns-header-row">
+                                    <th style="width: 45px;" class="text-center">#</th>
+                                    {% for col in table.columns %}
+                                    <th class="table-column-header position-relative" data-col-idx="{{ forloop.counter0 }}">
+                                        <div class="d-flex align-items-center justify-content-between gap-1">
+                                            <span class="column-header-text" contenteditable="true" onblur="onColumnHeaderEdited('{{ table.id }}')" title="Click to rename header">{{ col }}</span>
+                                            <button type="button" class="btn-row-action" onclick="deleteColumnFromTable('{{ table.id }}', {{ forloop.counter0 }})" title="Delete Column">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
+                                        </div>
+                                    </th>
+                                    {% endfor %}
+                                    <th style="width: 50px;" class="text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in table.rows %}
+                                <tr class="table-data-row">
+                                    <td class="text-center text-muted small row-num-cell">{{ forloop.counter }}</td>
+                                    {% for cell in row %}
+                                    <td class="table-data-cell" data-col-idx="{{ forloop.counter0 }}">
+                                        <input type="text" class="table-cell-input" value="{{ cell }}" placeholder="Enter data..." onchange="markTableDirty('{{ table.id }}')">
+                                    </td>
+                                    {% endfor %}
+                                    <td class="text-center">
+                                        <button type="button" class="btn-row-action" onclick="deleteRowFromTable(this, '{{ table.id }}')" title="Delete Row">
+                                            <i class="bi bi-trash3"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr class="no-rows-placeholder">
+                                    <td colspan="20" class="text-center py-4 text-muted">
+                                        No rows in this table yet. Click <strong>"Add Row"</strong> to begin!
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state-box">
+                    <i class="bi bi-table fs-1 text-primary mb-3 d-block"></i>
+                    <h5 class="fw-bold text-dark">No Tables in {{ tab.title }}</h5>
+                    <p class="text-muted small mb-3">Create your first custom table with your choice of columns and rows.</p>
+                    <button type="button" class="btn btn-primary btn-sm fw-semibold" onclick="openCreateTableModalForTab('{{ tab.id }}')">
+                        <i class="bi bi-plus-lg me-1"></i> Create Table in this Tab
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="text-center my-3">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="openCreateTableModalForTab('{{ tab.id }}')">
+                    <i class="bi bi-plus-circle me-1"></i> Add Another Table to {{ tab.title }}
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+<!-- CREATE TAB MODAL -->
+<div class="modal fade" id="createTabModal" tabindex="-1" aria-labelledby="createTabModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="createTabModalLabel"><i class="bi bi-folder-plus text-primary me-2"></i>Add New Tab</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Tab Title / Name</label>
+                    <input type="text" class="form-control" id="newTabTitleInput" placeholder="e.g. Orders, Specifications, History..." required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Tab Accent Color Pattern</label>
+                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="newTabColorPresets">
+                        <span class="color-preset-circle selected" data-color="#3b82f6" style="background-color: #3b82f6;" title="Blue"></span>
+                        <span class="color-preset-circle" data-color="#10b981" style="background-color: #10b981;" title="Emerald Green"></span>
+                        <span class="color-preset-circle" data-color="#8b5cf6" style="background-color: #8b5cf6;" title="Purple"></span>
+                        <span class="color-preset-circle" data-color="#f59e0b" style="background-color: #f59e0b;" title="Amber / Orange"></span>
+                        <span class="color-preset-circle" data-color="#ef4444" style="background-color: #ef4444;" title="Red"></span>
+                        <span class="color-preset-circle" data-color="#06b6d4" style="background-color: #06b6d4;" title="Cyan"></span>
+                        <span class="color-preset-circle" data-color="#ec4899" style="background-color: #ec4899;" title="Pink"></span>
+                        <span class="color-preset-circle" data-color="#64748b" style="background-color: #64748b;" title="Slate Gray"></span>
+                    </div>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">Custom Hex</span>
+                        <input type="text" class="form-control" id="newTabColorHexInput" value="#3b82f6" placeholder="#3b82f6">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary fw-semibold" id="btnSubmitCreateTab">Create Tab</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT TAB MODAL (RENAME / CHANGE COLOR) -->
+<div class="modal fade" id="editTabModal" tabindex="-1" aria-labelledby="editTabModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="editTabModalLabel"><i class="bi bi-palette text-primary me-2"></i>Customize Tab</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="editTabId">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Tab Name</label>
+                    <input type="text" class="form-control" id="editTabTitleInput" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Tab Color Pattern</label>
+                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" id="editTabColorPresets">
+                        <span class="color-preset-circle" data-color="#3b82f6" style="background-color: #3b82f6;"></span>
+                        <span class="color-preset-circle" data-color="#10b981" style="background-color: #10b981;"></span>
+                        <span class="color-preset-circle" data-color="#8b5cf6" style="background-color: #8b5cf6;"></span>
+                        <span class="color-preset-circle" data-color="#f59e0b" style="background-color: #f59e0b;"></span>
+                        <span class="color-preset-circle" data-color="#ef4444" style="background-color: #ef4444;"></span>
+                        <span class="color-preset-circle" data-color="#06b6d4" style="background-color: #06b6d4;"></span>
+                        <span class="color-preset-circle" data-color="#ec4899" style="background-color: #ec4899;"></span>
+                        <span class="color-preset-circle" data-color="#64748b" style="background-color: #64748b;"></span>
+                    </div>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">Custom Hex</span>
+                        <input type="text" class="form-control" id="editTabColorHexInput">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary fw-semibold" id="btnSubmitEditTab">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CREATE TABLE MODAL -->
+<div class="modal fade" id="createTableModal" tabindex="-1" aria-labelledby="createTableModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="createTableModalLabel"><i class="bi bi-table text-primary me-2"></i>Create New Table</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Select Tab</label>
+                    <select class="form-select" id="newTableTargetTabSelect">
+                        {% for tab in tabs %}
+                        <option value="{{ tab.id }}">{{ tab.title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Table Title</label>
+                    <input type="text" class="form-control" id="newTableTitleInput" placeholder="e.g. Material Breakdown, Shipping Lots..." value="New Table">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Column Headers (Comma separated)</label>
+                    <input type="text" class="form-control" id="newTableColumnsInput" placeholder="Item Code, Description, Qty, Target, Remarks" value="Item Code, Description, Qty, Remarks">
+                    <div class="form-text">Enter column header names separated by commas. You can always add/remove more later!</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Initial Rows Count</label>
+                    <input type="number" class="form-control" id="newTableInitialRowsCount" value="3" min="1" max="50">
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary fw-semibold" id="btnSubmitCreateTable">Create Table</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const PARTY_ITEM_ID = {{ item.id }};
+
+    function getCsrfToken() {
+        const cookie = document.cookie.split('; ').find(row => row.startsWith('csrftoken='));
+        return cookie ? cookie.split('=')[1] : '';
+    }
+
+    // Color Preset Helpers
+    function setupColorPresets(containerId, inputId) {
+        const container = document.getElementById(containerId);
+        const input = document.getElementById(inputId);
+        if (!container || !input) return;
+
+        container.querySelectorAll('.color-preset-circle').forEach(circle => {
+            circle.addEventListener('click', function() {
+                container.querySelectorAll('.color-preset-circle').forEach(c => c.classList.remove('selected'));
+                this.classList.add('selected');
+                input.value = this.getAttribute('data-color');
+            });
+        });
+
+        input.addEventListener('input', function() {
+            const val = this.value.trim().toLowerCase();
+            container.querySelectorAll('.color-preset-circle').forEach(c => {
+                if (c.getAttribute('data-color').toLowerCase() === val) {
+                    c.classList.add('selected');
+                } else {
+                    c.classList.remove('selected');
+                }
+            });
+        });
+    }
+
+    setupColorPresets('newTabColorPresets', 'newTabColorHexInput');
+    setupColorPresets('editTabColorPresets', 'editTabColorHexInput');
+
+    // 1. CREATE NEW TAB
+    const btnSubmitCreateTab = document.getElementById('btnSubmitCreateTab');
+    if (btnSubmitCreateTab) {
+        btnSubmitCreateTab.addEventListener('click', function() {
+            const titleInput = document.getElementById('newTabTitleInput');
+            const colorInput = document.getElementById('newTabColorHexInput');
+            const title = (titleInput?.value || '').trim();
+            const color = (colorInput?.value || '#3b82f6').trim();
+
+            if (!title) {
+                alert('Please enter a tab title');
+                return;
+            }
+
+            btnSubmitCreateTab.disabled = true;
+            btnSubmitCreateTab.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Creating...';
+
+            fetch(`/party/${PARTY_ITEM_ID}/tabs/create/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ title: title, color: color })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error creating tab: ' + (data.error || 'Server error'));
+                    btnSubmitCreateTab.disabled = false;
+                    btnSubmitCreateTab.textContent = 'Create Tab';
+                }
+            })
+            .catch(err => {
+                alert('Network error: ' + err);
+                btnSubmitCreateTab.disabled = false;
+                btnSubmitCreateTab.textContent = 'Create Tab';
+            });
+        });
+    }
+
+    // 2. EDIT TAB MODAL
+    const editTabModalEl = document.getElementById('editTabModal');
+    const editTabModal = editTabModalEl ? new bootstrap.Modal(editTabModalEl) : null;
+
+    function openEditTabModal(tabId, title, color) {
+        document.getElementById('editTabId').value = tabId;
+        const titleInput = document.getElementById('editTabTitleInput');
+        const colorInput = document.getElementById('editTabColorHexInput');
+        if (titleInput) titleInput.value = title;
+        if (colorInput) {
+            colorInput.value = color || '#3b82f6';
+            colorInput.dispatchEvent(new Event('input'));
+        }
+        if (editTabModal) editTabModal.show();
+    }
+
+    const btnSubmitEditTab = document.getElementById('btnSubmitEditTab');
+    if (btnSubmitEditTab) {
+        btnSubmitEditTab.addEventListener('click', function() {
+            const tabId = document.getElementById('editTabId').value;
+            const title = document.getElementById('editTabTitleInput').value.trim();
+            const color = document.getElementById('editTabColorHexInput').value.trim();
+
+            if (!title) {
+                alert('Please enter a tab name');
+                return;
+            }
+
+            btnSubmitEditTab.disabled = true;
+            btnSubmitEditTab.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+
+            fetch(`/party/tabs/${tabId}/update/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ title: title, color: color })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error updating tab: ' + (data.error || 'Server error'));
+                    btnSubmitEditTab.disabled = false;
+                    btnSubmitEditTab.textContent = 'Save Changes';
+                }
+            })
+            .catch(err => {
+                alert('Network error: ' + err);
+                btnSubmitEditTab.disabled = false;
+                btnSubmitEditTab.textContent = 'Save Changes';
+            });
+        });
+    }
+
+    // 3. DELETE TAB
+    function confirmDeleteTab(tabId, title) {
+        if (confirm(`Are you sure you want to remove tab "${title}" and all its tables?`)) {
+            fetch(`/party/tabs/${tabId}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error deleting tab: ' + (data.error || 'Server error'));
+                }
+            })
+            .catch(err => alert('Network error: ' + err));
+        }
+    }
+
+    // 4. CREATE NEW TABLE IN TAB
+    const createTableModalEl = document.getElementById('createTableModal');
+    const createTableModal = createTableModalEl ? new bootstrap.Modal(createTableModalEl) : null;
+
+    function openCreateTableModalForTab(tabId) {
+        const select = document.getElementById('newTableTargetTabSelect');
+        if (select) select.value = tabId;
+        if (createTableModal) createTableModal.show();
+    }
+
+    const btnSubmitCreateTable = document.getElementById('btnSubmitCreateTable');
+    if (btnSubmitCreateTable) {
+        btnSubmitCreateTable.addEventListener('click', function() {
+            const tabId = document.getElementById('newTableTargetTabSelect').value;
+            const title = document.getElementById('newTableTitleInput').value.trim() || 'New Table';
+            const colRaw = document.getElementById('newTableColumnsInput').value.trim();
+            const rowCount = parseInt(document.getElementById('newTableInitialRowsCount').value, 10) || 2;
+
+            const cols = colRaw ? colRaw.split(',').map(s => s.trim()).filter(Boolean) : ['Column 1', 'Column 2', 'Column 3'];
+            const initialRows = [];
+            for (let r = 0; r < rowCount; r++) {
+                initialRows.push(new Array(cols.length).fill(''));
+            }
+
+            btnSubmitCreateTable.disabled = true;
+            btnSubmitCreateTable.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Creating...';
+
+            fetch(`/party/tabs/${tabId}/tables/save/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({
+                    title: title,
+                    columns: cols,
+                    rows: initialRows
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error creating table: ' + (data.error || 'Server error'));
+                    btnSubmitCreateTable.disabled = false;
+                    btnSubmitCreateTable.textContent = 'Create Table';
+                }
+            })
+            .catch(err => {
+                alert('Network error: ' + err);
+                btnSubmitCreateTable.disabled = false;
+                btnSubmitCreateTable.textContent = 'Create Table';
+            });
+        });
+    }
+
+    // 5. TABLE INTERACTIONS (Add Row, Add Column, Delete Row, Delete Column, Save)
+    function markTableDirty(tableId) {
+        const card = document.getElementById(`tableCard-${tableId}`);
+        if (card) {
+            const saveBtn = card.querySelector('button[onclick*="saveTableChanges"]');
+            if (saveBtn) {
+                saveBtn.classList.remove('btn-primary');
+                saveBtn.classList.add('btn-warning');
+                saveBtn.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i> Save Unsaved Changes';
+            }
+        }
+    }
+
+    function addRowToTable(tableId) {
+        const table = document.getElementById(`gridTable-${tableId}`);
+        if (!table) return;
+
+        const tbody = table.querySelector('tbody');
+        const placeholder = tbody.querySelector('.no-rows-placeholder');
+        if (placeholder) placeholder.remove();
+
+        const colHeaders = table.querySelectorAll('thead th.table-column-header');
+        const colCount = colHeaders.length;
+        const currentRowsCount = tbody.querySelectorAll('tr.table-data-row').length;
+        const newRowNum = currentRowsCount + 1;
+
+        const tr = document.createElement('tr');
+        tr.className = 'table-data-row';
+
+        let cellsHtml = `<td class="text-center text-muted small row-num-cell">${newRowNum}</td>`;
+        for (let i = 0; i < colCount; i++) {
+            cellsHtml += `
+                <td class="table-data-cell" data-col-idx="${i}">
+                    <input type="text" class="table-cell-input" value="" placeholder="Enter data..." onchange="markTableDirty('${tableId}')">
+                </td>
+            `;
+        }
+        cellsHtml += `
+            <td class="text-center">
+                <button type="button" class="btn-row-action" onclick="deleteRowFromTable(this, '${tableId}')" title="Delete Row">
+                    <i class="bi bi-trash3"></i>
+                </button>
+            </td>
+        `;
+
+        tr.innerHTML = cellsHtml;
+        tbody.appendChild(tr);
+
+        // Focus first cell of new row
+        const firstInput = tr.querySelector('.table-cell-input');
+        if (firstInput) firstInput.focus();
+
+        markTableDirty(tableId);
+    }
+
+    function deleteRowFromTable(btn, tableId) {
+        const tr = btn.closest('tr');
+        if (tr) {
+            tr.remove();
+            renumberRows(tableId);
+            markTableDirty(tableId);
+        }
+    }
+
+    function renumberRows(tableId) {
+        const table = document.getElementById(`gridTable-${tableId}`);
+        if (!table) return;
+        table.querySelectorAll('tbody tr.table-data-row').forEach((tr, index) => {
+            const numCell = tr.querySelector('.row-num-cell');
+            if (numCell) numCell.textContent = index + 1;
+        });
+    }
+
+    function addColumnToTable(tableId) {
+        const newColName = prompt("Enter new column header name:", "New Column");
+        if (!newColName) return;
+
+        const table = document.getElementById(`gridTable-${tableId}`);
+        if (!table) return;
+
+        const theadRow = table.querySelector('thead tr');
+        const actionTh = theadRow.querySelector('th:last-child');
+        const currentCols = theadRow.querySelectorAll('th.table-column-header');
+        const newColIdx = currentCols.length;
+
+        // Create new TH
+        const newTh = document.createElement('th');
+        newTh.className = 'table-column-header position-relative';
+        newTh.setAttribute('data-col-idx', newColIdx);
+        newTh.innerHTML = `
+            <div class="d-flex align-items-center justify-content-between gap-1">
+                <span class="column-header-text" contenteditable="true" onblur="onColumnHeaderEdited('${tableId}')" title="Click to rename header">${escapeHtml(newColName)}</span>
+                <button type="button" class="btn-row-action" onclick="deleteColumnFromTable('${tableId}', ${newColIdx})" title="Delete Column">
+                    <i class="bi bi-x-circle"></i>
+                </button>
+            </div>
+        `;
+        theadRow.insertBefore(newTh, actionTh);
+
+        // Add TD to each row in tbody
+        table.querySelectorAll('tbody tr.table-data-row').forEach(tr => {
+            const rowActionTd = tr.querySelector('td:last-child');
+            const newTd = document.createElement('td');
+            newTd.className = 'table-data-cell';
+            newTd.setAttribute('data-col-idx', newColIdx);
+            newTd.innerHTML = `<input type="text" class="table-cell-input" value="" placeholder="Enter data..." onchange="markTableDirty('${tableId}')">`;
+            tr.insertBefore(newTd, rowActionTd);
+        });
+
+        markTableDirty(tableId);
+    }
+
+    function deleteColumnFromTable(tableId, colIdx) {
+        const table = document.getElementById(`gridTable-${tableId}`);
+        if (!table) return;
+
+        const colHeaders = table.querySelectorAll('thead th.table-column-header');
+        if (colHeaders.length <= 1) {
+            alert('A table must have at least one column!');
+            return;
+        }
+
+        const colHeader = colHeaders[colIdx];
+        const colTitle = colHeader ? colHeader.querySelector('.column-header-text')?.textContent.trim() : `Column ${colIdx+1}`;
+
+        if (confirm(`Are you sure you want to delete column "${colTitle}"?`)) {
+            // Remove TH
+            if (colHeader) colHeader.remove();
+
+            // Remove TD from each row
+            table.querySelectorAll('tbody tr.table-data-row').forEach(tr => {
+                const cells = tr.querySelectorAll('td.table-data-cell');
+                if (cells[colIdx]) cells[colIdx].remove();
+            });
+
+            // Re-index remaining TH and TD
+            table.querySelectorAll('thead th.table-column-header').forEach((th, idx) => {
+                th.setAttribute('data-col-idx', idx);
+                const delBtn = th.querySelector('.btn-row-action');
+                if (delBtn) delBtn.setAttribute('onclick', `deleteColumnFromTable('${tableId}', ${idx})`);
+            });
+
+            table.querySelectorAll('tbody tr.table-data-row').forEach(tr => {
+                tr.querySelectorAll('td.table-data-cell').forEach((td, idx) => {
+                    td.setAttribute('data-col-idx', idx);
+                });
+            });
+
+            markTableDirty(tableId);
+        }
+    }
+
+    function onColumnHeaderEdited(tableId) {
+        markTableDirty(tableId);
+    }
+
+    function editTableTitlePrompt(tableId) {
+        const titleEl = document.getElementById(`tableTitleDisplay-${tableId}`);
+        const currentTitle = titleEl ? titleEl.textContent.trim() : 'Table';
+        const newTitle = prompt("Enter new table title:", currentTitle);
+        if (newTitle && newTitle.trim() && newTitle.trim() !== currentTitle) {
+            if (titleEl) titleEl.textContent = newTitle.trim();
+            markTableDirty(tableId);
+        }
+    }
+
+    function saveTableChanges(tableId) {
+        const card = document.getElementById(`tableCard-${tableId}`);
+        const table = document.getElementById(`gridTable-${tableId}`);
+        if (!card || !table) return;
+
+        const tabId = card.getAttribute('data-tab-id');
+        const titleEl = document.getElementById(`tableTitleDisplay-${tableId}`);
+        const title = titleEl ? titleEl.textContent.trim() : 'Table';
+
+        // Extract columns
+        const columns = [];
+        table.querySelectorAll('thead th.table-column-header .column-header-text').forEach(thText => {
+            columns.push(thText.textContent.trim());
+        });
+
+        // Extract rows
+        const rows = [];
+        table.querySelectorAll('tbody tr.table-data-row').forEach(tr => {
+            const rowValues = [];
+            tr.querySelectorAll('td.table-data-cell .table-cell-input').forEach(input => {
+                rowValues.push(input.value);
+            });
+            rows.push(rowValues);
+        });
+
+        const saveBtn = card.querySelector('button[onclick*="saveTableChanges"]');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+        }
+
+        fetch(`/party/tabs/${tabId}/tables/save/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                table_id: tableId,
+                title: title,
+                columns: columns,
+                rows: rows
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.classList.remove('btn-warning');
+                    saveBtn.classList.add('btn-success');
+                    saveBtn.innerHTML = '<i class="bi bi-check2 me-1"></i> Saved!';
+                    setTimeout(() => {
+                        saveBtn.classList.remove('btn-success');
+                        saveBtn.classList.add('btn-primary');
+                        saveBtn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Save Changes';
+                    }, 1800);
+                }
+            } else {
+                alert('Save error: ' + (data.error || 'Server error'));
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Save Changes';
+                }
+            }
+        })
+        .catch(err => {
+            alert('Network error saving: ' + err);
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Changes';
+            }
+        });
+    }
+
+    function confirmDeleteTable(tableId, title) {
+        if (confirm(`Are you sure you want to permanently delete table "${title}"?`)) {
+            fetch(`/party/tables/${tableId}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const card = document.getElementById(`tableCard-${tableId}`);
+                    if (card) card.remove();
+                } else {
+                    alert('Error deleting table: ' + (data.error || 'Server error'));
+                }
+            })
+            .catch(err => alert('Network error: ' + err));
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return str.replace(/[&<>"']/g, m => map[m]);
+    }
+</script>
+{% endblock %}

@@ -30,4 +30,12 @@ urlpatterns = [
     path('statuses/<str:key>/delete/', views.status_delete, name='status_delete'),
     path('statuses/reset/', views.status_reset_defaults, name='status_reset_defaults'),
     path('statuses/list/', views.status_list_api, name='status_list_api'),
+    # Party Custom Tabs & Tables
+    path('party/<int:pk>/', views.party_detail, name='party_detail'),
+    path('party/<int:pk>/tabs/create/', views.party_tab_create, name='party_tab_create'),
+    path('party/tabs/<int:tab_id>/update/', views.party_tab_update, name='party_tab_update'),
+    path('party/tabs/<int:tab_id>/delete/', views.party_tab_delete, name='party_tab_delete'),
+    path('party/tabs/<int:tab_id>/tables/save/', views.party_table_save, name='party_table_save'),
+    path('party/tables/<int:table_id>/delete/', views.party_table_delete, name='party_table_delete'),
 ]
+
