@@ -54,24 +54,25 @@ def dashboard(request):
         elif status_filter in status_keys:
             items = [item for item in items if item.dynamic_status == status_filter]
 
-    # Metrics calculation (all items base)
+    # Metrics calculation (base on visible items)
     all_items = list(ProcessItem.objects.all())
-    total_clients = len(all_items)
     hidden_count = sum(1 for item in all_items if item.is_hidden)
-    working_count = sum(1 for item in all_items if item.dynamic_status == 'working')
-    no_data_count = sum(1 for item in all_items if item.dynamic_status == 'no_data')
-    finished_count = sum(1 for item in all_items if item.dynamic_status == 'finished')
-    hold_count = sum(1 for item in all_items if item.dynamic_status == 'hold')
-    pending_count = sum(1 for item in all_items if item.dynamic_status == 'pending')
+    visible_items = [item for item in all_items if not item.is_hidden]
+    total_clients = len(visible_items)
+    working_count = sum(1 for item in visible_items if item.dynamic_status == 'working')
+    no_data_count = sum(1 for item in visible_items if item.dynamic_status == 'no_data')
+    finished_count = sum(1 for item in visible_items if item.dynamic_status == 'finished')
+    hold_count = sum(1 for item in visible_items if item.dynamic_status == 'hold')
+    pending_count = sum(1 for item in visible_items if item.dynamic_status == 'pending')
     
-    overdue_count = sum(1 for item in all_items if item.is_overdue)
-    total_pending = sum((item.pending_count or 0) for item in all_items)
-    total_ready = sum((item.ready_count or 0) for item in all_items)
+    overdue_count = sum(1 for item in visible_items if item.is_overdue)
+    total_pending = sum((item.pending_count or 0) for item in visible_items)
+    total_ready = sum((item.ready_count or 0) for item in visible_items)
 
-    # Status counts map for all statuses
+    # Status counts map for all statuses (visible items)
     status_counts = {}
     for s in all_statuses:
-        status_counts[s.key] = sum(1 for item in all_items if item.dynamic_status == s.key)
+        status_counts[s.key] = sum(1 for item in visible_items if item.dynamic_status == s.key)
 
     # Header Column Configuration
     columns_map = TableColumnConfig.get_columns_map()
@@ -111,7 +112,7 @@ def dashboard(request):
         'search_query': search_query,
         'total_clients': total_clients,
         'hidden_count': hidden_count,
-        'visible_count': max(0, total_clients - hidden_count),
+        'visible_count': total_clients,
         'working_count': working_count,
         'no_data_count': no_data_count,
         'finished_count': finished_count,

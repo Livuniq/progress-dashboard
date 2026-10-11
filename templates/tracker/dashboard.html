@@ -156,11 +156,18 @@
         border-radius: 10px;
         box-shadow: none;
         background: #fafafa;
+        cursor: pointer;
+        transition: all 0.15s ease-in-out;
+        user-select: none;
     }
     .dashboard-sidebar .stat-card:hover {
-        transform: none;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
         background: #ffffff;
+    }
+    .dashboard-sidebar .stat-card.active-metric-filter {
+        background: #ffffff !important;
+        box-shadow: 0 0 0 2px #0d6efd, 0 4px 12px rgba(13, 110, 253, 0.15) !important;
     }
     .dashboard-sidebar .stat-card .h3 {
         font-size: 1.25rem;
@@ -279,51 +286,51 @@
             <div class="row g-2">
                 <!-- Total Clients -->
                 <div class="col-6">
-                    <div class="stat-card p-2 text-start">
+                    <div class="stat-card p-2 text-start" data-metric-filter="all" title="Click to show all visible clients">
                         <div class="d-flex align-items-center justify-content-between mb-1">
                             <span class="text-secondary small fw-medium" style="font-size: 10px;">Total Clients</span>
                             <div class="stat-icon stat-icon-xs bg-light text-primary"><i class="bi bi-people-fill"></i></div>
                         </div>
-                        <div class="h3 fw-bold mb-0 text-dark">{{ total_clients }}</div>
+                        <div class="h3 fw-bold mb-0 text-dark" id="statTotalCount">{{ total_clients }}</div>
                         <span class="text-muted" style="font-size: 9px;">Registered Accounts</span>
                     </div>
                 </div>
                 <!-- Working -->
                 <div class="col-6">
-                    <div class="stat-card p-2 text-start">
+                    <div class="stat-card p-2 text-start" data-metric-filter="working" title="Click to filter by Working">
                         <div class="d-flex align-items-center justify-content-between mb-1">
                             <span class="text-secondary small fw-medium" style="font-size: 10px;">Working</span>
                             <div class="stat-icon stat-icon-xs bg-success-subtle text-success"><i class="bi bi-play-circle-fill"></i></div>
                         </div>
-                        <div class="h3 fw-bold mb-0 text-success">{{ working_count }}</div>
+                        <div class="h3 fw-bold mb-0 text-success" id="statWorkingCount">{{ working_count }}</div>
                         <span class="text-muted" style="font-size: 9px;">Active in progress</span>
                     </div>
                 </div>
                 <!-- No Data -->
                 <div class="col-6">
-                    <div class="stat-card p-2 text-start">
+                    <div class="stat-card p-2 text-start" data-metric-filter="no_data" title="Click to filter by No Data">
                         <div class="d-flex align-items-center justify-content-between mb-1">
                             <span class="text-secondary small fw-medium" style="font-size: 10px;">No Data</span>
                             <div class="stat-icon stat-icon-xs bg-danger-subtle text-danger"><i class="bi bi-exclamation-octagon-fill"></i></div>
                         </div>
-                        <div class="h3 fw-bold mb-0 text-danger">{{ no_data_count }}</div>
+                        <div class="h3 fw-bold mb-0 text-danger" id="statNoDataCount">{{ no_data_count }}</div>
                         <span class="text-muted" style="font-size: 9px;">Needs Attention</span>
                     </div>
                 </div>
                 <!-- Finished -->
                 <div class="col-6">
-                    <div class="stat-card p-2 text-start">
+                    <div class="stat-card p-2 text-start" data-metric-filter="finished" title="Click to filter by Finished">
                         <div class="d-flex align-items-center justify-content-between mb-1">
                             <span class="text-secondary small fw-medium" style="font-size: 10px;">Finished</span>
                             <div class="stat-icon stat-icon-xs bg-secondary-subtle text-secondary"><i class="bi bi-check2-circle"></i></div>
                         </div>
-                        <div class="h3 fw-bold mb-0 text-dark">{{ finished_count }}</div>
+                        <div class="h3 fw-bold mb-0 text-dark" id="statFinishedCount">{{ finished_count }}</div>
                         <span class="text-muted" style="font-size: 9px;">Completed lots</span>
                     </div>
                 </div>
                 <!-- Overdue Items -->
                 <div class="col-6">
-                    <div class="stat-card p-2 text-start border-danger-subtle">
+                    <div class="stat-card p-2 text-start border-danger-subtle" data-metric-filter="overdue" title="Click to filter by Overdue items">
                         <div class="d-flex align-items-center justify-content-between mb-1">
                             <span class="text-secondary small fw-medium" style="font-size: 10px;">Overdue Items</span>
                             <div class="stat-icon stat-icon-xs bg-danger-subtle text-danger"><i class="bi bi-clock-history"></i></div>
@@ -334,13 +341,13 @@
                 </div>
                 <!-- Pending Units -->
                 <div class="col-6">
-                    <div class="stat-card p-2 text-start">
+                    <div class="stat-card p-2 text-start" data-metric-filter="pending_units" title="Click to filter by Pending clients">
                         <div class="d-flex align-items-center justify-content-between mb-1">
                             <span class="text-secondary small fw-medium" style="font-size: 10px;">Pending Units</span>
                             <div class="stat-icon stat-icon-xs bg-warning-subtle text-warning"><i class="bi bi-hourglass-split"></i></div>
                         </div>
-                        <div class="h3 fw-bold mb-0 text-dark">{{ total_pending }}</div>
-                        <span class="text-muted" style="font-size: 9px;">In pipeline: {{ total_ready }}</span>
+                        <div class="h3 fw-bold mb-0 text-dark" id="statPendingCount">{{ total_pending }}</div>
+                        <span class="text-muted" style="font-size: 9px;">In pipeline: <span id="statReadyCount">{{ total_ready }}</span></span>
                     </div>
                 </div>
             </div>
@@ -356,12 +363,10 @@
                     <i class="bi bi-layout-sidebar-inset me-1 text-primary"></i>
                     <span class="small fw-semibold" id="sidebarToggleLabel">Hide Sidebar</span>
                 </button>
-                {% if status_filter and status_filter != 'all' %}
-                <span class="badge bg-light text-secondary border px-2 py-1 small">
-                    Filter: <strong class="text-dark">{{ status_filter|title }}</strong>
-                    <a href="?" class="text-danger ms-1 text-decoration-none fw-bold" title="Clear filter">&times;</a>
+                <span class="badge bg-light text-secondary border px-2 py-1 small {% if not status_filter or status_filter == 'all' %}d-none{% endif %}" id="activeFilterBadge">
+                    Filter: <strong class="text-dark" id="activeFilterLabel">{{ status_filter|title }}</strong>
+                    <button type="button" class="btn btn-link text-danger p-0 ms-1 fw-bold text-decoration-none" id="clearFilterBtn" title="Clear filter" style="font-size: 13px; line-height: 1;">&times;</button>
                 </span>
-                {% endif %}
                 <button type="button" class="btn btn-sm btn-white border shadow-sm px-2 py-1" id="toggleShowHiddenBtn" title="Toggle visibility of hidden clients">
                     <i class="bi bi-eye-slash me-1 text-secondary" id="toggleShowHiddenIcon"></i>
                     <span class="small fw-semibold" id="toggleShowHiddenLabel">Show Hidden</span>
@@ -440,6 +445,8 @@
                     data-status="{{ item.status }}"
                     data-dynamic="{{ item.dynamic_status }}"
                     data-status-manual="{{ item.is_status_manual|yesno:'true,false' }}"
+                    data-pending-count="{{ item.pending_count|default:0 }}"
+                    data-ready-count="{{ item.ready_count|default:0 }}"
                     data-custom-color="{{ item.row_highlight_color|default:'' }}"
                     title="Tip: Long-press or right-click row to open options menu">
                     <td class="text-center select-cell" style="width: 38px; vertical-align: middle;">
@@ -1594,6 +1601,71 @@
         });
     }
 
+    // Active Status Filter State (supports: 'all', 'working', 'no_data', 'finished', 'overdue', 'pending_units')
+    let activeMetricFilter = '{{ status_filter|default:"all" }}';
+
+    // Filter rows based on search query, active metric filter, and hidden mode
+    window.filterRows = function() {
+        const query = (liveSearchInput ? liveSearchInput.value : '').toLowerCase().trim();
+        const allRows = document.querySelectorAll('.process-row');
+
+        allRows.forEach(row => {
+            const searchData = (row.getAttribute('data-search') || '').toLowerCase();
+            const matchesSearch = !query || searchData.includes(query);
+
+            const dynamicStatus = (row.getAttribute('data-dynamic') || row.getAttribute('data-status') || '').toLowerCase();
+            const isOverdue = row.getAttribute('data-is-overdue') === 'true';
+            const pendingUnits = parseInt(row.getAttribute('data-pending-count') || '0', 10) || 0;
+
+            let matchesMetric = true;
+            if (activeMetricFilter && activeMetricFilter !== 'all') {
+                if (activeMetricFilter === 'overdue') {
+                    matchesMetric = isOverdue;
+                } else if (activeMetricFilter === 'pending_units') {
+                    matchesMetric = (dynamicStatus === 'pending') || (pendingUnits > 0);
+                } else {
+                    matchesMetric = (dynamicStatus === activeMetricFilter);
+                }
+            }
+
+            if (matchesSearch && matchesMetric) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Update toolbar filter badge
+        const badge = document.getElementById('activeFilterBadge');
+        const label = document.getElementById('activeFilterLabel');
+        if (badge && label) {
+            if (activeMetricFilter && activeMetricFilter !== 'all') {
+                badge.classList.remove('d-none');
+                let displayLabel = activeMetricFilter;
+                if (activeMetricFilter === 'no_data') displayLabel = 'No Data';
+                else if (activeMetricFilter === 'pending_units') displayLabel = 'Pending';
+                else displayLabel = activeMetricFilter.charAt(0).toUpperCase() + activeMetricFilter.slice(1);
+                label.textContent = displayLabel;
+            } else {
+                badge.classList.add('d-none');
+            }
+        }
+
+        // Highlight active stat card
+        document.querySelectorAll('.stat-card[data-metric-filter]').forEach(card => {
+            if (card.getAttribute('data-metric-filter') === activeMetricFilter && activeMetricFilter !== 'all') {
+                card.classList.add('active-metric-filter');
+            } else {
+                card.classList.remove('active-metric-filter');
+            }
+        });
+
+        // Recalculate sequential row counters and visible count in toolbar
+        if (window.updateVisibleClientCount) {
+            window.updateVisibleClientCount();
+        }
+    };
+
     // Visible Client Count and Sequential Row Counter updater
     window.updateVisibleClientCount = function() {
         const tableContainer = document.getElementById('tableCustomContainer');
@@ -1629,25 +1701,39 @@
 
     // Live Search Filter
     const liveSearchInput = document.getElementById('liveSearchInput');
-    const rows = document.querySelectorAll('.process-row');
-
     if (liveSearchInput) {
         liveSearchInput.addEventListener('keyup', function() {
-            const query = this.value.toLowerCase().trim();
-            rows.forEach(row => {
-                const searchData = (row.getAttribute('data-search') || '').toLowerCase();
-                if (searchData.includes(query)) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-            window.updateVisibleClientCount();
+            window.filterRows();
         });
     }
 
-    // Run on initial page load
-    window.updateVisibleClientCount();
+    // Metric Summary Cards Click to Filter
+    document.querySelectorAll('.stat-card[data-metric-filter]').forEach(card => {
+        card.addEventListener('click', function(e) {
+            e.preventDefault();
+            const filterKey = this.getAttribute('data-metric-filter');
+            if (activeMetricFilter === filterKey) {
+                // Clicking again toggles filter off
+                activeMetricFilter = 'all';
+            } else {
+                activeMetricFilter = filterKey;
+            }
+            window.filterRows();
+        });
+    });
+
+    // Clear filter button in toolbar
+    const clearFilterBtn = document.getElementById('clearFilterBtn');
+    if (clearFilterBtn) {
+        clearFilterBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            activeMetricFilter = 'all';
+            window.filterRows();
+        });
+    }
+
+    // Initial filter apply
+    window.filterRows();
 
     // Modal Edit loader
     const editModal = new bootstrap.Modal(document.getElementById('editModal'));
@@ -2044,19 +2130,31 @@
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
+        let dynamicTotalCount = 0;
         let dynamicOverdueCount = 0;
         let dynamicWorkingCount = 0;
         let dynamicFinishedCount = 0;
         let dynamicNoDataCount = 0;
         let dynamicHoldCount = 0;
+        let dynamicPendingCount = 0;
+        let dynamicPendingUnits = 0;
+        let dynamicReadyUnits = 0;
+
+        const tableContainer = document.getElementById('tableCustomContainer');
+        const isShowHiddenMode = tableContainer && tableContainer.classList.contains('show-hidden-mode');
 
         document.querySelectorAll('.process-row').forEach(row => {
+            const isHiddenRow = row.classList.contains('is-hidden-row');
+            const isRowVisibleInTable = !isHiddenRow || isShowHiddenMode;
+
             const targetDateStr = row.getAttribute('data-target-date');
             const initialStatus = (row.getAttribute('data-status') || '').toLowerCase();
             const isStatusManual = row.getAttribute('data-status-manual') === 'true';
             const customColor = row.getAttribute('data-custom-color');
             const statusCell = row.querySelector('.status-cell');
             const diffCell = row.querySelector('.days-diff-cell');
+            const pendingUnitsVal = parseInt(row.getAttribute('data-pending-count') || '0', 10) || 0;
+            const readyUnitsVal = parseInt(row.getAttribute('data-ready-count') || '0', 10) || 0;
 
             let diffDays = null;
             let isPassed = false;
@@ -2091,20 +2189,30 @@
                 }
             }
 
-            // 2. Count KPIs based on dynamic status
-            if (dynamicStatus === 'hold') {
-                dynamicHoldCount++;
-            } else if (dynamicStatus === 'pending') {
-                // Pending status item
-            } else if (isPassed && !isExempted) {
-                dynamicOverdueCount++;
-                dynamicFinishedCount++;
-            } else if (dynamicStatus === 'working') {
-                dynamicWorkingCount++;
-            } else if (dynamicStatus === 'no_data') {
-                dynamicNoDataCount++;
-            } else if (dynamicStatus === 'finished') {
-                dynamicFinishedCount++;
+            // Store calculated dynamic status on row attribute for quick filtering
+            row.setAttribute('data-dynamic', dynamicStatus);
+            row.setAttribute('data-is-overdue', (isPassed && !isExempted) ? 'true' : 'false');
+
+            // 2. Count KPIs ONLY based on visible rows!
+            if (isRowVisibleInTable) {
+                dynamicTotalCount++;
+                dynamicPendingUnits += pendingUnitsVal;
+                dynamicReadyUnits += readyUnitsVal;
+
+                if (dynamicStatus === 'hold') {
+                    dynamicHoldCount++;
+                } else if (dynamicStatus === 'pending') {
+                    dynamicPendingCount++;
+                } else if (isPassed && !isExempted) {
+                    dynamicOverdueCount++;
+                    dynamicFinishedCount++;
+                } else if (dynamicStatus === 'working') {
+                    dynamicWorkingCount++;
+                } else if (dynamicStatus === 'no_data') {
+                    dynamicNoDataCount++;
+                } else if (dynamicStatus === 'finished') {
+                    dynamicFinishedCount++;
+                }
             }
 
             // 3. Render Status according to user logic:
@@ -2196,18 +2304,27 @@
             }
         });
 
-        // Update KPI summary cards
+        // Update KPI summary cards using specific element IDs
+        const totalStat = document.getElementById('statTotalCount');
+        if (totalStat) totalStat.textContent = dynamicTotalCount;
+
+        const workingStat = document.getElementById('statWorkingCount');
+        if (workingStat) workingStat.textContent = dynamicWorkingCount;
+
+        const noDataStat = document.getElementById('statNoDataCount');
+        if (noDataStat) noDataStat.textContent = dynamicNoDataCount;
+
+        const finishedStat = document.getElementById('statFinishedCount');
+        if (finishedStat) finishedStat.textContent = dynamicFinishedCount;
+
         const overdueStat = document.getElementById('statOverdueCount');
         if (overdueStat) overdueStat.textContent = dynamicOverdueCount;
 
-        document.querySelectorAll('.stat-card').forEach(card => {
-            const label = card.querySelector('.text-secondary.small')?.textContent || '';
-            const numElem = card.querySelector('.h3');
-            if (!numElem) return;
-            if (label.includes('Working')) numElem.textContent = dynamicWorkingCount;
-            if (label.includes('Finished')) numElem.textContent = dynamicFinishedCount;
-            if (label.includes('No Data')) numElem.textContent = dynamicNoDataCount;
-        });
+        const pendingStat = document.getElementById('statPendingCount');
+        if (pendingStat) pendingStat.textContent = dynamicPendingUnits;
+
+        const readyStat = document.getElementById('statReadyCount');
+        if (readyStat) readyStat.textContent = dynamicReadyUnits;
     }
 
     // Reorder Header Columns (Move Up / Move Down)
@@ -3111,7 +3228,12 @@
                         const totalHidden = document.querySelectorAll('.process-row.is-hidden-row').length;
                         hiddenCountBadge.textContent = totalHidden;
                     }
-                    if (window.updateVisibleClientCount) {
+                    if (typeof updateDynamicDashboard === 'function') {
+                        updateDynamicDashboard();
+                    }
+                    if (window.filterRows) {
+                        window.filterRows();
+                    } else if (window.updateVisibleClientCount) {
                         window.updateVisibleClientCount();
                     }
                 }
@@ -3141,7 +3263,12 @@
                 toggleShowHiddenBtn.classList.remove('btn-primary-subtle', 'border-primary');
             }
 
-            if (window.updateVisibleClientCount) {
+            if (typeof updateDynamicDashboard === 'function') {
+                updateDynamicDashboard();
+            }
+            if (window.filterRows) {
+                window.filterRows();
+            } else if (window.updateVisibleClientCount) {
                 window.updateVisibleClientCount();
             }
         });
