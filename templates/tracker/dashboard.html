@@ -968,8 +968,15 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <div class="modal-footer bg-light d-flex justify-content-between align-items-center">
+                <div>
+                    <button type="button" class="btn btn-outline-danger btn-sm" id="clearAllHistoryBtn" title="Permanently delete all revision history for this client">
+                        <i class="bi bi-trash3-fill me-1"></i> Clear All History
+                    </button>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1839,10 +1846,12 @@
     // Modal History / Audit Log loader
     const historyModal = new bootstrap.Modal(document.getElementById('historyModal'));
     let currentHistoryData = [];
+    let currentHistoryItemId = null;
 
     document.querySelectorAll('.btn-history').forEach(button => {
         button.addEventListener('click', function() {
             const itemId = this.getAttribute('data-id');
+            currentHistoryItemId = itemId;
             const dateList = document.getElementById('historyDateList');
             const detailContent = document.getElementById('historyDetailContent');
             const clientNameElem = document.getElementById('historyClientName');
@@ -1854,64 +1863,144 @@
             selectedDateBadge.textContent = '-';
 
             historyModal.show();
-
-            fetch(`/item/${itemId}/history/`)
-                .then(res => {
-                    if (!res.ok) {
-                        throw new Error(`Server returned status ${res.status}`);
-                    }
-                    return res.json();
-                })
-                .then(data => {
-                    clientNameElem.textContent = data.client_name || '';
-                    currentHistoryData = data.history || [];
-                    countElem.textContent = currentHistoryData.length;
-
-                    if (currentHistoryData.length === 0) {
-                        dateList.innerHTML = '<div class="p-3 text-center text-muted small">No edits recorded yet.</div>';
-                        detailContent.innerHTML = '<div class="text-center py-5 text-muted">No edits recorded yet for this client.</div>';
-                        return;
-                    }
-
-                    // Render list of dates
-                    dateList.innerHTML = '';
-                    currentHistoryData.forEach((entry, idx) => {
-                        const btn = document.createElement('button');
-                        btn.type = 'button';
-                        btn.className = `list-group-item list-group-item-action py-3 px-3 ${idx === 0 ? 'active' : ''}`;
-                        btn.innerHTML = `
-                            <div class="d-flex w-100 justify-content-between align-items-center mb-1">
-                                <span class="fw-bold">${entry.datetime_str}</span>
-                                <span class="badge ${entry.action_type === 'created' ? 'bg-info text-dark' : 'bg-primary'} rounded-pill">${entry.action_type.toUpperCase()}</span>
-                            </div>
-                            <small class="d-block ${idx === 0 ? 'text-light' : 'text-muted'}">${entry.summary}</small>
-                        `;
-
-                        btn.addEventListener('click', () => {
-                            // Highlight clicked item
-                            document.querySelectorAll('#historyDateList .list-group-item').forEach(el => {
-                                el.classList.remove('active');
-                                const sub = el.querySelector('small');
-                                if (sub) { sub.classList.remove('text-light'); sub.classList.add('text-muted'); }
-                            });
-                            btn.classList.add('active');
-                            const sub = btn.querySelector('small');
-                            if (sub) { sub.classList.remove('text-muted'); sub.classList.add('text-light'); }
-
-                            renderDiff(entry);
-                        });
-
-                        dateList.appendChild(btn);
-                    });
-
-                    // Automatically select first entry
-                    renderDiff(currentHistoryData[0]);
-                })
-                .catch(err => {
-                    dateList.innerHTML = `<div class="p-3 text-danger small">Error loading history: ${err}</div>`;
-                });
+            loadHistoryForClient(itemId);
         });
     });
+
+    function loadHistoryForClient(itemId) {
+        const dateList = document.getElementById('historyDateList');
+        const detailContent = document.getElementById('historyDetailContent');
+        const clientNameElem = document.getElementById('historyClientName');
+        const countElem = document.getElementById('historyCount');
+        const selectedDateBadge = document.getElementById('selectedDateBadge');
+        const clearBtn = document.getElementById('clearAllHistoryBtn');
+
+        fetch(`/item/${itemId}/history/`)
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`Server returned status ${res.status}`);
+                }
+                return res.json();
+            })
+            .then(data => {
+                clientNameElem.textContent = data.client_name || '';
+                currentHistoryData = data.history || [];
+                countElem.textContent = currentHistoryData.length;
+
+                if (clearBtn) {
+                    clearBtn.style.display = currentHistoryData.length > 0 ? 'inline-block' : 'none';
+                }
+
+                if (currentHistoryData.length === 0) {
+                    dateList.innerHTML = '<div class="p-3 text-center text-muted small">No edits recorded yet.</div>';
+                    detailContent.innerHTML = '<div class="text-center py-5 text-muted">No edits recorded yet for this client.</div>';
+                    selectedDateBadge.textContent = '-';
+                    return;
+                }
+
+                // Render list of dates
+                dateList.innerHTML = '';
+                currentHistoryData.forEach((entry, idx) => {
+                    const btn = document.createElement('div');
+                    btn.className = `list-group-item list-group-item-action py-2 px-3 position-relative ${idx === 0 ? 'active' : ''}`;
+                    btn.style.cursor = 'pointer';
+                    btn.innerHTML = `
+                        <div class="d-flex w-100 justify-content-between align-items-center mb-1">
+                            <span class="fw-bold">${entry.datetime_str}</span>
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="badge ${entry.action_type === 'created' ? 'bg-info text-dark' : 'bg-primary'} rounded-pill">${entry.action_type.toUpperCase()}</span>
+                                <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1 btn-delete-history-entry" data-entry-id="${entry.id}" title="Delete this revision" style="line-height: 1; text-decoration: none;">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <small class="d-block ${idx === 0 ? 'text-light' : 'text-muted'}">${entry.summary}</small>
+                    `;
+
+                    btn.addEventListener('click', (e) => {
+                        // Don't switch entry if clicked delete button
+                        if (e.target.closest('.btn-delete-history-entry')) return;
+
+                        document.querySelectorAll('#historyDateList .list-group-item').forEach(el => {
+                            el.classList.remove('active');
+                            const sub = el.querySelector('small');
+                            if (sub) { sub.classList.remove('text-light'); sub.classList.add('text-muted'); }
+                        });
+                        btn.classList.add('active');
+                        const sub = btn.querySelector('small');
+                        if (sub) { sub.classList.remove('text-muted'); sub.classList.add('text-light'); }
+
+                        renderDiff(entry);
+                    });
+
+                    // Single entry delete handler
+                    const delEntryBtn = btn.querySelector('.btn-delete-history-entry');
+                    if (delEntryBtn) {
+                        delEntryBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            if (!confirm(`Delete revision recorded at ${entry.datetime_str}?`)) return;
+
+                            fetch(`/history/${entry.id}/delete/`, {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRFToken': csrfToken,
+                                    'Content-Type': 'application/json'
+                                }
+                            })
+                            .then(res => res.json())
+                            .then(resData => {
+                                if (resData.success) {
+                                    loadHistoryForClient(itemId);
+                                } else {
+                                    alert('Could not delete history entry: ' + (resData.error || 'Server error'));
+                                }
+                            })
+                            .catch(err => {
+                                alert('Network error deleting history: ' + err);
+                            });
+                        });
+                    }
+
+                    dateList.appendChild(btn);
+                });
+
+                // Automatically select first entry
+                renderDiff(currentHistoryData[0]);
+            })
+            .catch(err => {
+                dateList.innerHTML = `<div class="p-3 text-danger small">Error loading history: ${err}</div>`;
+            });
+    }
+
+    // Clear All History Button Click
+    const clearAllHistoryBtn = document.getElementById('clearAllHistoryBtn');
+    if (clearAllHistoryBtn) {
+        clearAllHistoryBtn.addEventListener('click', function() {
+            if (!currentHistoryItemId) return;
+            const clientName = document.getElementById('historyClientName')?.textContent || 'this client';
+            if (!confirm(`Are you sure you want to permanently clear ALL edit history for "${clientName}"?`)) return;
+
+            fetch(`/item/${currentHistoryItemId}/history/clear/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(res => res.json())
+            .then(resData => {
+                if (resData.success) {
+                    loadHistoryForClient(currentHistoryItemId);
+                } else {
+                    alert('Could not clear history: ' + (resData.error || 'Server error'));
+                }
+            })
+            .catch(err => {
+                alert('Network error clearing history: ' + err);
+            });
+        });
+    }
 
     function renderDiff(entry) {
         const detailContent = document.getElementById('historyDetailContent');

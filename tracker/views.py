@@ -579,6 +579,34 @@ def item_history_json(request, pk):
     })
 
 
+def history_entry_delete(request, pk):
+    """Delete a specific history revision entry"""
+    if request.method == 'POST':
+        entry = get_object_or_404(ProcessItemHistory, pk=pk)
+        item_id = entry.item_id
+        entry.delete()
+        remaining_count = ProcessItemHistory.objects.filter(item_id=item_id).count()
+        return JsonResponse({
+            'success': True,
+            'message': 'History entry removed successfully.',
+            'remaining_count': remaining_count
+        })
+    return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
+
+def item_history_clear(request, pk):
+    """Clear all edit history logs for a specific client item"""
+    if request.method == 'POST':
+        item = get_object_or_404(ProcessItem, pk=pk)
+        deleted_count, _ = item.history_logs.all().delete()
+        return JsonResponse({
+            'success': True,
+            'message': f'Cleared {deleted_count} history records for {item.client_name}.',
+            'remaining_count': 0
+        })
+    return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
+
 
 def item_delete(request, pk):
     item = get_object_or_404(ProcessItem, pk=pk)
