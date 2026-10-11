@@ -1218,6 +1218,15 @@ def import_excel(request):
 # WHATSAPP CLOUD API INTEGRATION & WEBHOOK
 # ==========================================
 
+def log_debug(msg):
+    try:
+        log_path = settings.BASE_DIR / 'whatsapp_debug.log'
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(f"[{timezone.now()}] {msg}\n")
+    except Exception:
+        pass
+
+
 def send_whatsapp_reply(phone_number_id, recipient_phone, message_text, access_token):
     """Send WhatsApp reply back to user via Meta Graph API using built-in urllib"""
     try:
@@ -1239,9 +1248,10 @@ def send_whatsapp_reply(phone_number_id, recipient_phone, message_text, access_t
             method="POST"
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
+            log_debug(f"Reply sent successfully to {recipient_phone}, status {resp.status}")
             return resp.status == 200
     except Exception as e:
-        print(f"Error sending WhatsApp reply: {e}")
+        log_debug(f"Error sending WhatsApp reply: {e}")
         return False
 
 
@@ -1402,9 +1412,12 @@ def whatsapp_webhook(request):
         return HttpResponse('Verification token mismatch', status=403)
 
     elif request.method == 'POST':
+        raw_body = request.body.decode('utf-8', errors='replace')
+        log_debug(f"Webhook POST received: {raw_body}")
         try:
-            data = json.loads(request.body.decode('utf-8'))
-        except Exception:
+            data = json.loads(raw_body)
+        except Exception as e:
+            log_debug(f"JSON parse error: {e}")
             return HttpResponse('Invalid JSON', status=400)
 
         entries = data.get('entry', [])
@@ -1421,18 +1434,32 @@ def whatsapp_webhook(request):
 
                     sender = msg.get('from')  # Sender's WhatsApp number
                     text = msg.get('text', {}).get('body', '').strip()
+                    log_debug(f"Processing text message from {sender}: {text}")
 
                     reply_text = process_whatsapp_command(text)
+                    log_debug(f"Generated reply: {reply_text}")
 
                     access_token = getattr(settings, 'WHATSAPP_ACCESS_TOKEN', '')
                     active_phone_id = getattr(settings, 'WHATSAPP_PHONE_NUMBER_ID', '') or phone_number_id
 
                     if access_token and active_phone_id and sender:
                         send_whatsapp_reply(active_phone_id, sender, reply_text, access_token)
+                    else:
+                        log_debug(f"Skipping reply: token={bool(access_token)}, phone_id={active_phone_id}, sender={sender}")
 
         return HttpResponse('EVENT_RECEIVED', status=200)
 
     return HttpResponse('Method not allowed', status=405)
+
+
+def whatsapp_debug_view(request):
+    """View recent WhatsApp webhook logs directly in browser"""
+    log_path = settings.BASE_DIR / 'whatsapp_debug.log'
+    if not os.path.exists(log_path):
+        return HttpResponse("No WhatsApp logs yet.", content_type="text/plain; charset=utf-8")
+    with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
+        lines = f.readlines()
+    return HttpResponse("".join(lines[-100:]), content_type="text/plain; charset=utf-8")
 
 
 def whatsapp_test_api(request):

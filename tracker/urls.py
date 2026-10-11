@@ -32,4 +32,5 @@ urlpatterns = [
     path('statuses/list/', views.status_list_api, name='status_list_api'),
     path('api/whatsapp/webhook/', views.whatsapp_webhook, name='whatsapp_webhook'),
     path('api/whatsapp/test/', views.whatsapp_test_api, name='whatsapp_test_api'),
+    path('api/whatsapp/debug/', views.whatsapp_debug_view, name='whatsapp_debug_view'),
 ]
