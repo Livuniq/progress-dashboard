@@ -1260,10 +1260,11 @@ def process_whatsapp_command(text):
     """
     Parse and execute WhatsApp text commands to update client remarks/details.
     Supported formats:
-      - Client Name : Remarks text
-      - Client Name - Remarks text
-      - Client Name : milestone : Milestone text
-      - Client Name : status : working / finished / no_data
+      - Client > status > finished
+      - Client > remarks > casting completed (or just Client > casting completed)
+      - Client > milestone > final QC
+      - Client > target > 25/10/2026
+      - Also supports ':' and '-' delimiters
       - help / list
     """
     clean_text = text.strip()
@@ -1272,15 +1273,19 @@ def process_whatsapp_command(text):
     if lower_text in ['help', 'hi', 'hello', 'start', '?']:
         return (
             "📱 *Process Dashboard WhatsApp Bot*\n\n"
-            "Aap in formats me message bhej sakte hain:\n\n"
-            "1️⃣ *Remarks update karne ke liye:*\n"
-            "👉 `Client Name : Remarks text`\n"
-            "Example: `Ananta jewels : Casting ready, stone pending`\n\n"
-            "2️⃣ *Milestone update karne ke liye:*\n"
-            "👉 `Client Name : milestone : New milestone`\n\n"
-            "3️⃣ *Status update karne ke liye:*\n"
-            "👉 `Client Name : status : working / finished`\n\n"
-            "4️⃣ *Clients ki list dekhne ke liye:*\n"
+            "Aap in aasan formats me message bhej sakte hain:\n\n"
+            "1️⃣ *Status change karne ke liye:*\n"
+            "👉 `Client > status > finished`\n"
+            "👉 `Client > status > working`\n"
+            "👉 `Client > status > no data`\n\n"
+            "2️⃣ *Remarks update karne ke liye:*\n"
+            "👉 `Client > remarks > CAD drawing ready`\n"
+            "*(Ya seedha: `Client > CAD drawing ready`)*\n\n"
+            "3️⃣ *Milestone update karne ke liye:*\n"
+            "👉 `Client > milestone > Casting completed`\n\n"
+            "4️⃣ *Target Date change karne ke liye:*\n"
+            "👉 `Client > target > 25/10/2026`\n\n"
+            "5️⃣ *Clients list dekhne ke liye:*\n"
             "👉 `list`"
         )
 
@@ -1291,61 +1296,100 @@ def process_whatsapp_command(text):
         lines = ["📋 *Active Clients (Top 15):*"]
         for idx, it in enumerate(items, 1):
             lines.append(f"{idx}. {it.client_name}")
-        lines.append("\nRemark update karne ke liye type karein:\n`Client Name : Remarks`")
+        lines.append("\nUpdate karne ke liye type karein:\n`Client > status > finished` ya `Client > Remarks`")
         return "\n".join(lines)
 
-    # Determine delimiter: ':' or '-' or '='
-    delim = None
-    if ':' in clean_text:
-        delim = ':'
-    elif '-' in clean_text:
-        delim = '-'
-    elif '=' in clean_text:
-        delim = '='
-
-    if not delim:
-        return (
-            "⚠️ Format samajh nahi aaya.\n\n"
-            "Remarks update karne ke liye is format me bhejein:\n"
-            "`Client Name : Remarks text`\n\n"
-            "Example:\n`Ananta jewels : Casting work in progress`\n\n"
-            "Madad ke liye `help` type karein."
-        )
-
-    parts = clean_text.split(delim, 1)
-    client_query = parts[0].strip()
-    content_part = parts[1].strip()
-
-    if not client_query or not content_part:
-        return "⚠️ Client name ya remarks text missing hai. Example: `Ananta jewels : Stone ready`"
-
-    # Check for sub-commands in content_part: "milestone : ..." or "status : ..."
+    # Determine syntax and tokens
+    client_query = ""
     field_to_update = 'notes'
     field_display_name = 'Process Notes / Remarks'
-    new_value = content_part
+    new_value = ""
 
-    if ':' in content_part:
-        sub_parts = content_part.split(':', 1)
-        sub_cmd = sub_parts[0].strip().lower()
-        sub_val = sub_parts[1].strip()
-        if sub_cmd in ['milestone', 'history', 'history_milestone']:
-            field_to_update = 'history_milestone'
-            field_display_name = 'History / Milestone'
-            new_value = sub_val
-        elif sub_cmd in ['status', 'st']:
-            field_to_update = 'status'
-            field_display_name = 'Status'
-            new_value = sub_val.lower().replace(' ', '_')
+    if '>' in clean_text:
+        tokens = [t.strip() for t in clean_text.split('>') if t.strip()]
+        if len(tokens) >= 3:
+            client_query = tokens[0]
+            cmd = tokens[1].lower()
+            val = ">".join(tokens[2:]).strip()
+            if cmd in ['status', 'st']:
+                field_to_update = 'status'
+                field_display_name = 'Status'
+                new_value = val.lower().replace(' ', '_')
+            elif cmd in ['remarks', 'remark', 'notes', 'note']:
+                field_to_update = 'notes'
+                field_display_name = 'Process Notes / Remarks'
+                new_value = val
+            elif cmd in ['milestone', 'history', 'history_milestone']:
+                field_to_update = 'history_milestone'
+                field_display_name = 'History / Milestone'
+                new_value = val
+            elif cmd in ['target', 'target_date', 'date']:
+                field_to_update = 'target_date'
+                field_display_name = 'Target Date'
+                new_value = val
+            elif cmd in ['lot', 'lot_progress']:
+                field_to_update = 'lot_progress'
+                field_display_name = 'LOT Progress'
+                new_value = val
+            else:
+                client_query = tokens[0]
+                new_value = f"{tokens[1]} > {val}"
+        elif len(tokens) == 2:
+            client_query = tokens[0]
+            val = tokens[1]
+            val_lower = val.lower().replace(' ', '_')
+            if val_lower in ['working', 'finished', 'no_data', 'pending', 'hold']:
+                field_to_update = 'status'
+                field_display_name = 'Status'
+                new_value = val_lower
+            else:
+                field_to_update = 'notes'
+                field_display_name = 'Process Notes / Remarks'
+                new_value = val
+        else:
+            client_query = tokens[0]
+            new_value = ""
+    else:
+        # Backward compatibility for ':' or '-' or '='
+        delim = ':' if ':' in clean_text else ('-' if '-' in clean_text else ('=' if '=' in clean_text else None))
+        if not delim:
+            return (
+                "⚠️ Format samajh nahi aaya.\n\n"
+                "Aap is tarah bhej sakte hain:\n"
+                "👉 `Client > status > finished`\n"
+                "👉 `Client > Remarks text`\n\n"
+                "Madad ke liye `help` type karein."
+            )
+
+        parts = clean_text.split(delim, 1)
+        client_query = parts[0].strip()
+        content_part = parts[1].strip()
+
+        if ':' in content_part:
+            sub_parts = content_part.split(':', 1)
+            sub_cmd = sub_parts[0].strip().lower()
+            sub_val = sub_parts[1].strip()
+            if sub_cmd in ['milestone', 'history', 'history_milestone']:
+                field_to_update = 'history_milestone'
+                field_display_name = 'History / Milestone'
+                new_value = sub_val
+            elif sub_cmd in ['status', 'st']:
+                field_to_update = 'status'
+                field_display_name = 'Status'
+                new_value = sub_val.lower().replace(' ', '_')
+            else:
+                new_value = content_part
+        else:
+            new_value = content_part
+
+    if not client_query or not new_value:
+        return "⚠️ Client name ya update value missing hai.\nExample: `pear jewel > status > finished`"
 
     # Find matching client
-    # 1. Exact match (case-insensitive)
     items = ProcessItem.objects.filter(client_name__iexact=client_query)
-    
-    # 2. Contains match
     if not items.exists():
         items = ProcessItem.objects.filter(client_name__icontains=client_query)
 
-    # 3. Clean word match
     if not items.exists() and len(client_query.split()) > 1:
         first_word = client_query.split()[0].strip()
         if len(first_word) >= 3:
@@ -1358,7 +1402,6 @@ def process_whatsapp_command(text):
         )
 
     if items.count() > 1:
-        # Check if one is exact match ignoring case and extra spaces
         exact_match = [it for it in items if it.client_name.strip().lower() == client_query.lower()]
         if len(exact_match) == 1:
             target_item = exact_match[0]
@@ -1368,12 +1411,29 @@ def process_whatsapp_command(text):
     else:
         target_item = items.first()
 
-    # Apply Update
-    old_value = getattr(target_item, field_to_update, '')
-    setattr(target_item, field_to_update, new_value)
-    if field_to_update == 'status':
-        target_item.is_status_manual = True
-    target_item.save()
+    # Parse target date if needed
+    if field_to_update == 'target_date':
+        parsed_date = None
+        for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%d/%m/%y'):
+            try:
+                parsed_date = datetime.strptime(new_value, fmt).date()
+                break
+            except ValueError:
+                pass
+        if not parsed_date:
+            return f"⚠️ Date format galat hai: '{new_value}'. Kripya DD/MM/YYYY format use karein (e.g. 25/10/2026)."
+        old_value = target_item.target_date
+        target_item.target_date = parsed_date
+        target_item.is_status_manual = False
+        target_item.save()
+        save_val_display = parsed_date.strftime('%d/%m/%Y')
+    else:
+        old_value = getattr(target_item, field_to_update, '')
+        setattr(target_item, field_to_update, new_value)
+        if field_to_update == 'status':
+            target_item.is_status_manual = True
+        target_item.save()
+        save_val_display = new_value
 
     # Log in ProcessItemHistory
     ProcessItemHistory.objects.create(
@@ -1383,13 +1443,13 @@ def process_whatsapp_command(text):
         changes=[{
             'field': field_display_name,
             'old': str(old_value),
-            'new': str(new_value)
+            'new': str(save_val_display)
         }]
     )
 
     return (
         f"✅ *{target_item.client_name}* update ho gaya!\n\n"
-        f"📝 *{field_display_name}:*\n{new_value}\n\n"
+        f"📊 *{field_display_name}:*\n{save_val_display}\n\n"
         f"🕒 _Updated at {timezone.localtime(timezone.now()).strftime('%d/%m/%Y %I:%M %p')}_"
     )
 
