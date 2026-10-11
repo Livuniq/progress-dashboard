@@ -85,6 +85,7 @@ def dashboard(request):
         'search_query': search_query,
         'total_clients': total_clients,
         'hidden_count': hidden_count,
+        'visible_count': max(0, total_clients - hidden_count),
         'working_count': working_count,
         'no_data_count': no_data_count,
         'finished_count': finished_count,
@@ -719,11 +720,26 @@ def reset_demo_data(request):
 
 def export_excel(request):
     """
-    Exports the Process Sheet to an Excel (.xlsx) file matching the original screenshot style
+    Exports the Process Sheet to an Excel (.xlsx) file matching the original screenshot style.
+    Supports ?scope=visible (default), ?scope=hidden, or ?scope=all.
     """
+    scope = request.GET.get('scope', 'visible').lower()
+    if scope == 'hidden':
+        items = ProcessItem.objects.filter(is_hidden=True)
+        file_suffix = "Hidden"
+        sheet_title = "Hidden Clients"
+    elif scope == 'all':
+        items = ProcessItem.objects.all()
+        file_suffix = "All"
+        sheet_title = "All Clients"
+    else:
+        items = ProcessItem.objects.filter(is_hidden=False)
+        file_suffix = "Visible"
+        sheet_title = "Visible Clients"
+
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Process Dashboard"
+    ws.title = sheet_title
 
     # Styling definitions
     header_fill = PatternFill(start_color="343A40", end_color="343A40", fill_type="solid")
@@ -757,6 +773,8 @@ def export_excel(request):
         "Days Diff",
         "History / Milestone"
     ]
+    if scope == 'all':
+        headers.append("Hidden")
 
     ws.append(headers)
     for col_num in range(1, len(headers) + 1):
@@ -765,12 +783,11 @@ def export_excel(request):
         cell.font = header_font
         cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    items = ProcessItem.objects.all()
     for row_idx, item in enumerate(items, start=2):
         target_str = item.target_date.strftime("%d/%m/%Y") if item.target_date else ""
         days_diff_val = item.days_diff if item.days_diff is not None else ""
 
-        ws.append([
+        row_data = [
             item.client_name,
             item.get_status_display(),
             item.formatted_lot or item.lot_progress,
@@ -781,7 +798,11 @@ def export_excel(request):
             target_str,
             days_diff_val,
             item.history_milestone
-        ])
+        ]
+        if scope == 'all':
+            row_data.append("Yes" if item.is_hidden else "No")
+
+        ws.append(row_data)
 
         # Cell styling
         # Client Name
@@ -834,6 +855,14 @@ def export_excel(request):
             c9.fill = pink_fill
             c9.font = pink_font
 
+        # Scope 'all' Hidden column style
+        if scope == 'all':
+            c_hidden = ws.cell(row=row_idx, column=len(headers))
+            c_hidden.alignment = Alignment(horizontal="center")
+            if item.is_hidden:
+                c_hidden.fill = gray_fill
+                c_hidden.font = gray_font
+
         for col in range(1, len(headers) + 1):
             ws.cell(row=row_idx, column=col).border = thin_border
 
@@ -846,7 +875,7 @@ def export_excel(request):
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    filename = f"Process_Dashboard_{timezone.now().strftime('%Y%m%d')}.xlsx"
+    filename = f"Process_Dashboard_{file_suffix}_{timezone.now().strftime('%Y%m%d_%H%M')}.xlsx"
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     wb.save(response)
     return response

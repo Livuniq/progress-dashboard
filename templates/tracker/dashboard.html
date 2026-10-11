@@ -252,9 +252,9 @@
                     </button>
                 </div>
                 <div class="col-6">
-                    <a href="{% url 'tracker:export_excel' %}" class="btn btn-sm btn-outline-success w-100 text-truncate py-1 px-1" title="Download Excel (.xlsx)" style="font-size: 11.5px;">
+                    <button type="button" class="btn btn-sm btn-outline-success w-100 text-truncate py-1 px-1" data-bs-toggle="modal" data-bs-target="#exportModal" title="Download Excel (.xlsx) options" style="font-size: 11.5px;">
                         <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export
-                    </a>
+                    </button>
                 </div>
                 <div class="col-6">
                     <button class="btn btn-sm btn-outline-secondary w-100 text-truncate py-1 px-1" data-bs-toggle="modal" data-bs-target="#importModal" title="Upload Excel (.xlsx)" style="font-size: 11.5px;">
@@ -811,6 +811,77 @@
                     <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1"></i> Update Changes</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- EXPORT EXCEL MODAL -->
+<div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header bg-success text-white py-3">
+                <h5 class="modal-title fw-bold" id="exportModalLabel">
+                    <i class="bi bi-file-earmark-excel-fill me-2"></i> Export Clients to Excel (.xlsx)
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-secondary small mb-3">
+                    Choose which client records you would like to export. The downloaded spreadsheet retains all styles, statuses, and calculations.
+                </p>
+                <div class="d-flex flex-column gap-3">
+                    <!-- Option 1: Visible Only -->
+                    <a href="{% url 'tracker:export_excel' %}?scope=visible" class="btn btn-outline-success text-start p-3 d-flex align-items-center justify-content-between rounded-3 border-2 shadow-sm text-decoration-none" onclick="bootstrap.Modal.getInstance(document.getElementById('exportModal'))?.hide();">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="bg-success text-white rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                                <i class="bi bi-eye-fill fs-5"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-dark fs-6">Only Visible Clients</div>
+                                <div class="text-muted small">Standard active clients (excludes hidden rows)</div>
+                            </div>
+                        </div>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 fs-7">
+                            {{ visible_count }} Clients
+                        </span>
+                    </a>
+
+                    <!-- Option 2: Hidden Only -->
+                    <a href="{% url 'tracker:export_excel' %}?scope=hidden" class="btn btn-outline-secondary text-start p-3 d-flex align-items-center justify-content-between rounded-3 border-2 shadow-sm text-decoration-none" onclick="bootstrap.Modal.getInstance(document.getElementById('exportModal'))?.hide();">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="bg-secondary text-white rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                                <i class="bi bi-eye-slash-fill fs-5"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-dark fs-6">Only Hidden Clients</div>
+                                <div class="text-muted small">Clients that are currently marked hidden</div>
+                            </div>
+                        </div>
+                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 fs-7">
+                            {{ hidden_count }} Clients
+                        </span>
+                    </a>
+
+                    <!-- Option 3: All Clients -->
+                    <a href="{% url 'tracker:export_excel' %}?scope=all" class="btn btn-outline-primary text-start p-3 d-flex align-items-center justify-content-between rounded-3 border-2 shadow-sm text-decoration-none" onclick="bootstrap.Modal.getInstance(document.getElementById('exportModal'))?.hide();">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="bg-primary text-white rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                                <i class="bi bi-grid-fill fs-5"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-dark fs-6">All Clients (Visible + Hidden)</div>
+                                <div class="text-muted small">Complete list with an added "Hidden" status column</div>
+                            </div>
+                        </div>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 fs-7">
+                            {{ total_clients }} Total
+                        </span>
+                    </a>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
         </div>
     </div>
 </div>
