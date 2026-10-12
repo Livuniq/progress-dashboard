@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from datetime import date
+from django.contrib.auth.models import User
 
 class ProcessItem(models.Model):
     STATUS_CHOICES = [
@@ -550,5 +551,92 @@ class PartyCustomTable(models.Model):
                 })
             result.append(cells)
         return result
+
+
+class UserAccessProfile(models.Model):
+    ROLE_CHOICES = [
+        ('admin', 'Admin (Full Access & Admin Panel)'),
+        ('editor', 'Editor (Can Edit Data)'),
+        ('viewer', 'Viewer (Read Only)'),
+        ('custom', 'Custom Permissions'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='access_profile')
+    display_name = models.CharField(max_length=150, blank=True, default='', verbose_name="Display Name")
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='editor', verbose_name="User Role")
+
+    # View Visibility Permissions
+    all_parties_access = models.BooleanField(default=True, verbose_name="Can View All Parties")
+    allowed_parties = models.ManyToManyField(ProcessItem, blank=True, related_name='permitted_users')
+    all_columns_access = models.BooleanField(default=True, verbose_name="Can View All Columns")
+    allowed_columns = models.JSONField(default=list, blank=True, verbose_name="Allowed Column Keys")
+    can_view_party_details = models.BooleanField(default=True, verbose_name="Can View Party Custom Tabs")
+    all_tabs_access = models.BooleanField(default=True, verbose_name="Can View All Party Tabs")
+    allowed_tab_titles = models.JSONField(default=list, blank=True, verbose_name="Allowed Party Tab Titles")
+    can_view_problem_badge = models.BooleanField(default=True, verbose_name="Can View Problem Alert Red Badge")
+
+    # Action / Edit Permissions
+    can_view_history = models.BooleanField(default=True, verbose_name="Can View History / Audit Log")
+    can_edit_status = models.BooleanField(default=True, verbose_name="Can Edit Status")
+    can_edit_lot = models.BooleanField(default=True, verbose_name="Can Edit LOT / ITEM")
+    can_edit_target_date = models.BooleanField(default=True, verbose_name="Can Edit Target Date")
+    can_edit_notes = models.BooleanField(default=True, verbose_name="Can Edit Notes / Remarks")
+    can_add_party = models.BooleanField(default=True, verbose_name="Can Add New Party")
+    can_delete_party = models.BooleanField(default=False, verbose_name="Can Delete Party")
+    can_hide_party = models.BooleanField(default=True, verbose_name="Can Hide / Unhide Party")
+    can_edit_custom_tabs = models.BooleanField(default=True, verbose_name="Can Edit Tabs & Tables")
+    can_export_excel = models.BooleanField(default=True, verbose_name="Can Export Excel")
+    can_import_excel = models.BooleanField(default=False, verbose_name="Can Import Excel")
+    can_manage_settings = models.BooleanField(default=False, verbose_name="Can Manage Column/Status Settings")
+    is_admin = models.BooleanField(default=False, verbose_name="Is Admin (Can Access Admin Panel)")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "User Access Profile"
+        verbose_name_plural = "User Access Profiles"
+
+    def __str__(self):
+        name = self.display_name or self.user.username
+        return f"{name} ({self.get_role_display()})"
+
+    def is_column_allowed(self, col_key):
+        if self.is_admin or self.all_columns_access:
+            return True
+        if not self.allowed_columns:
+            return True
+        return col_key in self.allowed_columns
+
+    def is_party_allowed(self, party_id):
+        if self.is_admin or self.all_parties_access:
+            return True
+        return self.allowed_parties.filter(id=party_id).exists()
+
+    def is_tab_allowed(self, tab_title):
+        if self.is_admin or self.all_tabs_access:
+            return True
+        if not self.allowed_tab_titles:
+            return True
+        allowed_normalized = [str(t).strip().lower() for t in self.allowed_tab_titles if t]
+        return str(tab_title).strip().lower() in allowed_normalized
+
+    @classmethod
+    def get_or_create_for_user(cls, user):
+        profile, created = cls.objects.get_or_create(user=user)
+        if user.is_superuser and not profile.is_admin:
+            profile.is_admin = True
+            profile.role = 'admin'
+            profile.all_parties_access = True
+            profile.all_columns_access = True
+            profile.all_tabs_access = True
+            profile.can_view_party_details = True
+            profile.can_view_problem_badge = True
+            profile.can_view_history = True
+            profile.can_delete_party = True
+            profile.can_import_excel = True
+            profile.can_manage_settings = True
+            profile.save()
+        return profile
 
 

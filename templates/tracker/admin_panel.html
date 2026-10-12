@@ -1,0 +1,1074 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_head %}
+<style>
+    .admin-card {
+        border-radius: 14px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+        background: #ffffff;
+        margin-bottom: 24px;
+        overflow: hidden;
+    }
+
+    .admin-card-header {
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .admin-stat-card {
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        padding: 16px 20px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .admin-stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+    }
+
+    .user-avatar-circle {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: #eff6ff;
+        color: #2563eb;
+        font-weight: 700;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #dbeafe;
+    }
+
+    .badge-role-admin {
+        background-color: #f3e8ff;
+        color: #7e22ce;
+        border: 1px solid #e9d5ff;
+        font-weight: 600;
+    }
+
+    .badge-role-editor {
+        background-color: #dbeafe;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+        font-weight: 600;
+    }
+
+    .badge-role-viewer {
+        background-color: #f1f5f9;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+        font-weight: 600;
+    }
+
+    .badge-role-custom {
+        background-color: #fef3c7;
+        color: #b45309;
+        border: 1px solid #fde68a;
+        font-weight: 600;
+    }
+
+    .permission-chip {
+        font-size: 0.73rem;
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        color: #334155;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        margin: 1px;
+    }
+
+    .permission-chip.chip-allowed {
+        background: #f0fdf4;
+        border-color: #bbf7d0;
+        color: #166534;
+        font-weight: 500;
+    }
+
+    .search-filter-box {
+        max-height: 180px;
+        overflow-y: auto;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 8px 12px;
+        background: #ffffff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+    <!-- Top Navigation Breadcrumbs / Title -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary bg-opacity-10 text-primary px-2 py-1 fs-6 rounded-3">
+                    <i class="bi bi-shield-lock-fill me-1"></i> Admin Console
+                </span>
+                <span class="text-muted small">Access Control & User Rights</span>
+            </div>
+            <h2 class="h4 fw-bold text-dark mb-0">Admin Panel - User & Permissions Management</h2>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{% url 'tracker:dashboard' %}" class="btn btn-outline-secondary d-flex align-items-center gap-1 shadow-sm">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+            <button type="button" class="btn btn-primary d-flex align-items-center gap-2 shadow-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#userFormModal" onclick="openCreateUserModal()">
+                <i class="bi bi-person-plus-fill"></i> Create New User
+            </button>
+        </div>
+    </div>
+
+    <!-- Quick Stat Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="admin-stat-card">
+                <div class="admin-stat-icon bg-primary bg-opacity-10 text-primary">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+                <div>
+                    <div class="text-muted small fw-medium">Total Users</div>
+                    <div class="h3 fw-bold mb-0 text-dark">{{ total_users }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="admin-stat-card">
+                <div class="admin-stat-icon bg-success bg-opacity-10 text-success">
+                    <i class="bi bi-check-circle-fill"></i>
+                </div>
+                <div>
+                    <div class="text-muted small fw-medium">Active Users</div>
+                    <div class="h3 fw-bold mb-0 text-success">{{ active_users }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="admin-stat-card">
+                <div class="admin-stat-icon bg-purple bg-opacity-10 text-purple" style="background-color: #f3e8ff; color: #7e22ce;">
+                    <i class="bi bi-shield-shaded"></i>
+                </div>
+                <div>
+                    <div class="text-muted small fw-medium">Administrators</div>
+                    <div class="h3 fw-bold mb-0 text-dark">{{ admin_count }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="admin-stat-card">
+                <div class="admin-stat-icon bg-info bg-opacity-10 text-info">
+                    <i class="bi bi-buildings-fill"></i>
+                </div>
+                <div>
+                    <div class="text-muted small fw-medium">Total Parties</div>
+                    <div class="h3 fw-bold mb-0 text-dark">{{ total_parties }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Users Table Card -->
+    <div class="admin-card">
+        <div class="admin-card-header">
+            <div>
+                <h5 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                    <i class="bi bi-person-lines-fill text-primary"></i> Registered Users & Access Rights
+                </h5>
+                <p class="text-muted small mb-0 mt-1">Manage user passwords, role presets, party filtering, and column visibility:</p>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary fw-semibold" data-bs-toggle="modal" data-bs-target="#userFormModal" onclick="openCreateUserModal()">
+                <i class="bi bi-plus-lg me-1"></i> Add User
+            </button>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="usersTable">
+                <thead class="table-light text-muted small text-uppercase fw-bold border-bottom">
+                    <tr>
+                        <th style="width: 50px;" class="text-center">#</th>
+                        <th>Person / Staff Member</th>
+                        <th>Role Preset</th>
+                        <th>Allowed Parties</th>
+                        <th>Allowed Columns</th>
+                        <th>Allowed Tabs</th>
+                        <th>Action Permissions</th>
+                        <th class="text-center">Status</th>
+                        <th style="width: 140px;" class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr id="userRow-{{ u.id }}">
+                        <td class="text-center text-muted small">{{ forloop.counter }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="user-avatar-circle">
+                                    {{ u.username|slice:":1"|upper }}
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark">
+                                        {{ u.access_profile.display_name|default:u.username }}
+                                        {% if u.id == request.user.id %}
+                                            <span class="badge bg-secondary ms-1 small" style="font-size: 0.65rem;">You</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-muted small">@{{ u.username }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if u.access_profile.is_admin or u.is_superuser %}
+                                <span class="badge badge-role-admin px-2 py-1">Admin</span>
+                            {% elif u.access_profile.role == 'editor' %}
+                                <span class="badge badge-role-editor px-2 py-1">Editor</span>
+                            {% elif u.access_profile.role == 'viewer' %}
+                                <span class="badge badge-role-viewer px-2 py-1">Viewer</span>
+                            {% else %}
+                                <span class="badge badge-role-custom px-2 py-1">Custom</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if u.access_profile.all_parties_access or u.access_profile.is_admin or u.is_superuser %}
+                                <span class="badge bg-light text-dark border">
+                                    <i class="bi bi-globe text-primary me-1"></i> All Parties
+                                </span>
+                            {% else %}
+                                <span class="badge bg-info-subtle text-info-emphasis border" title="Permitted: {{ u.access_profile.allowed_parties.count }} Parties">
+                                    <i class="bi bi-check2-all me-1"></i> {{ u.access_profile.allowed_parties.count }} Parties
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if u.access_profile.all_columns_access or u.access_profile.is_admin or u.is_superuser %}
+                                <span class="badge bg-light text-dark border">
+                                    <i class="bi bi-layout-three-columns text-primary me-1"></i> All Columns
+                                </span>
+                            {% else %}
+                                <span class="badge bg-warning-subtle text-warning-emphasis border" title="Permitted: {{ u.access_profile.allowed_columns|length }} Columns">
+                                    <i class="bi bi-columns me-1"></i> {{ u.access_profile.allowed_columns|length }} Columns
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if u.access_profile.all_tabs_access or u.access_profile.is_admin or u.is_superuser %}
+                                <span class="badge bg-light text-dark border">
+                                    <i class="bi bi-folder2 text-primary me-1"></i> All Tabs
+                                </span>
+                            {% else %}
+                                <span class="badge bg-primary-subtle text-primary border" title="Permitted: {{ u.access_profile.allowed_tab_titles|join:', ' }}">
+                                    <i class="bi bi-folder-check me-1"></i> {{ u.access_profile.allowed_tab_titles|length }} Tabs
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex flex-wrap gap-1" style="max-width: 280px;">
+                                {% if u.access_profile.can_view_problem_badge %}<span class="permission-chip chip-allowed text-danger border-danger-subtle bg-danger-subtle">Red Badge</span>{% endif %}
+                                {% if u.access_profile.can_view_history %}<span class="permission-chip chip-allowed">History</span>{% endif %}
+                                {% if u.access_profile.can_edit_status %}<span class="permission-chip chip-allowed">Status</span>{% endif %}
+                                {% if u.access_profile.can_edit_lot %}<span class="permission-chip chip-allowed">LOT</span>{% endif %}
+                                {% if u.access_profile.can_edit_target_date %}<span class="permission-chip chip-allowed">Date</span>{% endif %}
+                                {% if u.access_profile.can_edit_notes %}<span class="permission-chip chip-allowed">Notes</span>{% endif %}
+                                {% if u.access_profile.can_add_party %}<span class="permission-chip chip-allowed">+Party</span>{% endif %}
+                                {% if u.access_profile.can_delete_party %}<span class="permission-chip text-danger border-danger-subtle bg-danger-subtle">Del</span>{% endif %}
+                                {% if u.access_profile.can_edit_custom_tabs %}<span class="permission-chip chip-allowed">Tabs</span>{% endif %}
+                                {% if u.access_profile.can_export_excel %}<span class="permission-chip chip-allowed">Excel</span>{% endif %}
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            {% if u.is_active %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">Active</span>
+                            {% else %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-primary" onclick="openEditUserModal({{ u.id }})" title="Edit Permissions & Details">
+                                    <i class="bi bi-pencil-square"></i> Edit
+                                </button>
+                                {% if u.id != request.user.id %}
+                                <button type="button" class="btn btn-outline-danger" onclick="confirmDeleteUser({{ u.id }}, '{{ u.username }}')" title="Delete User">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center py-4 text-muted">
+                            No users found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- CREATE / EDIT USER MODAL -->
+<div class="modal fade" id="userFormModal" tabindex="-1" aria-labelledby="userFormModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="userFormModalLabel">
+                    <i class="bi bi-person-gear text-primary me-2"></i>Configure User Access & Permissions
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="modalUserId" value="">
+                <input type="hidden" id="modalUsername" value="">
+
+                <!-- 1. Credentials & Role -->
+                <div class="row g-3 mb-4">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label fw-semibold small text-uppercase">
+                            <i class="bi bi-person-fill text-primary me-1"></i> Person / Staff Name <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="modalDisplayName" placeholder="e.g. Rahul, Priya, Manish" required>
+                        <div class="form-text small text-muted">Jiske liye access banaya ja raha hai unka naam.</div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label fw-semibold small text-uppercase" id="modalPasswordLabel">
+                            <i class="bi bi-key-fill text-primary me-1"></i> Unique Password <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="modalPassword" placeholder="Set unique login password">
+                            <button class="btn btn-outline-secondary" type="button" id="btnGenPassword" onclick="generateRandomPass()" title="Auto-generate password">
+                                <i class="bi bi-shuffle"></i>
+                            </button>
+                        </div>
+                        <div class="form-text small text-muted" id="modalPasswordHelp" style="display: none;">Leave blank to keep existing password.</div>
+                        <div class="form-text small text-muted" id="modalPasswordNewHelp">Har person ka password unique hona zaroori hai.</div>
+                    </div>
+                </div>
+
+                <!-- Role Preset Picker -->
+                <div class="mb-4 p-3 bg-light rounded-3 border">
+                    <label class="form-label fw-bold text-dark d-block mb-2">
+                        <i class="bi bi-stars text-primary me-1"></i> Quick Role Preset
+                    </label>
+                    <div class="row g-2">
+                        <div class="col-6 col-md-3">
+                            <div class="form-check p-2 border rounded bg-white">
+                                <input class="form-check-input ms-0 me-2" type="radio" name="modalRolePreset" id="rolePresetAdmin" value="admin" onchange="applyRolePreset('admin')">
+                                <label class="form-check-label fw-semibold" for="rolePresetAdmin">
+                                    👑 Admin <small class="d-block text-muted" style="font-size: 0.72rem;">Full Access</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="form-check p-2 border rounded bg-white">
+                                <input class="form-check-input ms-0 me-2" type="radio" name="modalRolePreset" id="rolePresetEditor" value="editor" checked onchange="applyRolePreset('editor')">
+                                <label class="form-check-label fw-semibold" for="rolePresetEditor">
+                                    ✏️ Editor <small class="d-block text-muted" style="font-size: 0.72rem;">Can Edit Data</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="form-check p-2 border rounded bg-white">
+                                <input class="form-check-input ms-0 me-2" type="radio" name="modalRolePreset" id="rolePresetViewer" value="viewer" onchange="applyRolePreset('viewer')">
+                                <label class="form-check-label fw-semibold" for="rolePresetViewer">
+                                    👁️ Viewer <small class="d-block text-muted" style="font-size: 0.72rem;">Read-Only</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="form-check p-2 border rounded bg-white">
+                                <input class="form-check-input ms-0 me-2" type="radio" name="modalRolePreset" id="rolePresetCustom" value="custom" onchange="applyRolePreset('custom')">
+                                <label class="form-check-label fw-semibold" for="rolePresetCustom">
+                                    ⚙️ Custom <small class="d-block text-muted" style="font-size: 0.72rem;">Custom Rights</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. What User Can See (View Permissions) -->
+                <div class="mb-4">
+                    <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">
+                        <i class="bi bi-eye-fill text-primary me-1"></i> 1. Visibility Rights (User Ko Kya Dikhna Chahiye)
+                    </h6>
+
+                    <!-- Party Access Scope -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Party / Client Visibility Scope</label>
+                        <div class="d-flex gap-3 mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="modalPartyScope" id="partyScopeAll" value="all" checked onchange="togglePartyChecklist(false)">
+                                <label class="form-check-label fw-semibold" for="partyScopeAll">
+                                    <i class="bi bi-globe me-1 text-primary"></i> All Parties (Sabhi Parties Dikhegi)
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="modalPartyScope" id="partyScopeSelected" value="selected" onchange="togglePartyChecklist(true)">
+                                <label class="form-check-label fw-semibold" for="partyScopeSelected">
+                                    <i class="bi bi-check2-square me-1 text-success"></i> Selected Parties Only (Sirf Chuni Hui)
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Searchable Party Checklist -->
+                        <div id="partyChecklistContainer" style="display: none;">
+                            <input type="text" class="form-control form-control-sm mb-2" id="partySearchInput" placeholder="Search parties..." onkeyup="filterPartiesList()">
+                            <div class="search-filter-box" id="partyChecklistBox">
+                                {% for party in all_parties %}
+                                <div class="form-check party-check-item">
+                                    <input class="form-check-input party-checkbox" type="checkbox" value="{{ party.id }}" id="chk_party_{{ party.id }}">
+                                    <label class="form-check-label small" for="chk_party_{{ party.id }}">
+                                        {{ party.client_name }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Column Visibility Scope -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Dashboard Column Visibility Scope</label>
+                        <div class="d-flex gap-3 mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="modalColumnScope" id="colScopeAll" value="all" checked onchange="toggleColumnChecklist(false)">
+                                <label class="form-check-label fw-semibold" for="colScopeAll">
+                                    <i class="bi bi-layout-three-columns me-1 text-primary"></i> All Columns (Sabhi Columns Dikhenge)
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="modalColumnScope" id="colScopeSelected" value="selected" onchange="toggleColumnChecklist(true)">
+                                <label class="form-check-label fw-semibold" for="colScopeSelected">
+                                    <i class="bi bi-check2-square me-1 text-warning"></i> Selected Columns Only (Sirf Chune Hue)
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Column Checklist -->
+                        <div id="columnChecklistContainer" style="display: none;">
+                            <div class="search-filter-box" id="columnChecklistBox">
+                                {% for col in all_columns %}
+                                <div class="form-check">
+                                    <input class="form-check-input col-checkbox" type="checkbox" value="{{ col.key }}" id="chk_col_{{ col.key }}" checked>
+                                    <label class="form-check-label small" for="chk_col_{{ col.key }}">
+                                        {{ col.label }} <span class="text-muted small">({{ col.key }})</span>
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Party Tabs Visibility Scope -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Party Tabs Visibility Scope (Party Khulne Par Kaun-se Tabs Dikhenge)</label>
+                        <div class="d-flex gap-3 mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="modalTabScope" id="tabScopeAll" value="all" checked onchange="toggleTabChecklist(false)">
+                                <label class="form-check-label fw-semibold" for="tabScopeAll">
+                                    <i class="bi bi-folder2-open me-1 text-primary"></i> All Tabs (Sabhi Tabs Dikhenge)
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="modalTabScope" id="tabScopeSelected" value="selected" onchange="toggleTabChecklist(true)">
+                                <label class="form-check-label fw-semibold" for="tabScopeSelected">
+                                    <i class="bi bi-check2-square me-1 text-info"></i> Selected Tabs Only (Sirf Chune Hue Tabs)
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Tab Checklist -->
+                        <div id="tabChecklistContainer" style="display: none;">
+                            <input type="text" class="form-control form-control-sm mb-2" id="tabSearchInput" placeholder="Search tab names..." onkeyup="filterTabsList()">
+                            <div class="search-filter-box" id="tabChecklistBox">
+                                {% for t_title in all_tab_titles %}
+                                <div class="form-check tab-check-item">
+                                    <input class="form-check-input tab-checkbox" type="checkbox" value="{{ t_title }}" id="chk_tab_{{ forloop.counter }}" checked>
+                                    <label class="form-check-label small" for="chk_tab_{{ forloop.counter }}">
+                                        <i class="bi bi-folder-fill text-warning me-1"></i> {{ t_title }}
+                                    </label>
+                                </div>
+                                {% empty %}
+                                <div class="text-muted small py-1" id="noTabsMsg">No tabs created yet. (Aap niche tab title add kar sakte hain)</div>
+                                {% endfor %}
+                            </div>
+                            <div class="input-group input-group-sm mt-2">
+                                <input type="text" class="form-control" id="customTabTitleInput" placeholder="Type new tab name (e.g. Problems, Remarks)...">
+                                <button class="btn btn-outline-secondary" type="button" onclick="addCustomTabTitleToChecklist()">
+                                    <i class="bi bi-plus-lg me-1"></i> Add To Allowed Tabs
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. What User Can Do (Action / Edit Permissions) -->
+                <div>
+                    <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">
+                        <i class="bi bi-toggles text-primary me-1"></i> 2. Action & Edit Rights (User Kya Kya Edit / Access Kar Sake)
+                    </h6>
+
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_can_view_party_details" checked>
+                                <label class="form-check-label fw-semibold text-primary" for="perm_can_view_party_details">
+                                    <i class="bi bi-folder2-open me-1"></i> Can Open / Click Party Details & Tabs
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_can_view_history" checked>
+                                <label class="form-check-label fw-semibold text-primary" for="perm_can_view_history">
+                                    <i class="bi bi-clock-history me-1"></i> Can View Edit History (Audit Log / History Button)
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_can_view_problem_badge" checked>
+                                <label class="form-check-label fw-semibold text-danger" for="perm_can_view_problem_badge">
+                                    <i class="bi bi-exclamation-circle-fill me-1"></i> Can View Problem Alert (Red Count Badge)
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_can_edit_status" checked>
+                                <label class="form-check-label fw-semibold" for="perm_can_edit_status">
+                                    Can Edit Status (Working, Pending, Hold, etc.)
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_can_edit_lot" checked>
+                                <label class="form-check-label fw-semibold" for="perm_can_edit_lot">
+                                    Can Edit LOT / ITEM Number
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_can_edit_target_date" checked>
+                                <label class="form-check-label fw-semibold" for="perm_can_edit_target_date">
+                                    Can Edit Target Date
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_can_edit_notes" checked>
+                                <label class="form-check-label fw-semibold" for="perm_can_edit_notes">
+                                    Can Edit Process Notes / Remarks
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_can_edit_custom_tabs" checked>
+                                <label class="form-check-label fw-semibold" for="perm_can_edit_custom_tabs">
+                                    Can Edit Custom Tabs & Tables
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_can_add_party" checked>
+                                <label class="form-check-label fw-semibold" for="perm_can_add_party">
+                                    Can Add New Party
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_can_delete_party">
+                                <label class="form-check-label fw-semibold text-danger" for="perm_can_delete_party">
+                                    Can Delete Party (High Risk)
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_can_hide_party" checked>
+                                <label class="form-check-label fw-semibold" for="perm_can_hide_party">
+                                    Can Hide / Unhide Party
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_can_export_excel" checked>
+                                <label class="form-check-label fw-semibold" for="perm_can_export_excel">
+                                    Can Export Excel
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_can_import_excel">
+                                <label class="form-check-label fw-semibold" for="perm_can_import_excel">
+                                    Can Import Excel
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_can_manage_settings">
+                                <label class="form-check-label fw-semibold" for="perm_can_manage_settings">
+                                    Can Manage Column & Color Settings
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_is_admin">
+                                <label class="form-check-label fw-semibold text-primary" for="perm_is_admin">
+                                    <i class="bi bi-shield-shaded me-1"></i> Administrator (Admin Panel Access)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary fw-semibold px-4" id="btnSubmitUserForm" onclick="submitUserForm()">
+                    <i class="bi bi-check-lg me-1"></i> Save User Access
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function getUserModal() {
+        const el = document.getElementById('userFormModal');
+        if (!el) return null;
+        if (window.bootstrap && window.bootstrap.Modal) {
+            return bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
+        }
+        return null;
+    }
+
+    function getCsrfToken() {
+        const cookie = document.cookie.split('; ').find(row => row.startsWith('csrftoken='));
+        return cookie ? cookie.split('=')[1] : '';
+    }
+
+    function togglePartyChecklist(show) {
+        const container = document.getElementById('partyChecklistContainer');
+        if (container) container.style.display = show ? 'block' : 'none';
+    }
+
+    function toggleColumnChecklist(show) {
+        const container = document.getElementById('columnChecklistContainer');
+        if (container) container.style.display = show ? 'block' : 'none';
+    }
+
+    function toggleTabChecklist(show) {
+        const container = document.getElementById('tabChecklistContainer');
+        if (container) container.style.display = show ? 'block' : 'none';
+    }
+
+    function filterPartiesList() {
+        const q = (document.getElementById('partySearchInput')?.value || '').toLowerCase();
+        document.querySelectorAll('.party-check-item').forEach(item => {
+            const label = item.textContent.toLowerCase();
+            item.style.display = label.includes(q) ? 'block' : 'none';
+        });
+    }
+
+    function filterTabsList() {
+        const q = (document.getElementById('tabSearchInput')?.value || '').toLowerCase();
+        document.querySelectorAll('.tab-check-item').forEach(item => {
+            const label = item.textContent.toLowerCase();
+            item.style.display = label.includes(q) ? 'block' : 'none';
+        });
+    }
+
+    function addCustomTabTitleToChecklist() {
+        const input = document.getElementById('customTabTitleInput');
+        const val = (input ? input.value : '').trim();
+        if (!val) return;
+        const box = document.getElementById('tabChecklistBox');
+        if (!box) return;
+
+        let exists = false;
+        box.querySelectorAll('.tab-checkbox').forEach(cb => {
+            if (cb.value.toLowerCase() === val.toLowerCase()) {
+                cb.checked = true;
+                exists = true;
+            }
+        });
+        if (!exists) {
+            const id = 'chk_tab_custom_' + Date.now();
+            const div = document.createElement('div');
+            div.className = 'form-check tab-check-item';
+            div.innerHTML = `
+                <input class="form-check-input tab-checkbox" type="checkbox" value="${val}" id="${id}" checked>
+                <label class="form-check-label small" for="${id}">
+                    <i class="bi bi-folder-fill text-warning me-1"></i> ${val}
+                </label>
+            `;
+            box.appendChild(div);
+            const noMsg = document.getElementById('noTabsMsg');
+            if (noMsg) noMsg.style.display = 'none';
+        }
+        if (input) input.value = '';
+    }
+
+    function applyRolePreset(role) {
+        const isAdmin = (role === 'admin');
+        const isViewer = (role === 'viewer');
+        const isEditor = (role === 'editor');
+
+        if (isAdmin) {
+            const elAdmin = document.getElementById('perm_is_admin'); if (elAdmin) elAdmin.checked = true;
+            const elPartyDet = document.getElementById('perm_can_view_party_details'); if (elPartyDet) elPartyDet.checked = true;
+            const elHist = document.getElementById('perm_can_view_history'); if (elHist) elHist.checked = true;
+            const elBadge = document.getElementById('perm_can_view_problem_badge'); if (elBadge) elBadge.checked = true;
+            const elSt = document.getElementById('perm_can_edit_status'); if (elSt) elSt.checked = true;
+            const elLot = document.getElementById('perm_can_edit_lot'); if (elLot) elLot.checked = true;
+            const elDate = document.getElementById('perm_can_edit_target_date'); if (elDate) elDate.checked = true;
+            const elNotes = document.getElementById('perm_can_edit_notes'); if (elNotes) elNotes.checked = true;
+            const elAddP = document.getElementById('perm_can_add_party'); if (elAddP) elAddP.checked = true;
+            const elDelP = document.getElementById('perm_can_delete_party'); if (elDelP) elDelP.checked = true;
+            const elHideP = document.getElementById('perm_can_hide_party'); if (elHideP) elHideP.checked = true;
+            const elTabs = document.getElementById('perm_can_edit_custom_tabs'); if (elTabs) elTabs.checked = true;
+            const elExp = document.getElementById('perm_can_export_excel'); if (elExp) elExp.checked = true;
+            const elImp = document.getElementById('perm_can_import_excel'); if (elImp) elImp.checked = true;
+            const elSet = document.getElementById('perm_can_manage_settings'); if (elSet) elSet.checked = true;
+            const pScope = document.getElementById('partyScopeAll'); if (pScope) pScope.checked = true;
+            togglePartyChecklist(false);
+            const cScope = document.getElementById('colScopeAll'); if (cScope) cScope.checked = true;
+            toggleColumnChecklist(false);
+            const tScope = document.getElementById('tabScopeAll'); if (tScope) tScope.checked = true;
+            toggleTabChecklist(false);
+        } else if (isViewer) {
+            const elAdmin = document.getElementById('perm_is_admin'); if (elAdmin) elAdmin.checked = false;
+            const elPartyDet = document.getElementById('perm_can_view_party_details'); if (elPartyDet) elPartyDet.checked = true;
+            const elHist = document.getElementById('perm_can_view_history'); if (elHist) elHist.checked = true;
+            const elBadge = document.getElementById('perm_can_view_problem_badge'); if (elBadge) elBadge.checked = true;
+            const elSt = document.getElementById('perm_can_edit_status'); if (elSt) elSt.checked = false;
+            const elLot = document.getElementById('perm_can_edit_lot'); if (elLot) elLot.checked = false;
+            const elDate = document.getElementById('perm_can_edit_target_date'); if (elDate) elDate.checked = false;
+            const elNotes = document.getElementById('perm_can_edit_notes'); if (elNotes) elNotes.checked = false;
+            const elAddP = document.getElementById('perm_can_add_party'); if (elAddP) elAddP.checked = false;
+            const elDelP = document.getElementById('perm_can_delete_party'); if (elDelP) elDelP.checked = false;
+            const elHideP = document.getElementById('perm_can_hide_party'); if (elHideP) elHideP.checked = false;
+            const elTabs = document.getElementById('perm_can_edit_custom_tabs'); if (elTabs) elTabs.checked = false;
+            const elExp = document.getElementById('perm_can_export_excel'); if (elExp) elExp.checked = true;
+            const elImp = document.getElementById('perm_can_import_excel'); if (elImp) elImp.checked = false;
+            const elSet = document.getElementById('perm_can_manage_settings'); if (elSet) elSet.checked = false;
+        } else if (isEditor) {
+            const elAdmin = document.getElementById('perm_is_admin'); if (elAdmin) elAdmin.checked = false;
+            const elPartyDet = document.getElementById('perm_can_view_party_details'); if (elPartyDet) elPartyDet.checked = true;
+            const elHist = document.getElementById('perm_can_view_history'); if (elHist) elHist.checked = true;
+            const elBadge = document.getElementById('perm_can_view_problem_badge'); if (elBadge) elBadge.checked = true;
+            const elSt = document.getElementById('perm_can_edit_status'); if (elSt) elSt.checked = true;
+            const elLot = document.getElementById('perm_can_edit_lot'); if (elLot) elLot.checked = true;
+            const elDate = document.getElementById('perm_can_edit_target_date'); if (elDate) elDate.checked = true;
+            const elNotes = document.getElementById('perm_can_edit_notes'); if (elNotes) elNotes.checked = true;
+            const elAddP = document.getElementById('perm_can_add_party'); if (elAddP) elAddP.checked = true;
+            const elDelP = document.getElementById('perm_can_delete_party'); if (elDelP) elDelP.checked = false;
+            const elHideP = document.getElementById('perm_can_hide_party'); if (elHideP) elHideP.checked = true;
+            const elTabs = document.getElementById('perm_can_edit_custom_tabs'); if (elTabs) elTabs.checked = true;
+            const elExp = document.getElementById('perm_can_export_excel'); if (elExp) elExp.checked = true;
+            const elImp = document.getElementById('perm_can_import_excel'); if (elImp) elImp.checked = false;
+            const elSet = document.getElementById('perm_can_manage_settings'); if (elSet) elSet.checked = false;
+        }
+    }
+
+    function generateRandomPass() {
+        const chars = 'abcdefghjkmnpqrstuvwxyz23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+        let pass = '';
+        for (let i = 0; i < 8; i++) {
+            pass += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        document.getElementById('modalPassword').value = pass;
+    }
+
+    function openCreateUserModal() {
+        const modalEl = document.getElementById('userFormModal');
+        if (!modalEl) return;
+
+        document.getElementById('modalUserId').value = '';
+        document.getElementById('modalUsername').value = '';
+        document.getElementById('modalDisplayName').value = '';
+        document.getElementById('modalPassword').value = '';
+        document.getElementById('modalPasswordLabel').innerHTML = '<i class="bi bi-key-fill text-primary me-1"></i> Unique Password <span class="text-danger">*</span>';
+        document.getElementById('modalPasswordHelp').style.display = 'none';
+        const newHelp = document.getElementById('modalPasswordNewHelp');
+        if (newHelp) newHelp.style.display = 'block';
+
+        const roleEditor = document.getElementById('rolePresetEditor');
+        if (roleEditor) roleEditor.checked = true;
+        applyRolePreset('editor');
+
+        const partyScopeAll = document.getElementById('partyScopeAll');
+        if (partyScopeAll) partyScopeAll.checked = true;
+        togglePartyChecklist(false);
+        document.querySelectorAll('.party-checkbox').forEach(cb => cb.checked = false);
+
+        const colScopeAll = document.getElementById('colScopeAll');
+        if (colScopeAll) colScopeAll.checked = true;
+        toggleColumnChecklist(false);
+        document.querySelectorAll('.col-checkbox').forEach(cb => cb.checked = true);
+
+        const tabScopeAll = document.getElementById('tabScopeAll');
+        if (tabScopeAll) tabScopeAll.checked = true;
+        toggleTabChecklist(false);
+        document.querySelectorAll('.tab-checkbox').forEach(cb => cb.checked = true);
+
+        const elPartyDet = document.getElementById('perm_can_view_party_details');
+        if (elPartyDet) elPartyDet.checked = true;
+
+        const elHist = document.getElementById('perm_can_view_history');
+        if (elHist) elHist.checked = true;
+
+        const elBadge = document.getElementById('perm_can_view_problem_badge');
+        if (elBadge) elBadge.checked = true;
+
+        const modal = getUserModal();
+        if (modal) modal.show();
+    }
+
+    function openEditUserModal(userId) {
+        fetch(`/admin-panel/users/${userId}/json/`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.user) {
+                    const u = data.user;
+                    document.getElementById('modalUserId').value = u.id;
+                    document.getElementById('modalUsername').value = u.username;
+                    document.getElementById('modalDisplayName').value = u.display_name || u.username;
+                    document.getElementById('modalPassword').value = '';
+                    document.getElementById('modalPasswordLabel').innerHTML = '<i class="bi bi-key-fill text-primary me-1"></i> New Password (Optional)';
+                    document.getElementById('modalPasswordHelp').style.display = 'block';
+                    const newHelp = document.getElementById('modalPasswordNewHelp');
+                    if (newHelp) newHelp.style.display = 'none';
+
+                    // Role
+                    if (u.is_admin) {
+                        const rAdmin = document.getElementById('rolePresetAdmin'); if (rAdmin) rAdmin.checked = true;
+                    } else if (u.role === 'viewer') {
+                        const rViewer = document.getElementById('rolePresetViewer'); if (rViewer) rViewer.checked = true;
+                    } else if (u.role === 'editor') {
+                        const rEditor = document.getElementById('rolePresetEditor'); if (rEditor) rEditor.checked = true;
+                    } else {
+                        const rCust = document.getElementById('rolePresetCustom'); if (rCust) rCust.checked = true;
+                    }
+
+                    // Scope Parties
+                    if (u.all_parties_access) {
+                        const pAll = document.getElementById('partyScopeAll'); if (pAll) pAll.checked = true;
+                        togglePartyChecklist(false);
+                    } else {
+                        const pSel = document.getElementById('partyScopeSelected'); if (pSel) pSel.checked = true;
+                        togglePartyChecklist(true);
+                    }
+                    const allowedPartySet = new Set(u.allowed_parties || []);
+                    document.querySelectorAll('.party-checkbox').forEach(cb => {
+                        cb.checked = allowedPartySet.has(parseInt(cb.value, 10));
+                    });
+
+                    // Scope Columns
+                    if (u.all_columns_access) {
+                        const cAll = document.getElementById('colScopeAll'); if (cAll) cAll.checked = true;
+                        toggleColumnChecklist(false);
+                    } else {
+                        const cSel = document.getElementById('colScopeSelected'); if (cSel) cSel.checked = true;
+                        toggleColumnChecklist(true);
+                    }
+                    const allowedColSet = new Set(u.allowed_columns || []);
+                    document.querySelectorAll('.col-checkbox').forEach(cb => {
+                        cb.checked = allowedColSet.has(cb.value);
+                    });
+
+                    // Scope Tabs
+                    if (u.all_tabs_access) {
+                        const tAll = document.getElementById('tabScopeAll'); if (tAll) tAll.checked = true;
+                        toggleTabChecklist(false);
+                    } else {
+                        const tSel = document.getElementById('tabScopeSelected'); if (tSel) tSel.checked = true;
+                        toggleTabChecklist(true);
+                    }
+                    const allowedTabSet = new Set((u.allowed_tab_titles || []).map(t => String(t).trim().toLowerCase()));
+                    (u.allowed_tab_titles || []).forEach(tTitle => {
+                        let found = false;
+                        document.querySelectorAll('.tab-checkbox').forEach(cb => {
+                            if (cb.value.toLowerCase() === String(tTitle).toLowerCase()) found = true;
+                        });
+                        if (!found && tTitle) {
+                            const id = 'chk_tab_loaded_' + Math.random().toString(36).substring(2, 7);
+                            const div = document.createElement('div');
+                            div.className = 'form-check tab-check-item';
+                            div.innerHTML = `
+                                <input class="form-check-input tab-checkbox" type="checkbox" value="${tTitle}" id="${id}" checked>
+                                <label class="form-check-label small" for="${id}">
+                                    <i class="bi bi-folder-fill text-warning me-1"></i> ${tTitle}
+                                </label>
+                            `;
+                            document.getElementById('tabChecklistBox')?.appendChild(div);
+                        }
+                    });
+                    document.querySelectorAll('.tab-checkbox').forEach(cb => {
+                        cb.checked = allowedTabSet.has(cb.value.trim().toLowerCase());
+                    });
+
+                    // Permissions
+                    const elPartyDet = document.getElementById('perm_can_view_party_details'); if (elPartyDet) elPartyDet.checked = (u.can_view_party_details !== false);
+                    const elHist = document.getElementById('perm_can_view_history'); if (elHist) elHist.checked = !!u.can_view_history;
+                    const elBadge = document.getElementById('perm_can_view_problem_badge'); if (elBadge) elBadge.checked = (u.can_view_problem_badge !== false);
+                    const elSt = document.getElementById('perm_can_edit_status'); if (elSt) elSt.checked = !!u.can_edit_status;
+                    const elLot = document.getElementById('perm_can_edit_lot'); if (elLot) elLot.checked = !!u.can_edit_lot;
+                    const elDate = document.getElementById('perm_can_edit_target_date'); if (elDate) elDate.checked = !!u.can_edit_target_date;
+                    const elNotes = document.getElementById('perm_can_edit_notes'); if (elNotes) elNotes.checked = !!u.can_edit_notes;
+                    const elAddP = document.getElementById('perm_can_add_party'); if (elAddP) elAddP.checked = !!u.can_add_party;
+                    const elDelP = document.getElementById('perm_can_delete_party'); if (elDelP) elDelP.checked = !!u.can_delete_party;
+                    const elHideP = document.getElementById('perm_can_hide_party'); if (elHideP) elHideP.checked = !!u.can_hide_party;
+                    const elTabs = document.getElementById('perm_can_edit_custom_tabs'); if (elTabs) elTabs.checked = !!u.can_edit_custom_tabs;
+                    const elExp = document.getElementById('perm_can_export_excel'); if (elExp) elExp.checked = !!u.can_export_excel;
+                    const elImp = document.getElementById('perm_can_import_excel'); if (elImp) elImp.checked = !!u.can_import_excel;
+                    const elSet = document.getElementById('perm_can_manage_settings'); if (elSet) elSet.checked = !!u.can_manage_settings;
+                    const elAdmin = document.getElementById('perm_is_admin'); if (elAdmin) elAdmin.checked = !!u.is_admin;
+
+                    const modal = getUserModal();
+                    if (modal) modal.show();
+                } else {
+                    alert('Error loading user details: ' + (data.error || 'Server error'));
+                }
+            })
+            .catch(err => alert('Network error: ' + err));
+    }
+
+    function submitUserForm() {
+        const userId = document.getElementById('modalUserId').value;
+        const displayName = document.getElementById('modalDisplayName').value.trim();
+        let username = document.getElementById('modalUsername').value.trim();
+        const password = document.getElementById('modalPassword').value.trim();
+        const role = document.querySelector('input[name="modalRolePreset"]:checked')?.value || 'custom';
+
+        if (!displayName) {
+            alert('Please enter Person / Staff Name');
+            document.getElementById('modalDisplayName').focus();
+            return;
+        }
+        if (!userId && !password) {
+            alert('Please set a unique password for this person');
+            document.getElementById('modalPassword').focus();
+            return;
+        }
+        if (!username) {
+            username = displayName.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user';
+        }
+
+        const partyScope = document.querySelector('input[name="modalPartyScope"]:checked')?.value || 'all';
+        const allPartiesAccess = (partyScope === 'all');
+        const allowedParties = [];
+        if (!allPartiesAccess) {
+            document.querySelectorAll('.party-checkbox:checked').forEach(cb => {
+                allowedParties.push(parseInt(cb.value, 10));
+            });
+        }
+
+        const colScope = document.querySelector('input[name="modalColumnScope"]:checked')?.value || 'all';
+        const allColumnsAccess = (colScope === 'all');
+        const allowedColumns = [];
+        if (!allColumnsAccess) {
+            document.querySelectorAll('.col-checkbox:checked').forEach(cb => {
+                allowedColumns.push(cb.value);
+            });
+        }
+
+        const tabScope = document.querySelector('input[name="modalTabScope"]:checked')?.value || 'all';
+        const allTabsAccess = (tabScope === 'all');
+        const allowedTabs = [];
+        if (!allTabsAccess) {
+            document.querySelectorAll('.tab-checkbox:checked').forEach(cb => {
+                const val = (cb.value || '').trim();
+                if (val && !allowedTabs.includes(val)) allowedTabs.push(val);
+            });
+        }
+
+        const payload = {
+            user_id: userId ? parseInt(userId, 10) : null,
+            username: username,
+            display_name: displayName,
+            password: password,
+            role: role,
+            all_parties_access: allPartiesAccess,
+            allowed_parties: allowedParties,
+            all_columns_access: allColumnsAccess,
+            allowed_columns: allowedColumns,
+            all_tabs_access: allTabsAccess,
+            allowed_tab_titles: allowedTabs,
+            can_view_party_details: document.getElementById('perm_can_view_party_details')?.checked ?? true,
+            can_view_history: document.getElementById('perm_can_view_history')?.checked ?? true,
+            can_view_problem_badge: document.getElementById('perm_can_view_problem_badge')?.checked ?? true,
+            can_edit_status: document.getElementById('perm_can_edit_status').checked,
+            can_edit_lot: document.getElementById('perm_can_edit_lot').checked,
+            can_edit_target_date: document.getElementById('perm_can_edit_target_date').checked,
+            can_edit_notes: document.getElementById('perm_can_edit_notes').checked,
+            can_add_party: document.getElementById('perm_can_add_party').checked,
+            can_delete_party: document.getElementById('perm_can_delete_party').checked,
+            can_hide_party: document.getElementById('perm_can_hide_party').checked,
+            can_edit_custom_tabs: document.getElementById('perm_can_edit_custom_tabs').checked,
+            can_export_excel: document.getElementById('perm_can_export_excel').checked,
+            can_import_excel: document.getElementById('perm_can_import_excel').checked,
+            can_manage_settings: document.getElementById('perm_can_manage_settings').checked,
+            is_admin: document.getElementById('perm_is_admin').checked
+        };
+
+        const btnSubmit = document.getElementById('btnSubmitUserForm');
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+
+        fetch('/admin-panel/users/save/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = '<i class="bi bi-check-lg me-1"></i> Save User Access';
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Error saving user: ' + (data.error || 'Server error'));
+            }
+        })
+        .catch(err => {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = '<i class="bi bi-check-lg me-1"></i> Save User Access';
+            alert('Network error: ' + err);
+        });
+    }
+
+    function confirmDeleteUser(userId, username) {
+        if (confirm(`Are you sure you want to permanently delete user "${username}"?`)) {
+            fetch(`/admin-panel/users/${userId}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const row = document.getElementById(`userRow-${userId}`);
+                    if (row) row.remove();
+                } else {
+                    alert('Error deleting user: ' + (data.error || 'Server error'));
+                }
+            })
+            .catch(err => alert('Network error: ' + err));
+        }
+    }
+</script>
+{% endblock %}

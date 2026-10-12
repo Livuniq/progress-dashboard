@@ -39,5 +39,15 @@ urlpatterns = [
     path('party/tabs/<int:tab_id>/tables/save/', views.party_table_save, name='party_table_save'),
     path('party/tables/<int:table_id>/delete/', views.party_table_delete, name='party_table_delete'),
     path('party/tables/<int:table_id>/rename/', views.party_table_rename, name='party_table_rename'),
+    # Authentication & Lock System
+    path('login/', views.login_view, name='login'),
+    path('logout/', views.logout_view, name='logout'),
+    path('unlock/', views.unlock_ajax, name='unlock_ajax'),
+    # Admin Panel & User Rights Management
+    path('admin-panel/', views.admin_panel, name='admin_panel'),
+    path('admin-panel/users/save/', views.admin_user_save, name='admin_user_save'),
+    path('admin-panel/users/<int:user_id>/json/', views.admin_user_get_json, name='admin_user_get_json'),
+    path('admin-panel/users/<int:user_id>/delete/', views.admin_user_delete, name='admin_user_delete'),
+    path('admin-panel/users/<int:user_id>/toggle-status/', views.admin_user_toggle_status, name='admin_user_toggle_status'),
 ]
 

@@ -830,45 +830,120 @@
             }
         }
 
-        /* Security / Stealth Privacy Screen (Default: Completely Blank) */
+        /* Security Lock Screen Overlay */
         #privacyLockOverlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
-            background-color: #ffffff;
+            background: rgba(15, 23, 42, 0.94);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
             z-index: 2147483647;
-            display: block;
+            display: none;
+            align-items: center;
+            justify-content: center;
             user-select: none;
         }
 
-        #privacyLockOverlay.unlocked {
-            display: none !important;
-            pointer-events: none !important;
+        #privacyLockOverlay.is-locked {
+            display: flex !important;
+        }
+
+        .lock-screen-box {
+            width: 100%;
+            max-width: 400px;
+            background: rgba(30, 41, 59, 0.96);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            border-radius: 20px;
+            padding: 36px 30px;
+            text-align: center;
+            animation: lockDropIn 0.2s ease-out;
+        }
+
+        @keyframes lockDropIn {
+            from {
+                opacity: 0;
+                transform: translateY(-16px) scale(0.97);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .lock-screen-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 18px;
+            background: rgba(239, 68, 68, 0.15);
+            border: 2px solid rgba(239, 68, 68, 0.35);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            color: #f87171;
+            margin-bottom: 16px;
+        }
+
+        .user-avatar-circle-sm {
+            width: 26px;
+            height: 26px;
+            border-radius: 7px;
+            background: #eff6ff;
+            color: #2563eb;
+            font-weight: 700;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
 
 <body>
-    <!-- Security Blank Screen Overlay (Default: Totally Blank until Ctrl + L is pressed) -->
-    <div id="privacyLockOverlay"></div>
-    <script>
-        // Fast synchronous check: If user unlocked within last 60 minutes, immediately keep unlocked without flash
-        (function() {
-            try {
-                var until = parseInt(localStorage.getItem('dashboard_privacy_unlocked_until') || '0', 10);
-                if (Date.now() < until) {
-                    var el = document.getElementById('privacyLockOverlay');
-                    if (el) {
-                        el.className = 'unlocked';
-                        el.style.display = 'none';
-                    }
-                }
-            } catch(e) {}
-        })();
-    </script>
+    <!-- Security Lock Screen Overlay (Password Protected) -->
+    <div id="privacyLockOverlay">
+        <div class="lock-screen-box">
+            <div class="lock-screen-icon">
+                <i class="bi bi-shield-lock-fill"></i>
+            </div>
+            <h4 class="fw-bold text-white mb-1">Session Locked</h4>
+            <p class="text-white-50 small mb-4">
+                {% if user.is_authenticated %}
+                Logged in as <strong>{{ user_profile.display_name|default:user.username }}</strong>
+                {% else %}
+                Enter unique password to unlock
+                {% endif %}
+            </p>
+
+            <form id="lockScreenUnlockForm" onsubmit="handleScreenUnlock(event)">
+                <div class="mb-3 text-start">
+                    <label class="form-label text-white-50 small fw-semibold text-uppercase">Enter Password to Unlock</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-0 text-muted" style="border-radius: 10px 0 0 10px;">
+                            <i class="bi bi-key-fill"></i>
+                        </span>
+                        <input type="password" class="form-control border-0" id="lockScreenPassword" placeholder="Enter password..." required style="border-radius: 0 10px 10px 0; padding: 11px 14px;">
+                    </div>
+                    <div id="lockScreenError" class="text-danger small mt-2 fw-semibold" style="display: none;"></div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold rounded-3 shadow-sm mb-3" id="btnUnlockSubmit">
+                    <i class="bi bi-unlock-fill me-1"></i> Unlock Dashboard
+                </button>
+            </form>
+
+            <div class="d-flex align-items-center justify-content-center gap-3 pt-3 border-top border-white border-opacity-10">
+                <a href="{% url 'tracker:logout' %}" class="text-white-50 small text-decoration-none">
+                    <i class="bi bi-box-arrow-right me-1"></i> Sign in as different user
+                </a>
+            </div>
+        </div>
+    </div>
 
     <!-- Top Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark navbar-custom py-2">
@@ -883,21 +958,69 @@
             <div class="collapse navbar-collapse" id="topNav">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <li class="nav-item">
-                        <a class="nav-link active" href="{% url 'tracker:dashboard' %}"><i
-                                class="bi bi-speedometer2 me-1"></i> Dashboard & Process</a>
+                        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'tracker:dashboard' %}">
+                            <i class="bi bi-speedometer2 me-1"></i> Dashboard & Process
+                        </a>
                     </li>
+                    {% if is_admin %}
                     <li class="nav-item">
-                        <a class="nav-link text-white-50" href="/admin/" target="_blank"><i
-                                class="bi bi-shield-lock me-1"></i> Django Admin</a>
+                        <a class="nav-link {% if request.resolver_match.url_name == 'admin_panel' %}active{% endif %}" href="{% url 'tracker:admin_panel' %}">
+                            <i class="bi bi-shield-shaded me-1 text-warning"></i> Admin Panel
+                        </a>
                     </li>
+                    {% endif %}
                 </ul>
+
                 <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-dark border border-secondary text-light px-3 py-2">
+                    <span class="badge bg-dark border border-secondary text-light px-3 py-2 d-none d-md-inline-block">
                         <i class="bi bi-calendar3 me-1"></i> Today: {{ today|date:"d/m/Y" }}
                     </span>
-                    <button type="button" class="btn btn-sm btn-outline-light" onclick="togglePrivacyLock()" title="Blank Screen / Lock (Ctrl + L)">
-                        <i class="bi bi-shield-lock me-1"></i> Lock
+
+                    {% if user.is_authenticated %}
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-light d-flex align-items-center gap-2 py-1 px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <div class="user-avatar-circle-sm">
+                                {{ user.username|slice:":1"|upper }}
+                            </div>
+                            <span class="fw-semibold d-none d-sm-inline">{{ user_profile.display_name|default:user.username }}</span>
+                            {% if is_admin %}
+                                <span class="badge bg-warning text-dark" style="font-size: 0.65rem;">Admin</span>
+                            {% else %}
+                                <span class="badge bg-secondary" style="font-size: 0.65rem;">{{ user_profile.get_role_display|default:'User' }}</span>
+                            {% endif %}
+                            <i class="bi bi-chevron-down small"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2">
+                            <li><h6 class="dropdown-header small text-muted">User: {{ user_profile.display_name|default:user.username }}</h6></li>
+                            {% if is_admin %}
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{% url 'tracker:admin_panel' %}">
+                                    <i class="bi bi-shield-shaded text-primary"></i> Admin Panel (Users & Rights)
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider my-1"></li>
+                            {% endif %}
+                            <li>
+                                <button class="dropdown-item d-flex align-items-center gap-2 py-2" type="button" onclick="lockCurrentScreen()">
+                                    <i class="bi bi-lock-fill text-warning"></i> Lock Screen (Ctrl+L)
+                                </button>
+                            </li>
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" href="{% url 'tracker:logout' %}">
+                                    <i class="bi bi-box-arrow-right"></i> Log Out
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <button type="button" class="btn btn-sm btn-outline-warning" onclick="lockCurrentScreen()" title="Lock Screen (Ctrl+L)">
+                        <i class="bi bi-lock-fill me-1"></i> Lock
                     </button>
+                    {% else %}
+                    <a href="{% url 'tracker:login' %}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+                    </a>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -924,67 +1047,111 @@
     <!-- Bootstrap 5 Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Security Keyboard Listener: Ctrl + L (or Cmd + L) with 60-Minute Session Memory -->
+    <!-- Password Lock Screen & Keyboard Listener (Ctrl + L to Lock) -->
     <script>
         (function() {
             const overlay = document.getElementById('privacyLockOverlay');
-            const UNLOCK_KEY = 'dashboard_privacy_unlocked_until';
-            const DURATION_MS = 60 * 60 * 1000; // 60 minutes in milliseconds
+            const LOCK_STORAGE_KEY = 'dashboard_session_locked';
 
-            function isSessionValid() {
+            function getCsrfToken() {
+                const cookie = document.cookie.split('; ').find(row => row.startsWith('csrftoken='));
+                return cookie ? cookie.split('=')[1] : '';
+            }
+
+            window.lockCurrentScreen = function() {
+                if (!overlay) return;
                 try {
-                    const until = parseInt(localStorage.getItem(UNLOCK_KEY) || '0', 10);
-                    return Date.now() < until;
-                } catch(e) {
-                    return false;
-                }
-            }
-
-            function applyInitialState() {
-                if (!overlay) return;
-                if (isSessionValid()) {
-                    overlay.classList.add('unlocked');
-                    overlay.style.display = 'none';
-                } else {
-                    overlay.classList.remove('unlocked');
-                    overlay.style.display = 'block';
-                }
-            }
-
-            window.togglePrivacyLock = function(forceState) {
-                if (!overlay) return;
-                const isCurrentlyUnlocked = overlay.classList.contains('unlocked');
-                const shouldUnlock = (forceState !== undefined) ? forceState : !isCurrentlyUnlocked;
-
-                if (shouldUnlock) {
-                    // Unlock and remember for 60 minutes
-                    try {
-                        localStorage.setItem(UNLOCK_KEY, Date.now() + DURATION_MS);
-                    } catch(e) {}
-                    overlay.classList.add('unlocked');
-                    overlay.style.display = 'none';
-                } else {
-                    // Lock immediately and clear 60-minute session
-                    try {
-                        localStorage.removeItem(UNLOCK_KEY);
-                    } catch(e) {}
-                    overlay.classList.remove('unlocked');
-                    overlay.style.display = 'block';
+                    localStorage.setItem(LOCK_STORAGE_KEY, 'true');
+                } catch(e) {}
+                overlay.classList.add('is-locked');
+                const passInput = document.getElementById('lockScreenPassword');
+                const errDiv = document.getElementById('lockScreenError');
+                if (errDiv) errDiv.style.display = 'none';
+                if (passInput) {
+                    passInput.value = '';
+                    setTimeout(() => passInput.focus(), 150);
                 }
             };
 
-            applyInitialState();
+            window.unlockScreen = function() {
+                if (!overlay) return;
+                try {
+                    localStorage.removeItem(LOCK_STORAGE_KEY);
+                } catch(e) {}
+                overlay.classList.remove('is-locked');
+            };
 
+            window.handleScreenUnlock = function(e) {
+                if (e) e.preventDefault();
+                const passInput = document.getElementById('lockScreenPassword');
+                const errDiv = document.getElementById('lockScreenError');
+                const btnSubmit = document.getElementById('btnUnlockSubmit');
+                const password = passInput ? passInput.value : '';
+
+                if (!password) return;
+
+                if (btnSubmit) {
+                    btnSubmit.disabled = true;
+                    btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Unlocking...';
+                }
+
+                fetch('/unlock/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCsrfToken()
+                    },
+                    body: JSON.stringify({ password: password })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (btnSubmit) {
+                        btnSubmit.disabled = false;
+                        btnSubmit.innerHTML = '<i class="bi bi-unlock-fill me-1"></i> Unlock Dashboard';
+                    }
+                    if (data.success) {
+                        window.unlockScreen();
+                        if (data.reloaded) {
+                            window.location.reload();
+                        }
+                    } else {
+                        if (errDiv) {
+                            errDiv.textContent = data.error || 'Incorrect password, please try again.';
+                            errDiv.style.display = 'block';
+                        }
+                        if (passInput) passInput.focus();
+                    }
+                })
+                .catch(err => {
+                    if (btnSubmit) {
+                        btnSubmit.disabled = false;
+                        btnSubmit.innerHTML = '<i class="bi bi-unlock-fill me-1"></i> Unlock Dashboard';
+                    }
+                    if (errDiv) {
+                        errDiv.textContent = 'Network error: ' + err;
+                        errDiv.style.display = 'block';
+                    }
+                });
+            };
+
+            // Check if initial state is locked
+            try {
+                if (localStorage.getItem(LOCK_STORAGE_KEY) === 'true') {
+                    window.lockCurrentScreen();
+                }
+            } catch(e) {}
+
+            // Listen for Ctrl+L or Cmd+L to LOCK immediately
             window.addEventListener('keydown', function(e) {
-                // Listen for Ctrl+L or Cmd+L
                 if ((e.ctrlKey || e.metaKey) && (e.key === 'l' || e.key === 'L' || e.code === 'KeyL')) {
                     e.preventDefault();
                     e.stopPropagation();
-                    window.togglePrivacyLock();
+                    window.lockCurrentScreen();
                 }
             }, true);
         })();
     </script>
+
 
     {% block extra_js %}{% endblock %}
 </body>

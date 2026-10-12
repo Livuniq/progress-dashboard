@@ -64,6 +64,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'tracker.context_processors.auth_user_profile',
             ],
         },
     },
@@ -127,4 +128,8 @@ STATICFILES_DIRS = [
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+LOGIN_URL = 'tracker:login'
+LOGIN_REDIRECT_URL = 'tracker:dashboard'
+LOGOUT_REDIRECT_URL = 'tracker:login'
 

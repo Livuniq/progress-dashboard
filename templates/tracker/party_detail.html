@@ -397,6 +397,7 @@
             </p>
         </div>
 
+        {% if can_edit_custom_tabs %}
         <div class="d-flex align-items-center gap-2">
             <button type="button" class="btn btn-outline-primary btn-sm fw-semibold shadow-sm" data-bs-toggle="modal" data-bs-target="#createTableModal">
                 <i class="bi bi-table me-1"></i> Create New Table
@@ -405,6 +406,7 @@
                 <i class="bi bi-plus-lg me-1"></i> Add New Tab
             </button>
         </div>
+        {% endif %}
     </div>
 
     <!-- Tabs Navigation Bar -->
@@ -417,6 +419,7 @@
                 <span class="tab-title-text">{{ tab.title }}</span>
                 <span class="badge bg-light text-secondary border small rounded-pill ms-1 tables-count-badge">{{ tab.custom_tables.count }}</span>
 
+                {% if can_edit_custom_tabs %}
                 <!-- Dropdown Trigger for Tab Customization (Rename, Color, Move, Delete) -->
                 <div class="dropdown d-inline-block ms-1">
                     <button class="tab-actions-dropdown-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" onclick="event.stopPropagation();" title="Tab Options">
@@ -447,16 +450,19 @@
                         </li>
                     </ul>
                 </div>
+                {% endif %}
             </a>
         </div>
         {% empty %}
         <p class="text-muted small py-2 mb-0">No tabs found. Click "Add New Tab" to create one.</p>
         {% endfor %}
 
+        {% if can_edit_custom_tabs %}
         <!-- Quick Add Tab Button -->
         <button type="button" class="btn btn-outline-secondary btn-sm btn-add-tab ms-auto" data-bs-toggle="modal" data-bs-target="#createTabModal" title="Add another tab">
             <i class="bi bi-folder-plus me-1"></i> Add Tab
         </button>
+        {% endif %}
     </div>
 
     <!-- Tab Contents Panes -->
@@ -474,6 +480,7 @@
                             <h3 class="party-table-title" id="tableTitleDisplay-{{ table.id }}">{{ table.title }}</h3>
                             <span class="badge bg-light text-muted border small">{{ table.rows|length }} rows</span>
                         </div>
+                        {% if can_edit_custom_tabs %}
                         <div class="d-flex align-items-center gap-1">
                             <button type="button" class="btn btn-sm btn-outline-success" onclick="addRowToTable('{{ table.id }}')">
                                 <i class="bi bi-plus-lg me-1"></i> Add Row
@@ -503,6 +510,7 @@
                                 </ul>
                             </div>
                         </div>
+                        {% endif %}
                     </div>
 
                     <div class="table-responsive">
@@ -604,13 +612,16 @@
                     <i class="bi bi-table fs-1 text-primary mb-3 d-block"></i>
                     <h5 class="fw-bold text-dark">No Tables in {{ tab.title }}</h5>
                     <p class="text-muted small mb-3">Create your first custom table with your choice of columns and rows.</p>
+                    {% if can_edit_custom_tabs %}
                     <button type="button" class="btn btn-primary btn-sm fw-semibold" onclick="openCreateTableModalForTab('{{ tab.id }}')">
                         <i class="bi bi-plus-lg me-1"></i> Create Table in this Tab
                     </button>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
 
+            {% if can_edit_custom_tabs %}
             <div class="d-flex align-items-center justify-content-center gap-2 my-3 flex-wrap">
                 <button type="button" class="btn btn-outline-success btn-sm fw-semibold" onclick="addRowToLastTable('{{ tab.id }}')" title="Add a new row to the table in this tab">
                     <i class="bi bi-plus-lg me-1"></i> Add New Row
@@ -619,6 +630,7 @@
                     <i class="bi bi-plus-circle me-1"></i> Add Another Table to {{ tab.title }}
                 </button>
             </div>
+            {% endif %}
         </div>
         {% empty %}
         <div class="empty-state-box py-5">

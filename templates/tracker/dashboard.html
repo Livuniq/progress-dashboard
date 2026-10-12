@@ -274,10 +274,13 @@
 
         <!-- 2. Primary Actions -->
         <div class="sidebar-section mb-3">
+            {% if can_add_party %}
             <button class="btn btn-primary btn-sm w-100 fw-semibold mb-2 py-2 d-flex align-items-center justify-content-center gap-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#addModal">
                 <i class="bi bi-plus-lg"></i> Add New Client
             </button>
+            {% endif %}
             <div class="row g-1">
+                {% if can_manage_settings %}
                 <div class="col-4">
                     <button class="btn btn-sm btn-outline-dark w-100 text-truncate py-1 px-1" data-bs-toggle="modal" data-bs-target="#headerModal" title="Add, edit, or remove header columns" style="font-size: 11px;">
                         <i class="bi bi-layout-three-columns me-1"></i> Headers
@@ -293,16 +296,21 @@
                         <i class="bi bi-tags me-1"></i> Statuses
                     </button>
                 </div>
-                <div class="col-6">
+                {% endif %}
+                {% if can_export_excel %}
+                <div class="{% if can_import_excel %}col-6{% else %}col-12{% endif %}">
                     <button type="button" class="btn btn-sm btn-outline-success w-100 text-truncate py-1 px-1" data-bs-toggle="modal" data-bs-target="#exportModal" title="Download Excel (.xlsx) options" style="font-size: 11.5px;">
                         <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export
                     </button>
                 </div>
-                <div class="col-6">
+                {% endif %}
+                {% if can_import_excel %}
+                <div class="{% if can_export_excel %}col-6{% else %}col-12{% endif %}">
                     <button class="btn btn-sm btn-outline-secondary w-100 text-truncate py-1 px-1" data-bs-toggle="modal" data-bs-target="#importModal" title="Upload Excel (.xlsx)" style="font-size: 11.5px;">
                         <i class="bi bi-upload me-1"></i> Import
                     </button>
                 </div>
+                {% endif %}
             </div>
         </div>
 
@@ -420,15 +428,19 @@
                 <span class="fw-bold text-dark small" id="selectedCountText">clients selected</span>
             </div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
+                {% if can_hide_party %}
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="bulkHideBtn" title="Hide selected client rows">
                     <i class="bi bi-eye-slash me-1"></i> Hide Selected
                 </button>
                 <button type="button" class="btn btn-sm btn-outline-success" id="bulkUnhideBtn" title="Unhide / restore selected client rows">
                     <i class="bi bi-eye me-1"></i> Restore Selected
                 </button>
+                {% endif %}
+                {% if can_delete_party %}
                 <button type="button" class="btn btn-sm btn-danger fw-bold" id="bulkDeleteBtn" title="Delete selected clients (PIN 8264 Required)">
                     <i class="bi bi-trash3-fill me-1"></i> Delete Selected (<span id="deleteSelectedCount">0</span>)
                 </button>
+                {% endif %}
                 <button type="button" class="btn btn-sm btn-outline-dark" id="clearSelectionBtn">
                     Cancel
                 </button>
@@ -486,20 +498,32 @@
                         {% if col.key == 'col_counter' %}
                             <td class="text-muted small fw-medium row-counter-num text-nowrap">
                                 <span class="row-counter-val">{{ forloop.parentloop.counter }}</span>
-                                {% if item.undiscussed_problems_count > 0 %}
+                                {% if can_view_problem_badge and item.undiscussed_problems_count > 0 %}
+                                    {% if can_view_party_details %}
                                     <a href="{% url 'tracker:party_detail' item.id %}" class="badge-problem-count ms-1" title="{{ item.undiscussed_problems_count }} undiscussed issue(s) in Problems tab">
                                         {{ item.undiscussed_problems_count }}
                                     </a>
+                                    {% else %}
+                                    <span class="badge-problem-count ms-1" title="{{ item.undiscussed_problems_count }} undiscussed issue(s) in Problems tab">
+                                        {{ item.undiscussed_problems_count }}
+                                    </span>
+                                    {% endif %}
                                 {% endif %}
                             </td>
                         {% elif col.key == 'client_name' %}
                             <td class="client-name-cell">
                                 <div class="d-inline-flex align-items-center flex-wrap gap-1">
+                                    {% if can_view_party_details %}
                                     <a href="{% url 'tracker:party_detail' item.id %}" class="client-name-link text-decoration-none" title="Click to open {{ item.client_name }} details & custom tabs">
                                         <span class="client-name-text {% if item.is_red_client or item.dynamic_status in 'finished,no_data' or item.status in 'finished,no_data' %}client-red{% else %}fw-semibold text-dark{% endif %}" data-is-red="{{ item.is_red_client|yesno:'true,false' }}">
                                             {{ item.client_name }}
                                         </span>
                                     </a>
+                                    {% else %}
+                                    <span class="client-name-text {% if item.is_red_client or item.dynamic_status in 'finished,no_data' or item.status in 'finished,no_data' %}client-red{% else %}fw-semibold text-dark{% endif %}" data-is-red="{{ item.is_red_client|yesno:'true,false' }}">
+                                        {{ item.client_name }}
+                                    </span>
+                                    {% endif %}
                                     {% if item.is_hidden %}
                                     <span class="badge-hidden" title="Hidden from standard view">
                                         <i class="bi bi-eye-slash me-1"></i>Hidden
@@ -509,7 +533,7 @@
                                 </div>
                             </td>
                         {% elif col.key == 'status' %}
-                            <td class="text-center text-nowrap status-cell editable-cell editable-status" data-id="{{ item.id }}" data-raw="{{ item.status }}" data-dynamic="{{ item.dynamic_status }}" title="Double-click to change status">
+                            <td class="text-center text-nowrap status-cell {% if can_edit_status %}editable-cell editable-status{% endif %}" data-id="{{ item.id }}" data-raw="{{ item.status }}" data-dynamic="{{ item.dynamic_status }}" {% if can_edit_status %}title="Double-click to change status"{% endif %}>
                                 <span class="cell-view-content">
                                     <div class="d-inline-flex flex-row align-items-center justify-content-center gap-1 status-two-badges flex-nowrap text-nowrap">
                                         {% if item.dynamic_status == 'finished' %}
@@ -548,7 +572,7 @@
                                 </span>
                             </td>
                         {% elif col.key == 'lot_progress' %}
-                            <td class="text-center text-nowrap editable-cell editable-lot" data-id="{{ item.id }}" data-raw="{{ item.lot_progress }}" title="Double click to edit LOT / ITEM">
+                            <td class="text-center text-nowrap {% if can_edit_lot %}editable-cell editable-lot{% endif %}" data-id="{{ item.id }}" data-raw="{{ item.lot_progress }}" {% if can_edit_lot %}title="Double click to edit LOT / ITEM"{% endif %}>
                                 <span class="cell-view-content">
                                     {% if item.lot_progress|lower == 'finished' %}
                                         <span class="badge-lot-finished">Finished</span>
@@ -572,7 +596,7 @@
                                 {{ item.ready_count|default:"-" }}
                             </td>
                         {% elif col.key == 'notes' %}
-                            <td class="editable-cell editable-notes" data-id="{{ item.id }}" data-raw="{{ item.notes }}" title="Double click to edit Notes / Remarks">
+                            <td class="{% if can_edit_notes %}editable-cell editable-notes{% endif %}" data-id="{{ item.id }}" data-raw="{{ item.notes }}" {% if can_edit_notes %}title="Double click to edit Notes / Remarks"{% endif %}>
                                 <span class="cell-view-content">
                                     {% if item.notes %}
                                         <span class="{% if item.notes_is_red %}notes-red{% else %}text-secondary{% endif %}">
@@ -584,7 +608,7 @@
                                 </span>
                             </td>
                         {% elif col.key == 'target_date' %}
-                            <td class="text-center text-nowrap editable-cell editable-date" data-id="{{ item.id }}" data-raw="{{ item.target_date|date:'Y-m-d' }}" title="Double click to edit Target Date">
+                            <td class="text-center text-nowrap {% if can_edit_target_date %}editable-cell editable-date{% endif %}" data-id="{{ item.id }}" data-raw="{{ item.target_date|date:'Y-m-d' }}" {% if can_edit_target_date %}title="Double click to edit Target Date"{% endif %}>
                                 <span class="cell-view-content">
                                     {% if item.target_date %}
                                         <span class="fw-medium text-dark">{{ item.target_date|date:"d/m/Y" }}</span>
@@ -614,7 +638,7 @@
                                 {% endif %}
                             </td>
                         {% elif col.key == 'history_milestone' %}
-                            <td class="small text-muted text-nowrap editable-cell editable-history" data-id="{{ item.id }}" data-raw="{{ item.history_milestone }}" title="Double click to edit History / Milestone">
+                            <td class="small text-muted text-nowrap {% if can_edit_notes %}editable-cell editable-history{% endif %}" data-id="{{ item.id }}" data-raw="{{ item.history_milestone }}" {% if can_edit_notes %}title="Double click to edit History / Milestone"{% endif %}>
                                 <span class="cell-view-content">
                                     {{ item.history_milestone|default:"-" }}
                                 </span>
@@ -622,21 +646,31 @@
                         {% elif col.key == 'actions' %}
                             <td class="text-center text-nowrap">
                                 <div class="btn-group btn-group-sm">
+                                    {% if can_view_party_details %}
                                     <a href="{% url 'tracker:party_detail' item.id %}" class="btn btn-light text-primary py-0 px-2" title="Open Custom Tabs & Tables">
                                         <i class="bi bi-folder2-open"></i>
                                     </a>
+                                    {% endif %}
+                                    {% if can_view_history %}
                                     <button class="btn btn-light text-secondary py-0 px-2 btn-history" data-id="{{ item.id }}" title="View Edit History">
                                         <i class="bi bi-clock-history"></i>
                                     </button>
+                                    {% endif %}
+                                    {% if can_edit_status or can_edit_lot or can_edit_target_date or can_edit_notes %}
                                     <button class="btn btn-light text-primary py-0 px-2 btn-edit" data-id="{{ item.id }}" title="Edit">
                                         <i class="bi bi-pencil-square"></i>
                                     </button>
+                                    {% endif %}
+                                    {% if can_hide_party %}
                                     <button type="button" class="btn btn-light text-secondary py-0 px-2 btn-toggle-hide" data-id="{{ item.id }}" data-name="{{ item.client_name }}" title="{% if item.is_hidden %}Restore / Unhide Client{% else %}Hide Client Row{% endif %}">
                                         <i class="bi {% if item.is_hidden %}bi-eye text-primary{% else %}bi-eye-slash{% endif %}"></i>
                                     </button>
+                                    {% endif %}
+                                    {% if can_delete_party %}
                                     <button type="button" class="btn btn-light text-danger py-0 px-2 btn-delete-client" data-id="{{ item.id }}" data-name="{{ item.client_name }}" data-url="{% url 'tracker:item_delete' item.id %}" title="Delete Client">
                                         <i class="bi bi-trash3"></i>
                                     </button>
+                                    {% endif %}
                                 </div>
                             </td>
                         {% else %}
@@ -1507,30 +1541,40 @@
         <span class="badge bg-secondary-subtle text-secondary small" id="contextMenuStatusBadge" style="font-size: 10px;">STATUS</span>
     </div>
     <div class="p-1">
+        {% if can_edit_status or can_manage_settings %}
         <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2" id="contextMenuPriorityBtn">
             <i class="bi bi-circle-fill text-success fs-6"></i>
             <span class="fw-bold" id="contextMenuPriorityText">Set Priority (Green Dot)</span>
         </button>
+        {% endif %}
+        {% if can_view_party_details %}
         <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-primary fw-semibold" id="contextMenuPartyDetailBtn">
             <i class="bi bi-folder2-open"></i>
             <span>Open Custom Tabs & Tables</span>
         </button>
+        {% endif %}
+        {% if can_edit_status or can_edit_lot or can_edit_target_date or can_edit_notes %}
         <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-primary" id="contextMenuEditBtn">
             <i class="bi bi-pencil-square"></i>
             <span>Edit Process Item</span>
         </button>
+        {% endif %}
         <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-secondary" id="contextMenuHistoryBtn">
             <i class="bi bi-clock-history"></i>
             <span>View Edit History</span>
         </button>
+        {% if can_hide_party %}
         <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-secondary" id="contextMenuHideBtn">
             <i class="bi bi-eye-slash" id="contextMenuHideIcon"></i>
             <span id="contextMenuHideText">Hide Client Row</span>
         </button>
+        {% endif %}
+        {% if can_delete_party %}
         <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-danger" id="contextMenuDeleteBtn">
             <i class="bi bi-trash3"></i>
             <span>Delete Client (PIN Required)</span>
         </button>
+        {% endif %}
     </div>
 </div>
 
@@ -1574,9 +1618,11 @@
     <div class="status-dropdown-header d-flex justify-content-between align-items-center py-2 px-3 border-bottom bg-light">
         <span class="fw-bold fs-7 text-dark"><i class="bi bi-tag-fill text-primary me-1"></i> Change Status</span>
         <div class="d-flex align-items-center gap-1">
+            {% if can_manage_settings %}
             <button type="button" class="btn btn-xs btn-outline-primary py-0 px-1 rounded" title="Manage Statuses (Add, Edit, Remove)" data-bs-toggle="modal" data-bs-target="#statusManagerModal" style="font-size: 11px;">
                 <i class="bi bi-gear-fill"></i>
             </button>
+            {% endif %}
             <button type="button" class="btn-close btn-close-sm" id="closeStatusDropdownBtn" style="font-size: 8px;"></button>
         </div>
     </div>
@@ -1588,11 +1634,13 @@
         </button>
         {% endfor %}
     </div>
+    {% if can_manage_settings %}
     <div class="status-dropdown-footer border-top p-2 text-center bg-white rounded-bottom">
         <button type="button" class="btn btn-sm btn-outline-primary w-100 py-1" data-bs-toggle="modal" data-bs-target="#statusManagerModal" style="font-size: 11px;">
             <i class="bi bi-plus-circle me-1"></i> Manage / Add Status
         </button>
     </div>
+    {% endif %}
 </div>
 
 {% endblock %}

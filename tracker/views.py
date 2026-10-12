@@ -3,6 +3,9 @@ from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.db.models import Sum, Q
 from django.contrib import messages
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from datetime import date, datetime
@@ -13,7 +16,7 @@ from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 
 from .models import (
     ProcessItem, ProcessItemHistory, TableColumnConfig, StatusColorConfig,
-    StatusOption, PartyCustomTab, PartyCustomTable
+    StatusOption, PartyCustomTab, PartyCustomTable, UserAccessProfile
 )
 from .forms import ProcessItemForm
 
@@ -34,14 +37,399 @@ TRACKED_FIELDS = [
 ]
 
 
+def get_user_access_profile(user):
+    """Retrieve or create the access control profile for the authenticated user"""
+    if not user or not user.is_authenticated:
+        return None
+    profile, _ = UserAccessProfile.objects.get_or_create(user=user)
+    return profile
+
+
+# ==========================================
+# AUTHENTICATION & LOCK SYSTEM VIEWS
+# ==========================================
+
+def login_view(request):
+    """User Login Page (Unique Password Authentication - No Username Required)"""
+    if request.user.is_authenticated:
+        return redirect('tracker:dashboard')
+
+    if request.method == 'POST':
+        password = request.POST.get('password', '').strip()
+        if not password:
+            messages.error(request, 'Please enter your password.')
+            return render(request, 'tracker/login.html', {'next': request.GET.get('next', '')})
+
+        # Match user by unique password among active users
+        matched_user = None
+        for user in User.objects.filter(is_active=True).select_related('access_profile'):
+            if user.check_password(password):
+                matched_user = user
+                break
+
+        if matched_user is not None:
+            login(request, matched_user)
+            UserAccessProfile.get_or_create_for_user(matched_user)
+            next_url = request.POST.get('next') or request.GET.get('next') or 'tracker:dashboard'
+            return redirect(next_url)
+        else:
+            messages.error(request, 'Invalid password. Access denied.')
+
+    return render(request, 'tracker/login.html', {'next': request.GET.get('next', '')})
+
+
+def logout_view(request):
+    """Log out user and redirect to login"""
+    logout(request)
+    return redirect('tracker:login')
+
+
+@csrf_exempt
+def unlock_ajax(request):
+    """AJAX unlock for screen lock overlay without full page reload"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+    password = ''
+    try:
+        if request.body:
+            data = json.loads(request.body.decode('utf-8'))
+            password = data.get('password', '')
+    except Exception:
+        pass
+    if not password:
+        password = request.POST.get('password', '')
+
+    password = password.strip()
+    if not password:
+        return JsonResponse({'success': False, 'error': 'Password is required'})
+
+    # 1. If currently logged in user entered their own password
+    if request.user.is_authenticated and request.user.check_password(password):
+        profile = getattr(request.user, 'access_profile', None)
+        disp_name = profile.display_name if profile and profile.display_name else request.user.username
+        return JsonResponse({'success': True, 'username': disp_name})
+
+    # 2. Or if any active user entered their unique password (e.g. switching users or session expired)
+    for user in User.objects.filter(is_active=True).select_related('access_profile'):
+        if user.check_password(password):
+            login(request, user)
+            profile = UserAccessProfile.get_or_create_for_user(user)
+            disp_name = profile.display_name if profile and profile.display_name else user.username
+            return JsonResponse({'success': True, 'username': disp_name, 'reloaded': True})
+
+    return JsonResponse({'success': False, 'error': 'Incorrect password'})
+
+
+# ==========================================
+# ADMIN PANEL & USER MANAGEMENT VIEWS
+# ==========================================
+
+@login_required
+def admin_panel(request):
+    """Admin Panel for managing users, roles, and granular visibility rights"""
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not (profile.is_admin or request.user.is_superuser):
+        messages.error(request, "Permission denied. Only Administrators can access the Admin Panel.")
+        return redirect('tracker:dashboard')
+
+    users = User.objects.all().select_related('access_profile').order_by('-is_superuser', 'username')
+    all_parties = ProcessItem.objects.all().order_by('order_index', 'client_name')
+    all_columns = TableColumnConfig.objects.all().order_by('order_index')
+    if not all_columns.exists():
+        TableColumnConfig.reset_to_defaults()
+        all_columns = TableColumnConfig.objects.all().order_by('order_index')
+
+    raw_tab_titles = list(PartyCustomTab.objects.values_list('title', flat=True).distinct())
+    all_tab_titles = sorted(list({t.strip() for t in raw_tab_titles if t and t.strip()}))
+
+    context = {
+        'users': users,
+        'all_parties': all_parties,
+        'all_columns': all_columns,
+        'all_tab_titles': all_tab_titles,
+        'user_profile': profile,
+        'total_users': users.count(),
+        'active_users': users.filter(is_active=True).count(),
+        'admin_count': sum(1 for u in users if getattr(u, 'access_profile', None) and u.access_profile.is_admin or u.is_superuser),
+        'total_parties': all_parties.count(),
+    }
+    return render(request, 'tracker/admin_panel.html', context)
+
+
+@login_required
+@csrf_exempt
+def admin_user_save(request):
+    """Create or update a user and their access profile from Admin Panel"""
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not (profile.is_admin or request.user.is_superuser):
+        return JsonResponse({'success': False, 'error': 'Permission denied. Admin access required.'}, status=403)
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+    data = {}
+    if request.body:
+        try:
+            data = json.loads(request.body.decode('utf-8'))
+        except Exception:
+            pass
+    if not data:
+        data = request.POST
+
+    try:
+        user_id = data.get('user_id')
+        username = data.get('username', '').strip()
+        display_name = data.get('display_name', '').strip()
+        password = data.get('password', '').strip()
+        role = data.get('role', 'editor')
+
+        # Permissions
+        all_parties_access = bool(data.get('all_parties_access', True))
+        allowed_party_ids = data.get('allowed_parties', [])
+        all_columns_access = bool(data.get('all_columns_access', True))
+        allowed_columns = data.get('allowed_columns', [])
+        can_view_party_details = bool(data.get('can_view_party_details', True))
+        all_tabs_access = bool(data.get('all_tabs_access', True))
+        allowed_tab_titles = data.get('allowed_tab_titles', [])
+
+        can_view_history = bool(data.get('can_view_history', True))
+        can_view_problem_badge = bool(data.get('can_view_problem_badge', True))
+        can_edit_status = bool(data.get('can_edit_status', True))
+        can_edit_lot = bool(data.get('can_edit_lot', True))
+        can_edit_target_date = bool(data.get('can_edit_target_date', True))
+        can_edit_notes = bool(data.get('can_edit_notes', True))
+        can_add_party = bool(data.get('can_add_party', True))
+        can_delete_party = bool(data.get('can_delete_party', False))
+        can_hide_party = bool(data.get('can_hide_party', True))
+        can_edit_custom_tabs = bool(data.get('can_edit_custom_tabs', True))
+        can_export_excel = bool(data.get('can_export_excel', True))
+        can_import_excel = bool(data.get('can_import_excel', False))
+        can_manage_settings = bool(data.get('can_manage_settings', False))
+        is_admin = bool(data.get('is_admin', False)) or (role == 'admin')
+
+        # Enforce preset defaults if admin / viewer
+        if role == 'admin':
+            is_admin = True
+            all_parties_access = True
+            all_columns_access = True
+            all_tabs_access = True
+            can_view_history = True
+            can_delete_party = True
+            can_import_excel = True
+            can_manage_settings = True
+        elif role == 'viewer':
+            is_admin = False
+            can_edit_status = False
+            can_edit_lot = False
+            can_edit_target_date = False
+            can_edit_notes = False
+            can_add_party = False
+            can_delete_party = False
+            can_hide_party = False
+            can_edit_custom_tabs = False
+            can_import_excel = False
+            can_manage_settings = False
+
+        # Auto-derive or fallback username if empty
+        if not username:
+            if display_name:
+                import re
+                clean_base = re.sub(r'[^a-zA-Z0-9_]', '', display_name.lower()) or 'user'
+            else:
+                clean_base = 'user'
+            candidate = clean_base
+            counter = 1
+            while User.objects.filter(username=candidate).exclude(pk=user_id if user_id else 0).exists():
+                candidate = f"{clean_base}_{counter}"
+                counter += 1
+            username = candidate
+
+        # Enforce Password Uniqueness across ALL users so password-only login works reliably
+        if password:
+            other_users = User.objects.exclude(pk=user_id) if user_id else User.objects.all()
+            for other_u in other_users:
+                if other_u.check_password(password):
+                    other_name = getattr(getattr(other_u, 'access_profile', None), 'display_name', '') or other_u.username
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Yeh password already "{other_name}" ke liye set hai. Password-only login ke liye har person ka password unique hona zaroori hai.'
+                    }, status=400)
+
+        if user_id:
+            # Update existing user
+            user = get_object_or_404(User, pk=user_id)
+            if username and username != user.username:
+                if User.objects.filter(username=username).exclude(pk=user_id).exists():
+                    return JsonResponse({'success': False, 'error': f'Username "{username}" is already taken.'}, status=400)
+                user.username = username
+            if password:
+                user.set_password(password)
+            user.is_staff = is_admin
+            user.is_superuser = is_admin
+            user.save()
+            action = 'updated'
+        else:
+            # Create new user
+            if not password:
+                return JsonResponse({'success': False, 'error': 'Password is required for new users.'}, status=400)
+            if User.objects.filter(username=username).exists():
+                return JsonResponse({'success': False, 'error': f'Username "{username}" already exists.'}, status=400)
+
+            user = User.objects.create_user(
+                username=username,
+                password=password,
+                is_staff=is_admin,
+                is_superuser=is_admin
+            )
+            action = 'created'
+
+        user_prof = UserAccessProfile.get_or_create_for_user(user)
+        user_prof.display_name = display_name or username
+        user_prof.role = role
+        user_prof.is_admin = is_admin
+        user_prof.all_parties_access = all_parties_access
+        user_prof.all_columns_access = all_columns_access
+        user_prof.allowed_columns = allowed_columns if isinstance(allowed_columns, list) else []
+        user_prof.can_view_party_details = can_view_party_details
+        user_prof.all_tabs_access = all_tabs_access
+        user_prof.allowed_tab_titles = [str(t).strip() for t in allowed_tab_titles if str(t).strip()] if isinstance(allowed_tab_titles, list) else []
+
+        user_prof.can_view_history = can_view_history
+        user_prof.can_view_problem_badge = can_view_problem_badge
+        user_prof.can_edit_status = can_edit_status
+        user_prof.can_edit_lot = can_edit_lot
+        user_prof.can_edit_target_date = can_edit_target_date
+        user_prof.can_edit_notes = can_edit_notes
+        user_prof.can_add_party = can_add_party
+        user_prof.can_delete_party = can_delete_party
+        user_prof.can_hide_party = can_hide_party
+        user_prof.can_edit_custom_tabs = can_edit_custom_tabs
+        user_prof.can_export_excel = can_export_excel
+        user_prof.can_import_excel = can_import_excel
+        user_prof.can_manage_settings = can_manage_settings
+        user_prof.save()
+
+        # Set allowed parties
+        if not all_parties_access and isinstance(allowed_party_ids, list):
+            valid_items = ProcessItem.objects.filter(id__in=allowed_party_ids)
+            user_prof.allowed_parties.set(valid_items)
+        else:
+            user_prof.allowed_parties.clear()
+
+        return JsonResponse({
+            'success': True,
+            'action': action,
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'display_name': user_prof.display_name,
+                'role': user_prof.role,
+                'role_display': user_prof.get_role_display(),
+                'is_admin': user_prof.is_admin,
+                'is_active': user.is_active
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
+@csrf_exempt
+def admin_user_get_json(request, user_id):
+    """Fetch user configuration for editing modal"""
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not (profile.is_admin or request.user.is_superuser):
+        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+
+    user = get_object_or_404(User, pk=user_id)
+    u_prof = UserAccessProfile.get_or_create_for_user(user)
+
+    return JsonResponse({
+        'success': True,
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'display_name': u_prof.display_name,
+            'role': u_prof.role,
+            'is_admin': u_prof.is_admin,
+            'is_active': user.is_active,
+            'all_parties_access': u_prof.all_parties_access,
+            'allowed_parties': list(u_prof.allowed_parties.values_list('id', flat=True)),
+            'all_columns_access': u_prof.all_columns_access,
+            'allowed_columns': u_prof.allowed_columns or [],
+            'can_view_party_details': u_prof.can_view_party_details,
+            'all_tabs_access': u_prof.all_tabs_access,
+            'allowed_tab_titles': u_prof.allowed_tab_titles or [],
+            'can_view_history': u_prof.can_view_history,
+            'can_view_problem_badge': u_prof.can_view_problem_badge,
+            'can_edit_status': u_prof.can_edit_status,
+            'can_edit_lot': u_prof.can_edit_lot,
+            'can_edit_target_date': u_prof.can_edit_target_date,
+            'can_edit_notes': u_prof.can_edit_notes,
+            'can_add_party': u_prof.can_add_party,
+            'can_delete_party': u_prof.can_delete_party,
+            'can_hide_party': u_prof.can_hide_party,
+            'can_edit_custom_tabs': u_prof.can_edit_custom_tabs,
+            'can_export_excel': u_prof.can_export_excel,
+            'can_import_excel': u_prof.can_import_excel,
+            'can_manage_settings': u_prof.can_manage_settings,
+        }
+    })
+
+
+@login_required
+@csrf_exempt
+def admin_user_delete(request, user_id):
+    """Delete a user account from Admin Panel"""
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not (profile.is_admin or request.user.is_superuser):
+        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+
+    if request.user.id == user_id:
+        return JsonResponse({'success': False, 'error': 'You cannot delete your own logged-in admin account!'}, status=400)
+
+    user = get_object_or_404(User, pk=user_id)
+    username = user.username
+    user.delete()
+    return JsonResponse({'success': True, 'message': f'User "{username}" deleted successfully'})
+
+
+@login_required
+@csrf_exempt
+def admin_user_toggle_status(request, user_id):
+    """Toggle user active / inactive status"""
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not (profile.is_admin or request.user.is_superuser):
+        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+
+    if request.user.id == user_id:
+        return JsonResponse({'success': False, 'error': 'You cannot deactivate your own account!'}, status=400)
+
+    user = get_object_or_404(User, pk=user_id)
+    user.is_active = not user.is_active
+    user.save()
+    return JsonResponse({'success': True, 'is_active': user.is_active})
+
+
+# ==========================================
+# DASHBOARD VIEW
+# ==========================================
+
+@login_required
 def dashboard(request):
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
     today = timezone.localdate() if hasattr(timezone, 'localdate') else date.today()
     
     # Query parameters
     status_filter = request.GET.get('filter', 'all')
     search_query = request.GET.get('q', '').strip()
     
-    items = ProcessItem.objects.all()
+    # Filter items based on user party permissions
+    base_qs = ProcessItem.objects.all()
+    if not profile.all_parties_access and not (profile.is_admin or request.user.is_superuser):
+        base_qs = base_qs.filter(id__in=profile.allowed_parties.values_list('id', flat=True))
+
+    items = base_qs
 
     # Apply Search
     if search_query:
@@ -63,13 +451,12 @@ def dashboard(request):
         elif status_filter in status_keys:
             items = [item for item in items if item.dynamic_status == status_filter]
 
-    # Metrics calculation (base on visible items)
-    all_items = list(ProcessItem.objects.all())
+    # Metrics calculation (base on visible items of permitted parties)
+    all_items = list(base_qs)
     hidden_count = sum(1 for item in all_items if item.is_hidden)
     visible_items = [item for item in all_items if not item.is_hidden]
     total_clients = len(visible_items)
     working_count = sum(1 for item in visible_items if item.dynamic_status == 'working')
-    # Since Finished and No Data are synonymous, count them together
     finished_no_data_count = sum(1 for item in visible_items if item.dynamic_status in ('finished', 'no_data'))
     no_data_count = finished_no_data_count
     finished_count = finished_no_data_count
@@ -89,6 +476,13 @@ def dashboard(request):
     columns_map = TableColumnConfig.get_columns_map()
     all_columns = TableColumnConfig.objects.all().order_by('order_index', 'id')
     ordered_columns = TableColumnConfig.objects.filter(is_visible=True).order_by('order_index', 'id')
+
+    # Filter columns based on user column visibility permissions
+    if not profile.all_columns_access and not (profile.is_admin or request.user.is_superuser) and profile.allowed_columns:
+        ordered_columns = [
+            c for c in ordered_columns
+            if c.key in profile.allowed_columns or c.key in ['col_counter', 'client_name', 'actions']
+        ]
 
     # Status color & badge styling map
     status_colors = {}
@@ -139,11 +533,35 @@ def dashboard(request):
         'status_colors': status_colors,
         'all_statuses': all_statuses,
         'status_counts': status_counts,
+        # User Access Permissions
+        'user_profile': profile,
+        'can_view_party_details': profile.can_view_party_details or profile.is_admin or request.user.is_superuser,
+        'can_edit_custom_tabs': profile.can_edit_custom_tabs or profile.is_admin or request.user.is_superuser,
+        'can_edit_status': profile.can_edit_status or profile.is_admin or request.user.is_superuser,
+        'can_edit_lot': profile.can_edit_lot or profile.is_admin or request.user.is_superuser,
+        'can_edit_date': profile.can_edit_target_date or profile.is_admin or request.user.is_superuser,
+        'can_edit_notes': profile.can_edit_notes or profile.is_admin or request.user.is_superuser,
+        'can_add_party': profile.can_add_party or profile.is_admin or request.user.is_superuser,
+        'can_delete_party': profile.can_delete_party or profile.is_admin or request.user.is_superuser,
+        'can_hide_party': profile.can_hide_party or profile.is_admin or request.user.is_superuser,
+        'can_export_excel': profile.can_export_excel or profile.is_admin or request.user.is_superuser,
+        'can_import_excel': profile.can_import_excel or profile.is_admin or request.user.is_superuser,
+        'can_manage_settings': profile.can_manage_settings or profile.is_admin or request.user.is_superuser,
+        'can_view_history': profile.can_view_history or profile.is_admin or request.user.is_superuser,
+        'can_view_problem_badge': profile.can_view_problem_badge or profile.is_admin or request.user.is_superuser,
+        'is_admin': profile.is_admin or request.user.is_superuser,
     }
     return render(request, 'tracker/dashboard.html', context)
 
 
+
+@login_required
 def item_create(request):
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_add_party:
+        messages.error(request, "Permission denied: You do not have permission to add new clients.")
+        return redirect('tracker:dashboard')
+
     if request.method == 'POST':
         form = ProcessItemForm(request.POST)
         if form.is_valid():
@@ -184,7 +602,13 @@ def item_create(request):
     return redirect('tracker:dashboard')
 
 
+@login_required
 def item_update(request, pk):
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.is_party_allowed(pk):
+        messages.error(request, "Permission denied: Access to this client is restricted.")
+        return redirect('tracker:dashboard')
+
     item = get_object_or_404(ProcessItem, pk=pk)
     if request.method == 'POST':
         old_target_date = item.target_date
@@ -255,7 +679,12 @@ def item_update(request, pk):
     return redirect('tracker:dashboard')
 
 
+@login_required
 def item_get_json(request, pk):
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.is_party_allowed(pk):
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+
     item = get_object_or_404(ProcessItem, pk=pk)
     data = {
         'id': item.id,
@@ -279,7 +708,14 @@ def item_get_json(request, pk):
     return JsonResponse(data)
 
 
+@login_required
 def item_quick_status(request, pk):
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.is_party_allowed(pk):
+        return JsonResponse({'success': False, 'error': 'Access denied to this client'}, status=403)
+    if not profile.can_edit_status:
+        return JsonResponse({'success': False, 'error': 'Permission denied: Cannot edit status'}, status=403)
+
     item = get_object_or_404(ProcessItem, pk=pk)
     if request.method == 'POST':
         import json
@@ -327,11 +763,16 @@ def item_quick_status(request, pk):
     return JsonResponse({'success': False, 'error': 'POST method required'}, status=405)
 
 
+@login_required
 def item_inline_update(request, pk):
     """
     Inline double-click edit for LOT / ITEM and TARGET DATE.
     Automatically logs change in ProcessItemHistory and returns updated values.
     """
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.is_party_allowed(pk):
+        return JsonResponse({'success': False, 'error': 'Access denied to this client'}, status=403)
+
     item = get_object_or_404(ProcessItem, pk=pk)
     if request.method == 'POST':
         import json
@@ -346,6 +787,8 @@ def item_inline_update(request, pk):
             value = request.POST.get('value')
 
         if field == 'lot_progress':
+            if not profile.can_edit_lot:
+                return JsonResponse({'success': False, 'error': 'Permission denied: Cannot edit LOT'}, status=403)
             old_lot = item.formatted_lot or item.lot_progress or '-'
             new_lot = str(value or '').strip()
             item.lot_progress = new_lot
@@ -373,6 +816,8 @@ def item_inline_update(request, pk):
             })
 
         elif field == 'target_date':
+            if not profile.can_edit_target_date:
+                return JsonResponse({'success': False, 'error': 'Permission denied: Cannot edit Target Date'}, status=403)
             old_date_str = item.target_date.strftime('%d/%m/%Y') if item.target_date else '-'
             new_val_str = str(value or '').strip()
             new_date = None
@@ -414,6 +859,8 @@ def item_inline_update(request, pk):
             })
 
         elif field == 'notes':
+            if not profile.can_edit_notes:
+                return JsonResponse({'success': False, 'error': 'Permission denied: Cannot edit Notes'}, status=403)
             old_notes = item.notes or '-'
             new_notes = str(value or '').strip()
             item.notes = new_notes
@@ -440,6 +887,8 @@ def item_inline_update(request, pk):
             })
 
         elif field == 'status':
+            if not profile.can_edit_status:
+                return JsonResponse({'success': False, 'error': 'Permission denied: Cannot edit Status'}, status=403)
             status_map = {s.key: s.label for s in StatusOption.get_all_statuses()}
             new_status = str(value or '').strip()
             if new_status not in status_map:
@@ -477,6 +926,8 @@ def item_inline_update(request, pk):
             })
 
         elif field == 'is_priority':
+            if not (profile.can_edit_status or profile.can_manage_settings):
+                return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
             new_priority = bool(value is True or str(value).lower() in ['true', '1', 'yes'])
             old_priority = item.is_priority
             if old_priority != new_priority:
@@ -505,6 +956,8 @@ def item_inline_update(request, pk):
             })
 
         elif field == 'history_milestone':
+            if not profile.can_edit_notes:
+                return JsonResponse({'success': False, 'error': 'Permission denied: Cannot edit Notes / Milestones'}, status=403)
             old_val = item.history_milestone or '-'
             new_val = str(value or '').strip()
             item.history_milestone = new_val
@@ -532,10 +985,17 @@ def item_inline_update(request, pk):
     return JsonResponse({'success': False, 'error': 'POST method required'}, status=405)
 
 
+@login_required
 def item_toggle_priority(request, pk):
     """
     Toggle High Priority on a ProcessItem (triggered via row long-press / context menu).
     """
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.is_party_allowed(pk):
+        return JsonResponse({'success': False, 'error': 'Access denied to this client'}, status=403)
+    if not (profile.can_edit_status or profile.can_manage_settings):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
     item = get_object_or_404(ProcessItem, pk=pk)
     if request.method == 'POST':
         item.is_priority = not item.is_priority
@@ -563,7 +1023,14 @@ def item_toggle_priority(request, pk):
     return JsonResponse({'success': False, 'error': 'POST method required'}, status=405)
 
 
+@login_required
 def item_history_json(request, pk):
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.is_party_allowed(pk):
+        return JsonResponse({'success': False, 'error': 'Access denied to this client'}, status=403)
+    if not (profile.can_view_history or profile.is_admin or request.user.is_superuser):
+        return JsonResponse({'success': False, 'error': 'Permission denied: Aapko history dekhne ki permission nahi hai.'}, status=403)
+
     item = get_object_or_404(ProcessItem, pk=pk)
     logs = item.history_logs.all().order_by('-edited_at')
     
@@ -586,8 +1053,13 @@ def item_history_json(request, pk):
     })
 
 
+@login_required
 def history_entry_delete(request, pk):
     """Delete a specific history revision entry"""
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_manage_settings:
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
     if request.method == 'POST':
         entry = get_object_or_404(ProcessItemHistory, pk=pk)
         item_id = entry.item_id
@@ -601,8 +1073,13 @@ def history_entry_delete(request, pk):
     return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
 
 
+@login_required
 def item_history_clear(request, pk):
     """Clear all edit history logs for a specific client item"""
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_manage_settings:
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
     if request.method == 'POST':
         item = get_object_or_404(ProcessItem, pk=pk)
         deleted_count, _ = item.history_logs.all().delete()
@@ -614,8 +1091,13 @@ def item_history_clear(request, pk):
     return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
 
 
-
+@login_required
 def item_delete(request, pk):
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_delete_party or not profile.is_party_allowed(pk):
+        messages.error(request, "Permission denied: You do not have permission to delete clients.")
+        return redirect('tracker:dashboard')
+
     item = get_object_or_404(ProcessItem, pk=pk)
     if request.method == 'POST':
         password = request.POST.get('password', '').strip()
@@ -628,8 +1110,13 @@ def item_delete(request, pk):
     return redirect('tracker:dashboard')
 
 
+@login_required
 def item_toggle_hide(request, pk):
     """Toggle hidden status of a single process item"""
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_hide_party or not profile.is_party_allowed(pk):
+        return JsonResponse({'error': 'Permission denied: Cannot hide clients'}, status=403)
+
     item = get_object_or_404(ProcessItem, pk=pk)
     if request.method == 'POST':
         item.is_hidden = not item.is_hidden
@@ -648,8 +1135,14 @@ def item_toggle_hide(request, pk):
     return JsonResponse({'error': 'POST required'}, status=405)
 
 
+@login_required
 def items_bulk_delete(request):
     """Bulk delete multiple clients protected by password 8264"""
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_delete_party:
+        messages.error(request, "Permission denied: You do not have permission to delete clients.")
+        return redirect('tracker:dashboard')
+
     if request.method == 'POST':
         password = request.POST.get('password', '').strip()
         if password != '8264':
@@ -664,6 +1157,9 @@ def items_bulk_delete(request):
             ids = [int(x) for x in request.POST.getlist('selected_ids') if str(x).isdigit()]
         
         if ids:
+            # Also filter by allowed parties if not admin/all_parties
+            if not profile.is_admin and not profile.all_parties_access:
+                ids = [i for i in ids if profile.is_party_allowed(i)]
             deleted_count, _ = ProcessItem.objects.filter(id__in=ids).delete()
             messages.success(request, f"Successfully deleted {deleted_count} client(s).")
         else:
@@ -672,8 +1168,14 @@ def items_bulk_delete(request):
     return redirect('tracker:dashboard')
 
 
+@login_required
 def items_bulk_hide(request):
     """Bulk hide or unhide multiple clients"""
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_hide_party:
+        messages.error(request, "Permission denied: You do not have permission to hide clients.")
+        return redirect('tracker:dashboard')
+
     if request.method == 'POST':
         ids_str = request.POST.get('selected_ids', '').strip()
         ids = []
@@ -686,6 +1188,8 @@ def items_bulk_hide(request):
         new_val = (action != 'unhide')
         
         if ids:
+            if not profile.is_admin and not profile.all_parties_access:
+                ids = [i for i in ids if profile.is_party_allowed(i)]
             updated_count = ProcessItem.objects.filter(id__in=ids).update(is_hidden=new_val)
             action_word = "hidden" if new_val else "restored"
             messages.success(request, f"Successfully {action_word} {updated_count} client(s).")
@@ -695,8 +1199,14 @@ def items_bulk_hide(request):
     return redirect('tracker:dashboard')
 
 
+@login_required
 def save_column_config(request):
     """Saves updated header labels, visibility toggles, ordering, and new custom columns"""
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_manage_settings:
+        messages.error(request, "Permission denied: You cannot configure columns.")
+        return redirect('tracker:dashboard')
+
     if request.method == 'POST':
         # Check if comma-separated column IDs in order were passed
         column_order_str = request.POST.get('column_order_ids', '').strip()
@@ -755,8 +1265,14 @@ def save_column_config(request):
     return redirect('tracker:dashboard')
 
 
+@login_required
 def delete_column_config(request, pk):
     """Deletes a custom column header"""
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_manage_settings:
+        messages.error(request, "Permission denied.")
+        return redirect('tracker:dashboard')
+
     if request.method == 'POST':
         col = get_object_or_404(TableColumnConfig, pk=pk)
         if col.is_custom:
@@ -768,15 +1284,27 @@ def delete_column_config(request, pk):
     return redirect('tracker:dashboard')
 
 
+@login_required
 def reset_column_config(request):
     """Resets all header columns to original default labels"""
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_manage_settings:
+        messages.error(request, "Permission denied.")
+        return redirect('tracker:dashboard')
+
     TableColumnConfig.reset_to_defaults()
     messages.success(request, "Header columns reset to default successfully!")
     return redirect('tracker:dashboard')
 
 
+@login_required
 def save_status_colors(request):
     """Saves customized status row highlight hex colors"""
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_manage_settings:
+        messages.error(request, "Permission denied.")
+        return redirect('tracker:dashboard')
+
     if request.method == 'POST':
         colors_map = StatusColorConfig.get_colors_map()
         for key, conf in colors_map.items():
@@ -792,8 +1320,14 @@ def save_status_colors(request):
     return redirect('tracker:dashboard')
 
 
+@login_required
 def reset_status_colors(request):
     """Resets status highlight hex colors back to system defaults"""
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_manage_settings:
+        messages.error(request, "Permission denied.")
+        return redirect('tracker:dashboard')
+
     StatusColorConfig.reset_to_defaults()
     messages.success(request, "Status highlight colors reset to default hex colors!")
     return redirect('tracker:dashboard')
@@ -818,11 +1352,19 @@ def status_list_api(request):
     return JsonResponse({'success': True, 'statuses': data})
 
 
+@login_required
 def status_save(request):
     """
     Creates or updates a StatusOption.
     Accepts both JSON (AJAX) and standard form POST.
     """
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_manage_settings:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+            return JsonResponse({'success': False, 'error': 'Permission denied: Cannot edit statuses'}, status=403)
+        messages.error(request, "Permission denied.")
+        return redirect('tracker:dashboard')
+
     if request.method == 'POST':
         import json, re
         data = {}
@@ -911,10 +1453,18 @@ def status_save(request):
     return redirect('tracker:dashboard')
 
 
+@login_required
 def status_delete(request, key):
     """
     Deletes a StatusOption. Reassigns existing items with this status to 'working'.
     """
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_manage_settings:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+        messages.error(request, "Permission denied.")
+        return redirect('tracker:dashboard')
+
     if request.method == 'POST':
         if StatusOption.objects.count() <= 1:
             err = "Cannot delete the only remaining status."
@@ -948,26 +1498,44 @@ def status_delete(request, key):
     return redirect('tracker:dashboard')
 
 
+@login_required
 def status_reset_defaults(request):
     """Resets all statuses back to system defaults"""
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_manage_settings:
+        messages.error(request, "Permission denied.")
+        return redirect('tracker:dashboard')
+
     if request.method == 'POST':
         StatusOption.reset_to_defaults()
         messages.success(request, "Statuses restored to system defaults!")
     return redirect('tracker:dashboard')
 
 
+@login_required
 def reset_demo_data(request):
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.is_admin:
+        messages.error(request, "Permission denied: Only Admin can reset demo data.")
+        return redirect('tracker:dashboard')
+
     from django.core.management import call_command
     call_command('seed_data')
     messages.success(request, "Demo process sheet data restored successfully from Excel screenshot!")
     return redirect('tracker:dashboard')
 
 
+@login_required
 def export_excel(request):
     """
     Exports the Process Sheet to an Excel (.xlsx) file matching the original screenshot style.
     Supports ?scope=visible (default), ?scope=hidden, or ?scope=all.
     """
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_export_excel:
+        messages.error(request, "Permission denied: You do not have permission to export.")
+        return redirect('tracker:dashboard')
+
     scope = request.GET.get('scope', 'visible').lower()
     if scope == 'hidden':
         items = ProcessItem.objects.filter(is_hidden=True)
@@ -981,6 +1549,9 @@ def export_excel(request):
         items = ProcessItem.objects.filter(is_hidden=False)
         file_suffix = "Visible"
         sheet_title = "Visible Clients"
+
+    if not profile.is_admin and not profile.all_parties_access:
+        items = items.filter(id__in=profile.allowed_parties)
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -1142,10 +1713,16 @@ def export_excel(request):
     return response
 
 
+@login_required
 def import_excel(request):
     """
     Imports process data from uploaded Excel file (.xlsx)
     """
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_import_excel:
+        messages.error(request, "Permission denied: You do not have permission to import.")
+        return redirect('tracker:dashboard')
+
     if request.method == 'POST' and request.FILES.get('excel_file'):
         excel_file = request.FILES['excel_file']
         try:
@@ -1220,23 +1797,42 @@ def import_excel(request):
 # PARTY DETAIL & CUSTOM TABS / TABLES SYSTEM
 # ==========================================
 
+@login_required
 def party_detail(request, pk):
     """
     Detailed page for a specific Party / Client.
     Displays customizable tabs and dynamic tables.
-    No tabs or tables are auto-created initially; the user creates them manually when needed.
+    Checks party access rights and custom tabs editing permission.
     """
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not profile.is_party_allowed(pk):
+        messages.error(request, "Permission denied: Aapko is party ko dekhne ki access nahi hai.")
+        return redirect('tracker:dashboard')
+
+    if not profile.can_view_party_details and not (profile.is_admin or request.user.is_superuser):
+        messages.error(request, "Permission denied: Party custom tabs dekhne ki access restricted hai.")
+        return redirect('tracker:dashboard')
+
     item = get_object_or_404(ProcessItem, pk=pk)
-    tabs = item.custom_tabs.prefetch_related('custom_tables').order_by('order_index', 'id')
+    all_party_tabs = item.custom_tabs.prefetch_related('custom_tables').order_by('order_index', 'id')
+    if not (profile.is_admin or profile.all_tabs_access or request.user.is_superuser):
+        allowed_titles = [str(t).strip().lower() for t in (profile.allowed_tab_titles or []) if str(t).strip()]
+        tabs = [t for t in all_party_tabs if str(t.title).strip().lower() in allowed_titles]
+    else:
+        tabs = all_party_tabs
     today = timezone.localdate() if hasattr(timezone, 'localdate') else date.today()
 
     return render(request, 'tracker/party_detail.html', {
         'item': item,
         'tabs': tabs,
         'today': today,
+        'user_profile': profile,
+        'can_edit_custom_tabs': profile.can_edit_custom_tabs or profile.is_admin or request.user.is_superuser,
     })
 
 
+
+@login_required
 @csrf_exempt
 def party_tab_create(request, pk):
     """
@@ -1245,6 +1841,10 @@ def party_tab_create(request, pk):
     """
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_edit_custom_tabs or not profile.is_party_allowed(pk):
+        return JsonResponse({'success': False, 'error': 'Permission denied: Cannot modify tabs'}, status=403)
 
     item = get_object_or_404(ProcessItem, pk=pk)
     try:
@@ -1290,13 +1890,17 @@ def party_tab_create(request, pk):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @csrf_exempt
 def party_tab_update(request, tab_id):
     """Update tab title or color pattern"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
 
+    profile = get_user_access_profile(request.user)
     tab = get_object_or_404(PartyCustomTab, pk=tab_id)
+    if not profile or not profile.can_edit_custom_tabs or not profile.is_party_allowed(tab.item_id):
+        return JsonResponse({'success': False, 'error': 'Permission denied: Cannot modify tabs'}, status=403)
     try:
         data = json.loads(request.body.decode('utf-8'))
         old_title = tab.title
@@ -1339,13 +1943,18 @@ def party_tab_update(request, tab_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @csrf_exempt
 def party_tab_delete(request, tab_id):
     """Delete a custom tab and its tables"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
 
+    profile = get_user_access_profile(request.user)
     tab = get_object_or_404(PartyCustomTab, pk=tab_id)
+    if not profile or not profile.can_edit_custom_tabs or not profile.is_party_allowed(tab.item_id):
+        return JsonResponse({'success': False, 'error': 'Permission denied: Cannot modify tabs'}, status=403)
+
     try:
         tab_title = tab.title
         tab.delete()
@@ -1354,6 +1963,7 @@ def party_tab_delete(request, tab_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @csrf_exempt
 def party_tabs_reorder(request, pk):
     """
@@ -1362,6 +1972,10 @@ def party_tabs_reorder(request, pk):
     """
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+    profile = get_user_access_profile(request.user)
+    if not profile or not profile.can_edit_custom_tabs or not profile.is_party_allowed(pk):
+        return JsonResponse({'success': False, 'error': 'Permission denied: Cannot modify tabs'}, status=403)
 
     item = get_object_or_404(ProcessItem, pk=pk)
     try:
@@ -1376,6 +1990,7 @@ def party_tabs_reorder(request, pk):
 
 
 
+@login_required
 @csrf_exempt
 def party_table_save(request, tab_id):
     """
@@ -1389,7 +2004,10 @@ def party_table_save(request, tab_id):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
 
+    profile = get_user_access_profile(request.user)
     tab = get_object_or_404(PartyCustomTab, pk=tab_id)
+    if not profile or not profile.can_edit_custom_tabs or not profile.is_party_allowed(tab.item_id):
+        return JsonResponse({'success': False, 'error': 'Permission denied: Cannot modify tables'}, status=403)
     try:
         data = json.loads(request.body.decode('utf-8'))
         table_id = data.get('table_id')
@@ -1524,13 +2142,18 @@ def party_table_save(request, tab_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @csrf_exempt
 def party_table_delete(request, table_id):
     """Delete a table inside a tab"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
 
+    profile = get_user_access_profile(request.user)
     table = get_object_or_404(PartyCustomTable, pk=table_id)
+    if not profile or not profile.can_edit_custom_tabs or (table.tab and not profile.is_party_allowed(table.tab.item_id)):
+        return JsonResponse({'success': False, 'error': 'Permission denied: Cannot delete table'}, status=403)
+
     try:
         title = table.title
         table.delete()
@@ -1539,13 +2162,18 @@ def party_table_delete(request, table_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
+@login_required
 @csrf_exempt
 def party_table_rename(request, table_id):
     """Rename a custom table, optionally syncing to all matching tables across parties."""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
 
+    profile = get_user_access_profile(request.user)
     table = get_object_or_404(PartyCustomTable, pk=table_id)
+    if not profile or not profile.can_edit_custom_tabs or (table.tab and not profile.is_party_allowed(table.tab.item_id)):
+        return JsonResponse({'success': False, 'error': 'Permission denied: Cannot rename table'}, status=403)
+
     try:
         data = json.loads(request.body.decode('utf-8'))
         new_title = data.get('title', '').strip()
