@@ -1299,16 +1299,33 @@ def party_tab_update(request, tab_id):
     tab = get_object_or_404(PartyCustomTab, pk=tab_id)
     try:
         data = json.loads(request.body.decode('utf-8'))
-        if 'title' in data and data['title'].strip():
-            tab.title = data['title'].strip()
-        if 'color' in data and data['color'].strip():
-            tab.color = data['color'].strip()
+        old_title = tab.title
+        new_title = data.get('title', '').strip()
+        new_color = data.get('color', '').strip()
+        apply_to_all = bool(data.get('apply_to_all', False))
+
+        if new_title:
+            tab.title = new_title
+        if new_color:
+            tab.color = new_color
         if 'order_index' in data:
             try:
                 tab.order_index = int(data['order_index'])
             except (ValueError, TypeError):
                 pass
         tab.save()
+
+        # If apply_to_all is True, sync tab rename / color to all matching tabs across parties
+        synced_count = 1
+        if apply_to_all:
+            matching_tabs = PartyCustomTab.objects.filter(title__iexact=old_title).exclude(id=tab.id)
+            for m_tab in matching_tabs:
+                if new_title:
+                    m_tab.title = new_title
+                if new_color:
+                    m_tab.color = new_color
+                m_tab.save()
+                synced_count += 1
         return JsonResponse({
             'success': True,
             'tab': {
@@ -1384,7 +1401,7 @@ def party_table_save(request, tab_id):
         if not isinstance(columns, list) or len(columns) == 0:
             columns = ['Column 1', 'Column 2', 'Column 3']
 
-        # Clean columns: each column can be a string name or a dict {'name': '...', 'type': 'text|date|checkbox'}
+        # Clean columns: each column can be a string name or a dict {'name': '...', 'type': 'text|date|checkbox', 'width': '...', 'alert_on_unchecked': bool}
         cleaned_columns = []
         for i, c in enumerate(columns):
             if isinstance(c, dict):
@@ -1392,7 +1409,14 @@ def party_table_save(request, tab_id):
                 col_type = str(c.get('type', 'text')).strip().lower()
                 if col_type not in ['text', 'date', 'checkbox']:
                     col_type = 'text'
-                cleaned_columns.append({'name': col_name, 'type': col_type})
+                col_width = str(c.get('width', '')).strip()
+                alert_on_unchecked = bool(c.get('alert_on_unchecked', False))
+                cleaned_columns.append({
+                    'name': col_name,
+                    'type': col_type,
+                    'width': col_width,
+                    'alert_on_unchecked': alert_on_unchecked
+                })
             else:
                 col_name = str(c).strip() if str(c).strip() else f"Col {i+1}"
                 cleaned_columns.append(col_name)
@@ -1413,19 +1437,24 @@ def party_table_save(request, tab_id):
 
         if table_id:
             table = get_object_or_404(PartyCustomTable, pk=table_id, tab=tab)
+            old_table_title = table.title
             table.title = title
             table.columns = cleaned_columns
             table.rows = cleaned_rows
             table.save()
             action = 'updated'
 
-            # User requirement: If same TAB and same Table name exists across parties,
-            # sync columns header/type/order changes to all of them!
+            # If user renamed table or modified columns, find matching tables across parties:
+            # Match by old_table_title or new title
             matching_tabs = PartyCustomTab.objects.filter(title__iexact=tab.title).exclude(id=tab.id)
             for m_tab in matching_tabs:
-                m_table = m_tab.custom_tables.filter(title__iexact=title).first()
+                m_table = m_tab.custom_tables.filter(title__iexact=old_table_title).first()
+                if not m_table and old_table_title != title:
+                    m_table = m_tab.custom_tables.filter(title__iexact=title).first()
                 if m_table:
-                    # Update column definitions
+                    # Sync title
+                    m_table.title = title
+                    # Update column definitions (width, types, order, alert_on_unchecked)
                     m_table.columns = cleaned_columns
                     # Ensure each existing row matches new column count
                     synced_rows = []
@@ -1508,6 +1537,40 @@ def party_table_delete(request, table_id):
         return JsonResponse({'success': True, 'message': f'Table "{title}" deleted successfully'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@csrf_exempt
+def party_table_rename(request, table_id):
+    """Rename a custom table, optionally syncing to all matching tables across parties."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+    table = get_object_or_404(PartyCustomTable, pk=table_id)
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+        new_title = data.get('title', '').strip()
+        apply_to_all = bool(data.get('apply_to_all', True))
+        if not new_title:
+            return JsonResponse({'success': False, 'error': 'Table title cannot be empty'}, status=400)
+
+        old_title = table.title
+        table.title = new_title
+        table.save()
+
+        synced_count = 1
+        if apply_to_all and table.tab:
+            matching_tabs = PartyCustomTab.objects.filter(title__iexact=table.tab.title).exclude(id=table.tab.id)
+            for m_tab in matching_tabs:
+                m_tbl = m_tab.custom_tables.filter(title__iexact=old_title).first()
+                if m_tbl:
+                    m_tbl.title = new_title
+                    m_tbl.save()
+                    synced_count += 1
+
+        return JsonResponse({'success': True, 'title': new_title, 'synced_count': synced_count})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
 
 
 

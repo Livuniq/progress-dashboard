@@ -38,5 +38,6 @@ urlpatterns = [
     path('party/tabs/<int:tab_id>/delete/', views.party_tab_delete, name='party_tab_delete'),
     path('party/tabs/<int:tab_id>/tables/save/', views.party_table_save, name='party_table_save'),
     path('party/tables/<int:table_id>/delete/', views.party_table_delete, name='party_table_delete'),
+    path('party/tables/<int:table_id>/rename/', views.party_table_rename, name='party_table_rename'),
 ]
 

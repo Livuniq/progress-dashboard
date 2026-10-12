@@ -511,28 +511,40 @@
                                 <tr class="table-columns-header-row">
                                     <th style="width: 45px;" class="text-center">#</th>
                                     {% for col in table.parsed_columns %}
-                                    <th class="table-column-header position-relative" data-col-idx="{{ forloop.counter0 }}" data-col-type="{{ col.type }}" draggable="false">
+                                    <th class="table-column-header position-relative" data-col-idx="{{ forloop.counter0 }}" data-col-type="{{ col.type }}" data-alert-unchecked="{{ col.alert_on_unchecked|yesno:'true,false' }}" {% if col.width %}style="width: {{ col.width }}; min-width: {{ col.width }}; max-width: {{ col.width }};" data-was-resized="true"{% endif %} draggable="false">
                                         <div class="d-flex align-items-center justify-content-between gap-1">
                                             <div class="d-flex align-items-center gap-1 overflow-hidden flex-grow-1">
                                                 <i class="bi bi-grip-vertical col-drag-handle" title="Drag to reorder column"></i>
                                                 <span class="column-header-text flex-grow-1" contenteditable="true" onblur="onColumnHeaderEdited('{{ table.id }}')" title="Click to rename header">{{ col.name }}</span>
+                                                {% if col.alert_on_unchecked %}
+                                                    <i class="bi bi-bell-fill text-danger small ms-1" style="font-size: 0.75rem;" title="Alert on unchecked (Increments dashboard counter)"></i>
+                                                {% endif %}
                                             </div>
                                             <div class="d-flex align-items-center gap-1">
                                                 <div class="dropdown">
-                                                    <span class="col-format-icon" data-bs-toggle="dropdown" title="Change column format (Current: {{ col.type }})">
+                                                    <span class="col-format-icon" data-bs-toggle="dropdown" title="Change column format (Current: {{ col.type }}{% if col.alert_on_unchecked %}, Red Alert ON{% endif %})">
                                                         {% if col.type == 'checkbox' %}
-                                                            <i class="bi bi-check-square text-success"></i>
+                                                            <i class="bi bi-check-square {% if col.alert_on_unchecked %}text-danger{% else %}text-success{% endif %}"></i>
                                                         {% elif col.type == 'date' %}
                                                             <i class="bi bi-calendar3 text-primary"></i>
                                                         {% else %}
                                                             <i class="bi bi-fonts text-secondary"></i>
                                                         {% endif %}
                                                     </span>
-                                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-1" style="font-size: 0.82rem; min-width: 140px;">
+                                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-1" style="font-size: 0.82rem; min-width: 170px;">
                                                         <li><h6 class="dropdown-header py-1 text-muted small">Change Format</h6></li>
                                                         <li><button class="dropdown-item d-flex align-items-center gap-2 py-1 {% if col.type == 'text' %}active{% endif %}" type="button" onclick="changeColumnType('{{ table.id }}', {{ forloop.counter0 }}, 'text')"><i class="bi bi-fonts"></i> Text</button></li>
                                                         <li><button class="dropdown-item d-flex align-items-center gap-2 py-1 {% if col.type == 'date' %}active{% endif %}" type="button" onclick="changeColumnType('{{ table.id }}', {{ forloop.counter0 }}, 'date')"><i class="bi bi-calendar3 text-primary"></i> Date</button></li>
                                                         <li><button class="dropdown-item d-flex align-items-center gap-2 py-1 {% if col.type == 'checkbox' %}active{% endif %}" type="button" onclick="changeColumnType('{{ table.id }}', {{ forloop.counter0 }}, 'checkbox')"><i class="bi bi-check-square text-success"></i> Checkbox</button></li>
+                                                        {% if col.type == 'checkbox' %}
+                                                            <li><hr class="dropdown-divider my-1"></li>
+                                                            <li>
+                                                                <button class="dropdown-item d-flex align-items-center gap-2 py-1 {% if col.alert_on_unchecked %}text-danger fw-semibold{% endif %}" type="button" onclick="toggleColumnAlert('{{ table.id }}', {{ forloop.counter0 }})">
+                                                                    <i class="bi bi-bell{% if col.alert_on_unchecked %}-fill text-danger{% endif %}"></i>
+                                                                    {% if col.alert_on_unchecked %}Red Alert: ON (Click to OFF){% else %}Red Alert: OFF (Click to ON){% endif %}
+                                                                </button>
+                                                            </li>
+                                                        {% endif %}
                                                     </ul>
                                                 </div>
                                                 <button type="button" class="btn-row-action" onclick="deleteColumnFromTable('{{ table.id }}', {{ forloop.counter0 }})" title="Delete Column">
@@ -713,6 +725,26 @@
                         <input type="text" class="form-control" id="editTabColorHexInput">
                     </div>
                 </div>
+
+                <!-- Scope Option for Edit Tab -->
+                <div class="mb-2 p-3 bg-light rounded border">
+                    <label class="form-label fw-bold text-dark d-block mb-2">
+                        <i class="bi bi-people-fill text-primary me-1"></i> Apply Scope
+                    </label>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="editTabScopeOption" id="editTabScopeAllParties" value="all" checked>
+                        <label class="form-check-label fw-semibold text-primary" for="editTabScopeAllParties">
+                            <i class="bi bi-globe me-1"></i> Sabhi matching parties me rename karein (All Parties)
+                        </label>
+                        <div class="form-text small text-muted">Jitni bhi parties me ye tab maujood hai, sabhi me naya naam/color update ho jayega.</div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="editTabScopeOption" id="editTabScopeOnlyThis" value="single">
+                        <label class="form-check-label fw-semibold text-dark" for="editTabScopeOnlyThis">
+                            Sirf is party me rename karein ({{ item.client_name }})
+                        </label>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer bg-light">
                 <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancel</button>
@@ -782,6 +814,49 @@
     </div>
 </div>
 
+<!-- EDIT TABLE MODAL (RENAME TABLE) -->
+<div class="modal fade" id="editTableModal" tabindex="-1" aria-labelledby="editTableModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="editTableModalLabel"><i class="bi bi-pencil-square text-primary me-2"></i>Rename Table</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="editTableTargetId">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Table Name</label>
+                    <input type="text" class="form-control" id="editTableTitleInput" required>
+                </div>
+
+                <!-- Scope Option for Edit Table -->
+                <div class="mb-2 p-3 bg-light rounded border">
+                    <label class="form-label fw-bold text-dark d-block mb-2">
+                        <i class="bi bi-people-fill text-primary me-1"></i> Apply Scope
+                    </label>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="editTableScopeOption" id="editTableScopeAllParties" value="all" checked>
+                        <label class="form-check-label fw-semibold text-primary" for="editTableScopeAllParties">
+                            <i class="bi bi-globe me-1"></i> Sabhi matching parties me rename karein (All Parties)
+                        </label>
+                        <div class="form-text small text-muted">Jitni bhi parties ke matching tab me ye table maujood hai, sabhi me naya naam update ho jayega.</div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="editTableScopeOption" id="editTableScopeOnlyThis" value="single">
+                        <label class="form-check-label fw-semibold text-dark" for="editTableScopeOnlyThis">
+                            Sirf is party me rename karein ({{ item.client_name }})
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary fw-semibold" id="btnSubmitEditTable">Save Table Name</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- LARGE REMARKS / TEXT EDITOR MODAL -->
 <div class="modal fade" id="remarksEditorModal" tabindex="-1" aria-labelledby="remarksEditorModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -833,6 +908,19 @@
                         - <strong>Text</strong>: Standard input with expand modal for long text.<br>
                         - <strong>Date</strong>: HTML5 calendar date picker.<br>
                         - <strong>Checkbox</strong>: Clickable toggle box.
+                    </div>
+                </div>
+
+                <!-- Alert on unchecked checkbox option (Visible when Checkbox is selected) -->
+                <div class="mb-3 p-3 bg-light rounded border" id="checkboxAlertOptionWrapper" style="display: none;">
+                    <div class="form-check form-switch mb-1">
+                        <input class="form-check-input" type="checkbox" role="switch" id="newColumnAlertOnUnchecked" style="cursor: pointer;">
+                        <label class="form-check-label fw-bold text-danger" for="newColumnAlertOnUnchecked" style="cursor: pointer;">
+                            <i class="bi bi-exclamation-circle-fill me-1"></i> Dashboard Red Badge Alert on Unchecked?
+                        </label>
+                    </div>
+                    <div class="form-text small text-muted">
+                        Agar ye checkbox <strong>unchecked</strong> hoga, to dashboard par party ke serial number (#) ke baju me red pill counter me dikhai dega (jaise Problems tab me dikhta hai).
                     </div>
                 </div>
             </div>
@@ -1089,6 +1177,9 @@
                 return;
             }
 
+            const scopeOption = document.querySelector('input[name="editTabScopeOption"]:checked')?.value || 'all';
+            const applyToAll = (scopeOption === 'all');
+
             btnSubmitEditTab.disabled = true;
             btnSubmitEditTab.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
 
@@ -1098,7 +1189,11 @@
                     'Content-Type': 'application/json',
                     'X-CSRFToken': getCsrfToken()
                 },
-                body: JSON.stringify({ title: title, color: color })
+                body: JSON.stringify({
+                    title: title,
+                    color: color,
+                    apply_to_all: applyToAll
+                })
             })
             .then(res => res.json())
             .then(data => {
@@ -1319,6 +1414,9 @@
     const addColumnModalEl = document.getElementById('addColumnModal');
     const addColumnModal = addColumnModalEl ? new bootstrap.Modal(addColumnModalEl) : null;
 
+    const editTableModalEl = document.getElementById('editTableModal');
+    const editTableModal = editTableModalEl ? new bootstrap.Modal(editTableModalEl) : null;
+
     const remarksEditorModalEl = document.getElementById('remarksEditorModal');
     const remarksEditorModal = remarksEditorModalEl ? new bootstrap.Modal(remarksEditorModalEl) : null;
 
@@ -1398,12 +1496,20 @@
 
         th.setAttribute('data-col-type', newType);
         
+        let alertOnUnchecked = (th.getAttribute('data-alert-unchecked') === 'true');
+        if (newType !== 'checkbox') {
+            th.setAttribute('data-alert-unchecked', 'false');
+            alertOnUnchecked = false;
+            const bell = th.querySelector('.bi-bell-fill');
+            if (bell) bell.remove();
+        }
+        
         // Update format icon in TH dropdown
         const iconContainer = th.querySelector('.col-format-icon');
         if (iconContainer) {
-            iconContainer.setAttribute('title', `Change column format (Current: ${newType})`);
+            iconContainer.setAttribute('title', `Change column format (Current: ${newType}${alertOnUnchecked ? ', Red Alert ON' : ''})`);
             if (newType === 'checkbox') {
-                iconContainer.innerHTML = '<i class="bi bi-check-square text-success"></i>';
+                iconContainer.innerHTML = `<i class="bi bi-check-square ${alertOnUnchecked ? 'text-danger' : 'text-success'}"></i>`;
             } else if (newType === 'date') {
                 iconContainer.innerHTML = '<i class="bi bi-calendar3 text-primary"></i>';
             } else {
@@ -1411,14 +1517,25 @@
             }
         }
 
-        // Update active class in dropdown items
-        th.querySelectorAll('.dropdown-item').forEach(item => {
-            if (item.getAttribute('onclick')?.includes(`'${newType}'`)) {
-                item.classList.add('active');
-            } else {
-                item.classList.remove('active');
-            }
-        });
+        // Rebuild dropdown items
+        const dropdownMenu = th.querySelector('.dropdown-menu');
+        if (dropdownMenu) {
+            dropdownMenu.innerHTML = `
+                <li><h6 class="dropdown-header py-1 text-muted small">Change Format</h6></li>
+                <li><button class="dropdown-item d-flex align-items-center gap-2 py-1 ${newType === 'text' ? 'active' : ''}" type="button" onclick="changeColumnType('${tableId}', ${colIdx}, 'text')"><i class="bi bi-fonts"></i> Text</button></li>
+                <li><button class="dropdown-item d-flex align-items-center gap-2 py-1 ${newType === 'date' ? 'active' : ''}" type="button" onclick="changeColumnType('${tableId}', ${colIdx}, 'date')"><i class="bi bi-calendar3 text-primary"></i> Date</button></li>
+                <li><button class="dropdown-item d-flex align-items-center gap-2 py-1 ${newType === 'checkbox' ? 'active' : ''}" type="button" onclick="changeColumnType('${tableId}', ${colIdx}, 'checkbox')"><i class="bi bi-check-square text-success"></i> Checkbox</button></li>
+                ${newType === 'checkbox' ? `
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li>
+                        <button class="dropdown-item d-flex align-items-center gap-2 py-1 ${alertOnUnchecked ? 'text-danger fw-semibold' : ''}" type="button" onclick="toggleColumnAlert('${tableId}', ${colIdx})">
+                            <i class="bi bi-bell${alertOnUnchecked ? '-fill text-danger' : ''}"></i>
+                            ${alertOnUnchecked ? 'Red Alert: ON (Click to OFF)' : 'Red Alert: OFF (Click to ON)'}
+                        </button>
+                    </li>
+                ` : ''}
+            `;
+        }
 
         // Convert each cell in tbody for this column
         table.querySelectorAll('tbody tr.table-data-row').forEach(tr => {
@@ -1470,8 +1587,12 @@
         document.getElementById('addColumnTargetTableId').value = tableId;
         const nameInput = document.getElementById('newColumnNameInput');
         const typeSelect = document.getElementById('newColumnTypeSelect');
+        const alertWrapper = document.getElementById('checkboxAlertOptionWrapper');
+        const alertChk = document.getElementById('newColumnAlertOnUnchecked');
         if (nameInput) nameInput.value = '';
         if (typeSelect) typeSelect.value = 'text';
+        if (alertWrapper) alertWrapper.style.display = 'none';
+        if (alertChk) alertChk.checked = false;
 
         if (addColumnModal) {
             addColumnModal.show();
@@ -1479,14 +1600,30 @@
         }
     };
 
+    const newColumnTypeSelectEl = document.getElementById('newColumnTypeSelect');
+    if (newColumnTypeSelectEl) {
+        newColumnTypeSelectEl.addEventListener('change', function() {
+            const alertWrapper = document.getElementById('checkboxAlertOptionWrapper');
+            const alertChk = document.getElementById('newColumnAlertOnUnchecked');
+            if (this.value === 'checkbox') {
+                if (alertWrapper) alertWrapper.style.display = 'block';
+            } else {
+                if (alertWrapper) alertWrapper.style.display = 'none';
+                if (alertChk) alertChk.checked = false;
+            }
+        });
+    }
+
     const btnSubmitAddColumn = document.getElementById('btnSubmitAddColumn');
     if (btnSubmitAddColumn) {
         btnSubmitAddColumn.addEventListener('click', function() {
             const tableId = document.getElementById('addColumnTargetTableId').value;
             const nameInput = document.getElementById('newColumnNameInput');
             const typeSelect = document.getElementById('newColumnTypeSelect');
+            const alertChk = document.getElementById('newColumnAlertOnUnchecked');
             const colName = (nameInput?.value || '').trim();
             const colType = typeSelect?.value || 'text';
+            const alertOnUnchecked = (colType === 'checkbox' && !!alertChk?.checked);
 
             if (!colName) {
                 alert('Please enter a column header name!');
@@ -1503,31 +1640,45 @@
 
             // Format icon HTML
             let iconHtml = '<i class="bi bi-fonts text-secondary"></i>';
-            if (colType === 'checkbox') iconHtml = '<i class="bi bi-check-square text-success"></i>';
-            else if (colType === 'date') iconHtml = '<i class="bi bi-calendar3 text-primary"></i>';
+            if (colType === 'checkbox') {
+                iconHtml = `<i class="bi bi-check-square ${alertOnUnchecked ? 'text-danger' : 'text-success'}"></i>`;
+            } else if (colType === 'date') {
+                iconHtml = '<i class="bi bi-calendar3 text-primary"></i>';
+            }
 
             // Create new TH (NO LABELS)
             const newTh = document.createElement('th');
             newTh.className = 'table-column-header position-relative';
             newTh.setAttribute('data-col-idx', newColIdx);
             newTh.setAttribute('data-col-type', colType);
+            newTh.setAttribute('data-alert-unchecked', alertOnUnchecked ? 'true' : 'false');
             newTh.setAttribute('draggable', 'false');
             newTh.innerHTML = `
                 <div class="d-flex align-items-center justify-content-between gap-1">
                     <div class="d-flex align-items-center gap-1 overflow-hidden flex-grow-1">
                         <i class="bi bi-grip-vertical col-drag-handle" title="Drag to reorder column"></i>
                         <span class="column-header-text flex-grow-1" contenteditable="true" onblur="onColumnHeaderEdited('${tableId}')" title="Click to rename header">${escapeHtml(colName)}</span>
+                        ${alertOnUnchecked ? '<i class="bi bi-bell-fill text-danger small ms-1" style="font-size: 0.75rem;" title="Alert on unchecked (Increments dashboard counter)"></i>' : ''}
                     </div>
                     <div class="d-flex align-items-center gap-1">
                         <div class="dropdown">
-                            <span class="col-format-icon" data-bs-toggle="dropdown" title="Change column format (Current: ${colType})">
+                            <span class="col-format-icon" data-bs-toggle="dropdown" title="Change column format (Current: ${colType}${alertOnUnchecked ? ', Red Alert ON' : ''})">
                                 ${iconHtml}
                             </span>
-                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-1" style="font-size: 0.82rem; min-width: 140px;">
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-1" style="font-size: 0.82rem; min-width: 170px;">
                                 <li><h6 class="dropdown-header py-1 text-muted small">Change Format</h6></li>
                                 <li><button class="dropdown-item d-flex align-items-center gap-2 py-1 ${colType === 'text' ? 'active' : ''}" type="button" onclick="changeColumnType('${tableId}', ${newColIdx}, 'text')"><i class="bi bi-fonts"></i> Text</button></li>
                                 <li><button class="dropdown-item d-flex align-items-center gap-2 py-1 ${colType === 'date' ? 'active' : ''}" type="button" onclick="changeColumnType('${tableId}', ${newColIdx}, 'date')"><i class="bi bi-calendar3 text-primary"></i> Date</button></li>
                                 <li><button class="dropdown-item d-flex align-items-center gap-2 py-1 ${colType === 'checkbox' ? 'active' : ''}" type="button" onclick="changeColumnType('${tableId}', ${newColIdx}, 'checkbox')"><i class="bi bi-check-square text-success"></i> Checkbox</button></li>
+                                ${colType === 'checkbox' ? `
+                                    <li><hr class="dropdown-divider my-1"></li>
+                                    <li>
+                                        <button class="dropdown-item d-flex align-items-center gap-2 py-1 ${alertOnUnchecked ? 'text-danger fw-semibold' : ''}" type="button" onclick="toggleColumnAlert('${tableId}', ${newColIdx})">
+                                            <i class="bi bi-bell${alertOnUnchecked ? '-fill text-danger' : ''}"></i>
+                                            ${alertOnUnchecked ? 'Red Alert: ON (Click to OFF)' : 'Red Alert: OFF (Click to ON)'}
+                                        </button>
+                                    </li>
+                                ` : ''}
                             </ul>
                         </div>
                         <button type="button" class="btn-row-action" onclick="deleteColumnFromTable('${tableId}', ${newColIdx})" title="Delete Column">
@@ -1619,6 +1770,8 @@
                 const typeMatch = btn.getAttribute('onclick')?.match(/,\s*'([^']+)'\)/);
                 if (typeMatch) {
                     btn.setAttribute('onclick', `changeColumnType('${tableId}', ${idx}, '${typeMatch[1]}')`);
+                } else if (btn.getAttribute('onclick')?.includes('toggleColumnAlert')) {
+                    btn.setAttribute('onclick', `toggleColumnAlert('${tableId}', ${idx})`);
                 }
             });
         });
@@ -1682,12 +1835,19 @@
                 const newWidth = Math.max(60, startWidth + diff);
                 th.style.width = newWidth + 'px';
                 th.style.minWidth = newWidth + 'px';
+                th.style.maxWidth = newWidth + 'px';
+                th.setAttribute('data-was-resized', 'true');
             };
 
             const onMouseUp = function() {
                 resizer.classList.remove('is-resizing');
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
+                const card = table.closest('.party-table-card');
+                const tableId = card ? card.getAttribute('data-table-id') : null;
+                if (tableId) {
+                    markTableDirty(tableId);
+                }
             };
 
             resizer.addEventListener('mousedown', function(e) {
@@ -1701,6 +1861,56 @@
             });
         });
     }
+
+    // Toggle column alert for checkbox
+    window.toggleColumnAlert = function(tableId, colIdx) {
+        const table = document.getElementById(`gridTable-${tableId}`);
+        if (!table) return;
+
+        const th = table.querySelector(`thead th.table-column-header[data-col-idx="${colIdx}"]`);
+        if (!th) return;
+
+        const currentAlert = th.getAttribute('data-alert-unchecked') === 'true';
+        const newAlert = !currentAlert;
+        th.setAttribute('data-alert-unchecked', newAlert ? 'true' : 'false');
+
+        // Update format icon & color
+        const iconContainer = th.querySelector('.col-format-icon');
+        if (iconContainer) {
+            iconContainer.innerHTML = `<i class="bi bi-check-square ${newAlert ? 'text-danger' : 'text-success'}"></i>`;
+            iconContainer.setAttribute('title', `Change column format (Current: checkbox${newAlert ? ', Red Alert ON' : ''})`);
+        }
+
+        // Update bell icon
+        const headerTextContainer = th.querySelector('.column-header-text')?.parentNode;
+        let bell = th.querySelector('.bi-bell-fill');
+        if (newAlert) {
+            if (!bell && headerTextContainer) {
+                const b = document.createElement('i');
+                b.className = 'bi bi-bell-fill text-danger small ms-1';
+                b.style.fontSize = '0.75rem';
+                b.title = 'Alert on unchecked (Increments dashboard counter)';
+                headerTextContainer.appendChild(b);
+            }
+        } else {
+            if (bell) bell.remove();
+        }
+
+        // Update dropdown button text
+        th.querySelectorAll('.dropdown-item').forEach(btn => {
+            if (btn.getAttribute('onclick')?.includes('toggleColumnAlert')) {
+                if (newAlert) {
+                    btn.className = 'dropdown-item d-flex align-items-center gap-2 py-1 text-danger fw-semibold';
+                    btn.innerHTML = '<i class="bi bi-bell-fill text-danger"></i> Red Alert: ON (Click to OFF)';
+                } else {
+                    btn.className = 'dropdown-item d-flex align-items-center gap-2 py-1';
+                    btn.innerHTML = '<i class="bi bi-bell"></i> Red Alert: OFF (Click to ON)';
+                }
+            }
+        });
+
+        markTableDirty(tableId);
+    };
 
     // 6. BIND ALL COLUMN INTERACTIONS (Resize + Drag Reorder)
     function bindColumnInteractions(table) {
@@ -1770,14 +1980,70 @@
     function editTableTitlePrompt(tableId) {
         const titleEl = document.getElementById(`tableTitleDisplay-${tableId}`);
         const currentTitle = titleEl ? titleEl.textContent.trim() : 'Table';
-        const newTitle = prompt("Enter new table title:", currentTitle);
-        if (newTitle && newTitle.trim() && newTitle.trim() !== currentTitle) {
-            if (titleEl) titleEl.textContent = newTitle.trim();
-            markTableDirty(tableId);
+
+        const targetIdInput = document.getElementById('editTableTargetId');
+        const titleInput = document.getElementById('editTableTitleInput');
+        const allPartiesRadio = document.getElementById('editTableScopeAllParties');
+
+        if (targetIdInput) targetIdInput.value = tableId;
+        if (titleInput) titleInput.value = currentTitle;
+        if (allPartiesRadio) allPartiesRadio.checked = true;
+
+        if (editTableModal) {
+            editTableModal.show();
+            setTimeout(() => { if (titleInput) titleInput.focus(); }, 300);
         }
     }
 
-    // 7. SAVE TABLE CHANGES (Persisting Column Types + Values)
+    const btnSubmitEditTable = document.getElementById('btnSubmitEditTable');
+    if (btnSubmitEditTable) {
+        btnSubmitEditTable.addEventListener('click', function() {
+            const tableId = document.getElementById('editTableTargetId').value;
+            const newTitle = (document.getElementById('editTableTitleInput')?.value || '').trim();
+            const scopeOption = document.querySelector('input[name="editTableScopeOption"]:checked')?.value || 'all';
+            const applyToAll = (scopeOption === 'all');
+
+            if (!newTitle) {
+                alert('Please enter a table name');
+                return;
+            }
+
+            btnSubmitEditTable.disabled = true;
+            btnSubmitEditTable.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+
+            fetch(`/party/tables/${tableId}/rename/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({
+                    title: newTitle,
+                    apply_to_all: applyToAll
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                btnSubmitEditTable.disabled = false;
+                btnSubmitEditTable.textContent = 'Save Table Name';
+                if (data.success) {
+                    const titleEl = document.getElementById(`tableTitleDisplay-${tableId}`);
+                    if (titleEl) titleEl.textContent = newTitle;
+                    if (editTableModal) editTableModal.hide();
+                    markTableDirty(tableId);
+                } else {
+                    alert('Error renaming table: ' + (data.error || 'Server error'));
+                }
+            })
+            .catch(err => {
+                btnSubmitEditTable.disabled = false;
+                btnSubmitEditTable.textContent = 'Save Table Name';
+                alert('Network error: ' + err);
+            });
+        });
+    }
+
+    // 7. SAVE TABLE CHANGES (Persisting Column Types + Widths + Alert Option + Values)
     function saveTableChanges(tableId) {
         const card = document.getElementById(`tableCard-${tableId}`);
         const table = document.getElementById(`gridTable-${tableId}`);
@@ -1787,14 +2053,19 @@
         const titleEl = document.getElementById(`tableTitleDisplay-${tableId}`);
         const title = titleEl ? titleEl.textContent.trim() : 'Table';
 
-        // Extract columns definitions with format types
+        // Extract columns definitions with format types, saved width, and alert options
         const columns = [];
         table.querySelectorAll('thead th.table-column-header').forEach(th => {
             const name = th.querySelector('.column-header-text')?.textContent.trim() || 'Column';
             const type = th.getAttribute('data-col-type') || 'text';
+            const alertOnUnchecked = (th.getAttribute('data-alert-unchecked') === 'true');
+            // Extract current width if set
+            const width = th.style.width || '';
             columns.push({
                 name: name,
-                type: type
+                type: type,
+                width: width,
+                alert_on_unchecked: alertOnUnchecked
             });
         });
 

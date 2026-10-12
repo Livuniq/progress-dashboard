@@ -123,43 +123,61 @@ class ProcessItem(models.Model):
     @property
     def undiscussed_problems_count(self):
         """
-        Calculates undiscussed rows in the party's 'Problems' tab.
-        Searches all tables in tabs titled 'Problems' (case-insensitive).
-        If a column contains 'discuss' or 'status' or is a checkbox,
-        checks if the cell is 'no', 'false', '0', '', 'pending', or unchecked.
-        If no such column exists, all rows are treated as open problems.
+        Calculates undiscussed rows / problem count.
+        1. Checks all tables across all tabs for any checkbox column configured with alert_on_unchecked=True.
+           If unchecked / 'No', each row is counted.
+        2. In tabs titled 'Problems' (case-insensitive):
+           If a column contains 'discuss' or 'done' or 'solve' or 'status' or is a checkbox,
+           checks if the cell is 'no', 'false', '0', '', 'pending', or unchecked.
+           If no such column exists, all rows are treated as open problems.
         """
-        problems_tab = self.custom_tabs.filter(title__iexact='problems').first()
-        if not problems_tab:
-            return 0
-
         count = 0
-        for table in problems_tab.custom_tables.all():
-            cols = table.columns or []
-            rows = table.rows or []
-            
-            # Find discussed / done column index if exists
-            disc_idx = -1
-            for idx, c in enumerate(cols):
-                c_name = c.get('name', '') if isinstance(c, dict) else str(c)
-                if 'discuss' in c_name.lower() or 'done' in c_name.lower():
-                    disc_idx = idx
-                    break
 
-            for row in rows:
-                if not isinstance(row, list) or len(row) == 0:
-                    continue
-                # If row is entirely empty, skip it
-                if not any(str(cell).strip() for cell in row):
+        # Pass 1: Global alert on unchecked checkbox columns in any custom table
+        for tab in self.custom_tabs.all():
+            for table in tab.custom_tables.all():
+                cols = table.columns or []
+                rows = table.rows or []
+                for idx, c in enumerate(cols):
+                    if isinstance(c, dict) and c.get('type') == 'checkbox' and c.get('alert_on_unchecked'):
+                        for row in rows:
+                            if isinstance(row, list) and idx < len(row):
+                                val = str(row[idx]).strip().lower()
+                                if val in ['no', 'false', '0', '', 'pending', 'undiscussed', 'none']:
+                                    count += 1
+
+        # Pass 2: Problems tab specific (if not already counted by alert_on_unchecked)
+        problems_tab = self.custom_tabs.filter(title__iexact='problems').first()
+        if problems_tab:
+            for table in problems_tab.custom_tables.all():
+                cols = table.columns or []
+                rows = table.rows or []
+
+                # If this table already had an alert_on_unchecked column, skip to avoid double counting
+                has_explicit_alert = any(isinstance(c, dict) and c.get('alert_on_unchecked') for c in cols)
+                if has_explicit_alert:
                     continue
 
-                if disc_idx != -1 and disc_idx < len(row):
-                    val = str(row[disc_idx]).strip().lower()
-                    if val in ['no', 'false', '0', '', 'pending', 'undiscussed', 'none']:
+                # Find discussed / done column index if exists
+                disc_idx = -1
+                for idx, c in enumerate(cols):
+                    c_name = c.get('name', '') if isinstance(c, dict) else str(c)
+                    if any(k in c_name.lower() for k in ['discuss', 'done', 'solve', 'status']):
+                        disc_idx = idx
+                        break
+
+                for row in rows:
+                    if not isinstance(row, list) or len(row) == 0:
+                        continue
+                    if not any(str(cell).strip() for cell in row):
+                        continue
+
+                    if disc_idx != -1 and disc_idx < len(row):
+                        val = str(row[disc_idx]).strip().lower()
+                        if val in ['no', 'false', '0', '', 'pending', 'undiscussed', 'none']:
+                            count += 1
+                    else:
                         count += 1
-                else:
-                    # No discussed column, count every non-empty row
-                    count += 1
 
         return count
 
@@ -494,9 +512,21 @@ class PartyCustomTable(models.Model):
                 col_type = str(c.get('type', 'text')).strip().lower()
                 if col_type not in ['text', 'date', 'checkbox']:
                     col_type = 'text'
-                res.append({'name': col_name, 'type': col_type})
+                col_width = c.get('width', '')
+                alert_on_unchecked = bool(c.get('alert_on_unchecked', False))
+                res.append({
+                    'name': col_name,
+                    'type': col_type,
+                    'width': col_width,
+                    'alert_on_unchecked': alert_on_unchecked
+                })
             else:
-                res.append({'name': str(c), 'type': 'text'})
+                res.append({
+                    'name': str(c),
+                    'type': 'text',
+                    'width': '',
+                    'alert_on_unchecked': False
+                })
         return res
 
     @property
