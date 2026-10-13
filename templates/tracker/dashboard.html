@@ -651,6 +651,11 @@
                                         <i class="bi bi-folder2-open"></i>
                                     </a>
                                     {% endif %}
+                                    {% if can_view_party_data %}
+                                    <a href="{% url 'tracker:party_data' item.id %}" target="_blank" class="btn btn-light text-info py-0 px-2" title="Open Product & SKU Catalog Data">
+                                        <i class="bi bi-file-earmark-spreadsheet"></i>
+                                    </a>
+                                    {% endif %}
                                     {% if can_view_history %}
                                     <button class="btn btn-light text-secondary py-0 px-2 btn-history" data-id="{{ item.id }}" title="View Edit History">
                                         <i class="bi bi-clock-history"></i>
@@ -1551,6 +1556,12 @@
         <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-primary fw-semibold" id="contextMenuPartyDetailBtn">
             <i class="bi bi-folder2-open"></i>
             <span>Open Custom Tabs & Tables</span>
+        </button>
+        {% endif %}
+        {% if can_view_party_data %}
+        <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-info fw-semibold" id="contextMenuDataBtn">
+            <i class="bi bi-file-earmark-spreadsheet-fill text-info fs-6"></i>
+            <span>DATA (Product & SKU Catalog)</span>
         </button>
         {% endif %}
         {% if can_edit_status or can_edit_lot or can_edit_target_date or can_edit_notes %}
@@ -3332,6 +3343,20 @@
                 closeRowContextMenu();
                 if (itemId) {
                     window.location.href = `/party/${itemId}/`;
+                }
+            }
+        });
+    }
+
+    const dataBtnEl = document.getElementById('contextMenuDataBtn');
+    if (dataBtnEl) {
+        dataBtnEl.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (currentTargetRow) {
+                const itemId = currentTargetRow.getAttribute('data-id');
+                closeRowContextMenu();
+                if (itemId) {
+                    window.open(`/party/${itemId}/data/`, '_blank');
                 }
             }
         });

@@ -292,6 +292,8 @@
                                 {% if u.access_profile.can_delete_party %}<span class="permission-chip text-danger border-danger-subtle bg-danger-subtle">Del</span>{% endif %}
                                 {% if u.access_profile.can_edit_custom_tabs %}<span class="permission-chip chip-allowed">Tabs</span>{% endif %}
                                 {% if u.access_profile.can_export_excel %}<span class="permission-chip chip-allowed">Excel</span>{% endif %}
+                                {% if u.access_profile.can_view_party_data %}<span class="permission-chip chip-allowed text-info border-info-subtle bg-info-subtle">Catalog Data</span>{% endif %}
+                                {% if u.access_profile.can_clear_party_data %}<span class="permission-chip text-danger border-danger-subtle bg-danger-subtle">Clear Data</span>{% endif %}
                             </div>
                         </td>
                         <td class="text-center">
@@ -618,6 +620,18 @@
                                 </label>
                             </div>
                             <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_can_view_party_data">
+                                <label class="form-check-label fw-semibold text-info" for="perm_can_view_party_data">
+                                    <i class="bi bi-file-earmark-spreadsheet me-1"></i> Can Access Party Catalog Data (DATA)
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="perm_can_clear_party_data">
+                                <label class="form-check-label fw-semibold text-danger" for="perm_can_clear_party_data">
+                                    <i class="bi bi-trash3-fill me-1"></i> Can Clear All Catalog Data (High Risk)
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
                                 <input class="form-check-input" type="checkbox" role="switch" id="perm_is_admin">
                                 <label class="form-check-label fw-semibold text-primary" for="perm_is_admin">
                                     <i class="bi bi-shield-shaded me-1"></i> Administrator (Admin Panel Access)
@@ -737,6 +751,8 @@
             const elTabs = document.getElementById('perm_can_edit_custom_tabs'); if (elTabs) elTabs.checked = true;
             const elExp = document.getElementById('perm_can_export_excel'); if (elExp) elExp.checked = true;
             const elImp = document.getElementById('perm_can_import_excel'); if (elImp) elImp.checked = true;
+            const elData = document.getElementById('perm_can_view_party_data'); if (elData) elData.checked = true;
+            const elClr = document.getElementById('perm_can_clear_party_data'); if (elClr) elClr.checked = true;
             const elSet = document.getElementById('perm_can_manage_settings'); if (elSet) elSet.checked = true;
             const pScope = document.getElementById('partyScopeAll'); if (pScope) pScope.checked = true;
             togglePartyChecklist(false);
@@ -759,6 +775,8 @@
             const elTabs = document.getElementById('perm_can_edit_custom_tabs'); if (elTabs) elTabs.checked = false;
             const elExp = document.getElementById('perm_can_export_excel'); if (elExp) elExp.checked = true;
             const elImp = document.getElementById('perm_can_import_excel'); if (elImp) elImp.checked = false;
+            const elData = document.getElementById('perm_can_view_party_data'); if (elData) elData.checked = false;
+            const elClr = document.getElementById('perm_can_clear_party_data'); if (elClr) elClr.checked = false;
             const elSet = document.getElementById('perm_can_manage_settings'); if (elSet) elSet.checked = false;
         } else if (isEditor) {
             const elAdmin = document.getElementById('perm_is_admin'); if (elAdmin) elAdmin.checked = false;
@@ -775,6 +793,8 @@
             const elTabs = document.getElementById('perm_can_edit_custom_tabs'); if (elTabs) elTabs.checked = true;
             const elExp = document.getElementById('perm_can_export_excel'); if (elExp) elExp.checked = true;
             const elImp = document.getElementById('perm_can_import_excel'); if (elImp) elImp.checked = false;
+            const elData = document.getElementById('perm_can_view_party_data'); if (elData) elData.checked = false;
+            const elClr = document.getElementById('perm_can_clear_party_data'); if (elClr) elClr.checked = false;
             const elSet = document.getElementById('perm_can_manage_settings'); if (elSet) elSet.checked = false;
         }
     }
@@ -828,6 +848,12 @@
 
         const elBadge = document.getElementById('perm_can_view_problem_badge');
         if (elBadge) elBadge.checked = true;
+
+        const elClr = document.getElementById('perm_can_clear_party_data');
+        if (elClr) elClr.checked = false;
+
+        const elData = document.getElementById('perm_can_view_party_data');
+        if (elData) elData.checked = false;
 
         const modal = getUserModal();
         if (modal) modal.show();
@@ -930,6 +956,8 @@
                     const elTabs = document.getElementById('perm_can_edit_custom_tabs'); if (elTabs) elTabs.checked = !!u.can_edit_custom_tabs;
                     const elExp = document.getElementById('perm_can_export_excel'); if (elExp) elExp.checked = !!u.can_export_excel;
                     const elImp = document.getElementById('perm_can_import_excel'); if (elImp) elImp.checked = !!u.can_import_excel;
+                    const elData = document.getElementById('perm_can_view_party_data'); if (elData) elData.checked = !!u.can_view_party_data;
+                    const elClr = document.getElementById('perm_can_clear_party_data'); if (elClr) elClr.checked = !!u.can_clear_party_data;
                     const elSet = document.getElementById('perm_can_manage_settings'); if (elSet) elSet.checked = !!u.can_manage_settings;
                     const elAdmin = document.getElementById('perm_is_admin'); if (elAdmin) elAdmin.checked = !!u.is_admin;
 
@@ -1016,6 +1044,8 @@
             can_edit_custom_tabs: document.getElementById('perm_can_edit_custom_tabs').checked,
             can_export_excel: document.getElementById('perm_can_export_excel').checked,
             can_import_excel: document.getElementById('perm_can_import_excel').checked,
+            can_view_party_data: document.getElementById('perm_can_view_party_data')?.checked ?? false,
+            can_clear_party_data: document.getElementById('perm_can_clear_party_data')?.checked ?? false,
             can_manage_settings: document.getElementById('perm_can_manage_settings').checked,
             is_admin: document.getElementById('perm_is_admin').checked
         };

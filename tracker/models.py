@@ -553,6 +553,110 @@ class PartyCustomTable(models.Model):
         return result
 
 
+class PartyDataRecord(models.Model):
+    """
+    Catalog / Product / Inventory Data records for a specific Party.
+    Imported from Excel (.xlsx/.xls) or CSV files, supporting APPEND and live SKU search.
+    """
+    party = models.ForeignKey(ProcessItem, on_delete=models.CASCADE, related_name='data_records')
+    sheet_name = models.CharField(max_length=150, blank=True, default='', verbose_name="Sheet Name")
+    sku = models.CharField(max_length=150, db_index=True, blank=True, default='', verbose_name="SKU / Style Code")
+    lot = models.CharField(max_length=100, blank=True, default='', verbose_name="LOT")
+    category = models.CharField(max_length=150, blank=True, default='', verbose_name="Category")
+    certified = models.CharField(max_length=100, blank=True, default='', verbose_name="Certified")
+    gold_kt = models.CharField(max_length=50, blank=True, default='', verbose_name="Gold KT")
+    gold_color = models.CharField(max_length=50, blank=True, default='', verbose_name="Gold Color")
+    gold_weight = models.CharField(max_length=50, blank=True, default='', verbose_name="Gold Weight")
+    center_diamond_clarity = models.CharField(max_length=100, blank=True, default='', verbose_name="Center Diamond Clarity")
+    center_diamond_color = models.CharField(max_length=100, blank=True, default='', verbose_name="Center Diamond Color")
+    center_stone_shape = models.CharField(max_length=100, blank=True, default='', verbose_name="Center Stone Shape")
+    center_stone_weight = models.CharField(max_length=50, blank=True, default='', verbose_name="Center Stone Weight")
+    side_stone_shape = models.CharField(max_length=150, blank=True, default='', verbose_name="Side Stone Shape")
+    side_stone_weight = models.CharField(max_length=50, blank=True, default='', verbose_name="Side Stone Weight")
+    side_stone_color_clarity = models.CharField(max_length=150, blank=True, default='', verbose_name="Side Stone Color/Clarity")
+    setting = models.CharField(max_length=100, blank=True, default='', verbose_name="Setting")
+    total_diamond_pcs = models.CharField(max_length=50, blank=True, default='', verbose_name="Total Diamond Pcs")
+    cost_usd = models.CharField(max_length=50, blank=True, default='', verbose_name="Cost (USD)")
+    selling_price_usd = models.CharField(max_length=50, blank=True, default='', verbose_name="Selling Price (USD)")
+    
+    # Dynamic / Additional custom fields from uploaded sheet
+    extra_data = models.JSONField(default=dict, blank=True, verbose_name="Extra Fields")
+
+    order_index = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order_index', 'id']
+        verbose_name = "Party Data Record"
+        verbose_name_plural = "Party Data Records"
+        indexes = [
+            models.Index(fields=['party', 'sku']),
+        ]
+
+    def __str__(self):
+        return f"{self.party.client_name} - {self.sku or 'Item #' + str(self.id)}"
+
+    @property
+    def cost_numeric(self):
+        try:
+            return float(str(self.cost_usd).replace('$', '').replace(',', '').strip())
+        except (ValueError, TypeError):
+            return 0.0
+
+    @property
+    def selling_numeric(self):
+        try:
+            return float(str(self.selling_price_usd).replace('$', '').replace(',', '').strip())
+        except (ValueError, TypeError):
+            return 0.0
+
+    @property
+    def gold_weight_numeric(self):
+        try:
+            return float(str(self.gold_weight).replace('gm', '').replace('g', '').replace(',', '').strip())
+        except (ValueError, TypeError):
+            return 0.0
+
+    @property
+    def diamond_pcs_numeric(self):
+        try:
+            return int(float(str(self.total_diamond_pcs).replace(',', '').strip()))
+        except (ValueError, TypeError):
+            return 0
+
+
+    @staticmethod
+    def _format_round2(val):
+        if val is None or str(val).strip() in ['', '-']:
+            return '-'
+        try:
+            clean = str(val).replace('$', '').replace('gm', '').replace('g', '').replace(',', '').strip()
+            return f"{float(clean):.2f}"
+        except (ValueError, TypeError):
+            return str(val)
+
+    @property
+    def gold_weight_display(self):
+        return self._format_round2(self.gold_weight)
+
+    @property
+    def center_stone_weight_display(self):
+        return self._format_round2(self.center_stone_weight)
+
+    @property
+    def side_stone_weight_display(self):
+        return self._format_round2(self.side_stone_weight)
+
+    @property
+    def cost_usd_display(self):
+        return self._format_round2(self.cost_usd)
+
+    @property
+    def selling_price_usd_display(self):
+        return self._format_round2(self.selling_price_usd)
+
+
 class UserAccessProfile(models.Model):
     ROLE_CHOICES = [
         ('admin', 'Admin (Full Access & Admin Panel)'),
@@ -574,8 +678,11 @@ class UserAccessProfile(models.Model):
     all_tabs_access = models.BooleanField(default=True, verbose_name="Can View All Party Tabs")
     allowed_tab_titles = models.JSONField(default=list, blank=True, verbose_name="Allowed Party Tab Titles")
     can_view_problem_badge = models.BooleanField(default=True, verbose_name="Can View Problem Alert Red Badge")
+    can_view_party_data = models.BooleanField(default=False, verbose_name="Can View Party Catalog / Data")
 
     # Action / Edit Permissions
+    can_import_party_data = models.BooleanField(default=True, verbose_name="Can Import Party Catalog Data")
+    can_clear_party_data = models.BooleanField(default=False, verbose_name="Can Clear All Catalog Data")
     can_view_history = models.BooleanField(default=True, verbose_name="Can View History / Audit Log")
     can_edit_status = models.BooleanField(default=True, verbose_name="Can Edit Status")
     can_edit_lot = models.BooleanField(default=True, verbose_name="Can Edit LOT / ITEM")

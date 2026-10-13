@@ -11,12 +11,16 @@ from django.conf import settings
 from datetime import date, datetime
 import os
 import json
+import csv
+import io
+import re
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 
 from .models import (
     ProcessItem, ProcessItemHistory, TableColumnConfig, StatusColorConfig,
-    StatusOption, PartyCustomTab, PartyCustomTable, UserAccessProfile
+    StatusOption, PartyCustomTab, PartyCustomTable, UserAccessProfile,
+    PartyDataRecord
 )
 from .forms import ProcessItemForm
 
@@ -250,6 +254,8 @@ def admin_user_save(request):
         can_edit_custom_tabs = bool(data.get('can_edit_custom_tabs', True))
         can_export_excel = bool(data.get('can_export_excel', True))
         can_import_excel = bool(data.get('can_import_excel', False))
+        can_view_party_data = bool(data.get('can_view_party_data', False))
+        can_clear_party_data = bool(data.get('can_clear_party_data', False))
         can_manage_settings = bool(data.get('can_manage_settings', False))
         is_admin = bool(data.get('is_admin', False)) or (role == 'admin')
 
@@ -262,6 +268,8 @@ def admin_user_save(request):
             can_view_history = True
             can_delete_party = True
             can_import_excel = True
+            can_view_party_data = True
+            can_clear_party_data = True
             can_manage_settings = True
         elif role == 'viewer':
             is_admin = False
@@ -274,6 +282,8 @@ def admin_user_save(request):
             can_hide_party = False
             can_edit_custom_tabs = False
             can_import_excel = False
+            can_view_party_data = False
+            can_clear_party_data = False
             can_manage_settings = False
 
         # Auto-derive or fallback username if empty
@@ -352,6 +362,8 @@ def admin_user_save(request):
         user_prof.can_edit_custom_tabs = can_edit_custom_tabs
         user_prof.can_export_excel = can_export_excel
         user_prof.can_import_excel = can_import_excel
+        user_prof.can_view_party_data = can_view_party_data
+        user_prof.can_clear_party_data = can_clear_party_data
         user_prof.can_manage_settings = can_manage_settings
         user_prof.save()
 
@@ -418,6 +430,8 @@ def admin_user_get_json(request, user_id):
             'can_edit_custom_tabs': u_prof.can_edit_custom_tabs,
             'can_export_excel': u_prof.can_export_excel,
             'can_import_excel': u_prof.can_import_excel,
+            'can_view_party_data': u_prof.can_view_party_data,
+            'can_clear_party_data': u_prof.can_clear_party_data,
             'can_manage_settings': u_prof.can_manage_settings,
         }
     })
@@ -595,6 +609,7 @@ def dashboard(request):
         'can_manage_settings': profile.can_manage_settings or profile.is_admin or request.user.is_superuser,
         'can_view_history': profile.can_view_history or profile.is_admin or request.user.is_superuser,
         'can_view_problem_badge': profile.can_view_problem_badge or profile.is_admin or request.user.is_superuser,
+        'can_view_party_data': profile.can_view_party_data or profile.is_admin or request.user.is_superuser,
         'is_admin': profile.is_admin or request.user.is_superuser,
     }
     return render(request, 'tracker/dashboard.html', context)
@@ -2244,6 +2259,849 @@ def party_table_rename(request, table_id):
         return JsonResponse({'success': True, 'title': new_title, 'synced_count': synced_count})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+# ==========================================
+# PARTY CATALOG / PRODUCT DATA VIEWS
+# ==========================================
+
+def parse_catalog_file(uploaded_file):
+    """
+    Parses an uploaded .xlsx, .xls, or .csv file.
+    Supports multi-sheet Excel files: iterates through each worksheet (e.g. RING, EARRINGS, PENDANT, BRACELET),
+    tagging each record with its `sheet_name`.
+    Returns a tuple of (records_list, all_extra_keys, detected_sheet_names).
+    """
+    filename = uploaded_file.name.lower()
+    sheet_data_list = []
+    detected_sheet_names = []
+
+    if filename.endswith('.csv'):
+        content = uploaded_file.read()
+        rows = []
+        for encoding in ['utf-8-sig', 'utf-8', 'latin-1', 'cp1252']:
+            try:
+                decoded_file = io.StringIO(content.decode(encoding))
+                reader = csv.reader(decoded_file)
+                rows = list(reader)
+                break
+            except Exception:
+                continue
+        if rows:
+            sheet_data_list.append(('General', rows))
+            detected_sheet_names.append('General')
+    elif filename.endswith(('.xlsx', '.xls')):
+        try:
+            wb = openpyxl.load_workbook(uploaded_file, data_only=True)
+            non_catalog_names = ['backend', 'config', 'settings', 'calculation', 'calculations', 'formula', 'formulas', 'lookup', 'lookups']
+            for sheet_name in wb.sheetnames:
+                clean_sname = sheet_name.strip()
+                if clean_sname.lower() in non_catalog_names:
+                    continue
+                detected_sheet_names.append(clean_sname)
+                ws = wb[sheet_name]
+                s_rows = []
+                for r in ws.iter_rows(values_only=True):
+                    s_rows.append([str(cell) if cell is not None else '' for cell in r])
+                if s_rows:
+                    sheet_data_list.append((clean_sname, s_rows))
+        except Exception:
+            return [], [], []
+    else:
+        return [], [], []
+
+    if not sheet_data_list:
+        return [], [], []
+
+    recognized_headers = [
+        'sku', 'style', 'category', 'lot', 'selling_price_usd', 'cost_usd',
+        'cost', 'selling', 'gold_kt', 'gold_weight', 'center_stone_shape',
+        'gold_color', 'certified', 'diamond', 'setting'
+    ]
+
+    records = []
+    all_extra_keys = []
+
+    for sheet_name, rows in sheet_data_list:
+        header_idx = -1
+        for idx, row in enumerate(rows[:12]):
+            clean_row = [str(c).strip().lower() for c in row if c]
+            if any(h in clean_row for h in recognized_headers):
+                header_idx = idx
+                break
+
+        if header_idx == -1:
+            continue
+
+        headers = [str(c).strip() for c in rows[header_idx]]
+
+        for row in rows[header_idx + 1:]:
+            if not any(row):
+                continue
+
+            row_dict = {}
+            for col_idx, col_name in enumerate(headers):
+                if col_idx < len(row):
+                    val = str(row[col_idx]).strip() if row[col_idx] is not None else ''
+                    if val.lower() == 'none':
+                        val = ''
+                    if col_name:
+                        row_dict[col_name] = val
+
+            clean_vals = [v.lower() for v in row_dict.values() if v]
+            if not clean_vals:
+                continue
+            # Skip repeated header row
+            if any(v in ['sku', 'category', 'selling_price_usd', 'cost_usd'] for v in clean_vals[:3]):
+                continue
+
+            mapped = {
+                'sheet_name': sheet_name if sheet_name != 'General' else '',
+                'lot': '',
+                'category': '',
+                'sku': '',
+                'certified': '',
+                'gold_kt': '',
+                'gold_color': '',
+                'gold_weight': '',
+                'center_diamond_clarity': '',
+                'center_diamond_color': '',
+                'center_stone_shape': '',
+                'center_stone_weight': '',
+                'side_stone_shape': '',
+                'side_stone_weight': '',
+                'side_stone_color_clarity': '',
+                'setting': '',
+                'total_diamond_pcs': '',
+                'cost_usd': '',
+                'selling_price_usd': '',
+                'extra_data': {}
+            }
+
+            for orig_key, val in row_dict.items():
+                k_norm = orig_key.lower().replace(' ', '_').replace('-', '_').replace('#', '').strip()
+
+                if k_norm in ['sku', 'style', 'style_code', 'item_code', 'design_no']:
+                    mapped['sku'] = val
+                elif k_norm in ['lot', 'lot_no', 'lot_num']:
+                    mapped['lot'] = val
+                elif k_norm in ['category', 'cat', 'item_type']:
+                    mapped['category'] = val
+                elif k_norm in ['certified', 'cert', 'certificate', 'lab']:
+                    mapped['certified'] = val
+                elif k_norm in ['gold_kt', 'gold_k', 'kt', 'karat', 'purity']:
+                    mapped['gold_kt'] = val
+                elif k_norm in ['gold_color', 'metal_color', 'color']:
+                    mapped['gold_color'] = val
+                elif k_norm in ['gold_weight', 'gold_wt', 'gross_wt', 'net_wt', 'weight']:
+                    mapped['gold_weight'] = val
+                elif k_norm in ['center_diamond_clarity', 'center_clarity', 'diamond_clarity']:
+                    mapped['center_diamond_clarity'] = val
+                elif k_norm in ['center_diamond_color', 'center_color']:
+                    mapped['center_diamond_color'] = val
+                elif k_norm in ['center_stone_shape', 'center_shape', 'stone_shape', 'shape']:
+                    mapped['center_stone_shape'] = val
+                elif k_norm in ['center_stone_weight', 'center_stone_wt', 'center_wt', 'center_weight']:
+                    mapped['center_stone_weight'] = val
+                elif k_norm in ['side_stone_shape', 'side_shape']:
+                    mapped['side_stone_shape'] = val
+                elif k_norm in ['side_stone_weight', 'side_stone_wt', 'side_wt']:
+                    mapped['side_stone_weight'] = val
+                elif k_norm in ['side_stone_color_clarity', 'side_stone_clarity', 'side_color_clarity', 'side_clarity']:
+                    mapped['side_stone_color_clarity'] = val
+                elif k_norm in ['setting', 'setting_type']:
+                    mapped['setting'] = val
+                elif k_norm in ['total_diamond_pcs', 'diamond_pcs', 'total_pcs', 'pcs']:
+                    mapped['total_diamond_pcs'] = val
+                elif k_norm in ['cost_usd', 'cost', 'cost_price', 'purchase_usd']:
+                    mapped['cost_usd'] = val
+                elif k_norm in ['selling_price_usd', 'selling_price', 'selling', 'price', 'sale_usd', 'retail_usd']:
+                    mapped['selling_price_usd'] = val
+                else:
+                    if val and orig_key:
+                        mapped['extra_data'][orig_key] = val
+                        if orig_key not in all_extra_keys:
+                            all_extra_keys.append(orig_key)
+
+            # Auto-assign category from sheet name if category is empty
+            if not mapped['category'] and mapped['sheet_name']:
+                mapped['category'] = mapped['sheet_name'].title()
+
+            if mapped['sku'] or mapped['category'] or mapped['lot'] or mapped['cost_usd'] or mapped['selling_price_usd']:
+                records.append(mapped)
+
+    return records, all_extra_keys, detected_sheet_names
+
+
+@login_required
+def party_data_view(request, pk):
+    """
+    Dedicated Product / Catalog / SKU Data page for a specific Party.
+    Displays tabular SKU data, summary statistics, separated sheet/category tabs (e.g. Ring, Earrings, Pendant),
+    instant real-time SKU search, and handles multi-sheet Excel Import/Export.
+    """
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not (profile.is_admin or profile.can_view_party_data or request.user.is_superuser):
+        messages.error(request, "Permission denied: Catalog data dekhne ki permission admin dwara nahi di gayi hai.")
+        return redirect('tracker:dashboard')
+    if not profile.is_party_allowed(pk):
+        messages.error(request, "Permission denied: Aapko is party ka data dekhne ki access nahi hai.")
+        return redirect('tracker:dashboard')
+
+    item = get_object_or_404(ProcessItem, pk=pk)
+    all_qs = item.data_records.all().order_by('order_index', 'id')
+    all_records_count = all_qs.count()
+    all_records = list(all_qs)
+
+    # Attach tab_label to every record (sheet_name if present, else category, else 'General')
+    for r in all_records:
+        r.tab_label = (r.sheet_name.strip() if r.sheet_name else (r.category.strip() if r.category else 'General'))
+
+    # Discover available tabs in preferred Excel sheet order
+    detected_sheets = item.custom_fields.get('catalog_sheets', []) if isinstance(item.custom_fields, dict) else []
+    tab_list = []
+    seen_tabs = set()
+
+    for s in detected_sheets:
+        s_clean = s.strip()
+        if s_clean and s_clean.upper() not in seen_tabs:
+            seen_tabs.add(s_clean.upper())
+            tab_list.append(s_clean)
+
+    tab_counts = {}
+    for r in all_records:
+        t_label = r.tab_label
+        t_upper = t_label.upper()
+        if t_upper not in seen_tabs:
+            seen_tabs.add(t_upper)
+            tab_list.append(t_label)
+        tab_counts[t_upper] = tab_counts.get(t_upper, 0) + 1
+
+    # Active tab filter (from query param or defaults to All)
+    active_tab = request.GET.get('tab', '').strip()
+    filtered_records = all_records
+    if active_tab and active_tab.lower() != 'all':
+        filtered_records = [
+            r for r in all_records
+            if r.tab_label.lower() == active_tab.lower()
+            or (r.category and r.category.lower() == active_tab.lower())
+            or (r.sheet_name and r.sheet_name.lower() == active_tab.lower())
+        ]
+
+    # Additional text search & dropdown filters
+    search_query = request.GET.get('q', '').strip().lower()
+    category_filter = request.GET.get('category', '').strip().lower()
+    color_filter = request.GET.get('color', '').strip().lower()
+    shape_filter = request.GET.get('shape', '').strip().lower()
+
+    if search_query:
+        filtered_records = [
+            r for r in filtered_records
+            if search_query in r.sku.lower()
+            or search_query in r.category.lower()
+            or search_query in r.lot.lower()
+            or search_query in r.center_stone_shape.lower()
+            or search_query in r.certified.lower()
+            or search_query in r.gold_color.lower()
+            or search_query in r.sheet_name.lower()
+        ]
+    if category_filter:
+        filtered_records = [r for r in filtered_records if r.category.lower() == category_filter]
+    if color_filter:
+        filtered_records = [r for r in filtered_records if r.gold_color.lower() == color_filter]
+    if shape_filter:
+        filtered_records = [r for r in filtered_records if r.center_stone_shape.lower() == shape_filter]
+
+    records = filtered_records
+
+    # Catalog tabs structure with counts for UI pills
+    catalog_tabs = [{
+        'name': 'All',
+        'display': 'All Items',
+        'count': all_records_count,
+        'is_active': (not active_tab or active_tab.lower() == 'all')
+    }]
+    for t in tab_list:
+        cnt = tab_counts.get(t.upper(), 0)
+        catalog_tabs.append({
+            'name': t,
+            'display': t,
+            'count': cnt,
+            'is_active': (active_tab.lower() == t.lower())
+        })
+
+    # Compute metrics for currently visible active tab records
+    scope_for_metrics = records if (active_tab and active_tab.lower() != 'all') else all_records
+    total_cost = sum(r.cost_numeric for r in scope_for_metrics)
+    total_selling = sum(r.selling_numeric for r in scope_for_metrics)
+    total_gold_wt = sum(r.gold_weight_numeric for r in scope_for_metrics)
+    total_diamonds = sum(r.diamond_pcs_numeric for r in scope_for_metrics)
+
+    categories = sorted(list({r.category.strip() for r in all_records if r.category and r.category.strip()}))
+    shapes = sorted(list({r.center_stone_shape.strip() for r in all_records if r.center_stone_shape and r.center_stone_shape.strip()}))
+    gold_colors = sorted(list({r.gold_color.strip() for r in all_records if r.gold_color and r.gold_color.strip()}))
+
+    # Discover unique extra column keys
+    extra_keys = []
+    for r in all_records:
+        if isinstance(r.extra_data, dict):
+            for k in r.extra_data.keys():
+                if k not in extra_keys:
+                    extra_keys.append(k)
+
+    extra_keys = extra_keys[:6]
+    for r in records:
+        r.extra_values = [r.extra_data.get(k, '-') if isinstance(r.extra_data, dict) else '-' for k in extra_keys]
+
+    can_import = profile.is_admin or profile.can_import_party_data or request.user.is_superuser
+    can_edit = profile.is_admin or profile.can_edit_custom_tabs or request.user.is_superuser
+    can_clear = profile.is_admin or profile.can_clear_party_data or request.user.is_superuser
+
+    context = {
+        'item': item,
+        'records': records,
+        'all_records_count': all_records_count,
+        'filtered_count': len(records),
+        'catalog_tabs': catalog_tabs,
+        'active_tab': active_tab or 'All',
+        'metrics': {
+            'total_items': len(scope_for_metrics),
+            'total_cost': total_cost,
+            'total_selling': total_selling,
+            'total_gold_wt': total_gold_wt,
+            'total_diamonds': total_diamonds,
+            'category_count': len(categories),
+        },
+        'categories': categories,
+        'shapes': shapes,
+        'gold_colors': gold_colors,
+        'extra_keys': extra_keys[:6],
+        'search_query': search_query,
+        'category_filter': category_filter,
+        'color_filter': color_filter,
+        'shape_filter': shape_filter,
+        'can_import': can_import,
+        'can_edit': can_edit,
+        'can_clear': can_clear,
+        'user_profile': profile,
+    }
+    return render(request, 'tracker/party_data.html', context)
+
+
+@login_required
+@csrf_exempt
+def party_data_import(request, pk):
+    """
+    Import Excel (.xlsx/.xls) or CSV data into PartyDataRecord.
+    Mode: 'append' (default) keeps existing records and adds new ones.
+          Deduplication rule: If SKU is identical BUT Category is different, it APPENDS!
+          Only skips/updates when BOTH SKU AND Category match identical existing data.
+          'replace' removes existing records and imports fresh.
+    """
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not (profile.is_admin or profile.can_view_party_data or request.user.is_superuser):
+        messages.error(request, "Permission denied: Catalog data access restricted hai.")
+        return redirect('tracker:dashboard')
+    if not profile.is_party_allowed(pk):
+        messages.error(request, "Permission denied.")
+        return redirect('tracker:dashboard')
+
+    if not (profile.is_admin or profile.can_import_party_data or request.user.is_superuser):
+        messages.error(request, "Permission denied: Data import access restricted hai.")
+        return redirect('tracker:party_data', pk=pk)
+
+    item = get_object_or_404(ProcessItem, pk=pk)
+
+    if request.method == 'POST' and request.FILES.get('file'):
+        uploaded_file = request.FILES['file']
+        import_mode = request.POST.get('import_mode', 'append').strip().lower()
+
+        try:
+            records_data, _, detected_sheets = parse_catalog_file(uploaded_file)
+            if not records_data:
+                messages.error(request, "No valid data rows found in the uploaded file. Please check file format.")
+                return redirect('tracker:party_data', pk=item.pk)
+
+            # Store detected Excel sheets in party custom_fields for persistent tab ordering
+            if detected_sheets:
+                if not isinstance(item.custom_fields, dict):
+                    item.custom_fields = {}
+                item.custom_fields['catalog_sheets'] = detected_sheets
+                item.save(update_fields=['custom_fields'])
+
+            fields_to_compare = [
+                'lot', 'category', 'certified', 'gold_kt', 'gold_color', 'gold_weight',
+                'center_diamond_clarity', 'center_diamond_color', 'center_stone_shape',
+                'center_stone_weight', 'side_stone_shape', 'side_stone_weight',
+                'side_stone_color_clarity', 'setting', 'total_diamond_pcs', 'cost_usd',
+                'selling_price_usd'
+            ]
+
+            def make_signature(d):
+                return (
+                    str(d.get('category') or '').strip().upper(),
+                    str(d.get('lot') or '').strip().upper(),
+                    str(d.get('center_stone_shape') or '').strip().upper(),
+                    str(d.get('gold_weight') or '').strip(),
+                    str(d.get('cost_usd') or '').strip(),
+                    str(d.get('selling_price_usd') or '').strip(),
+                    str(d.get('center_diamond_clarity') or '').strip().upper(),
+                )
+
+            if import_mode == 'replace':
+                item.data_records.all().delete()
+                start_order = 1
+                existing_by_combo = {}
+                existing_by_sig = {}
+            else:
+                last_record = item.data_records.order_by('-order_index').first()
+                start_order = (last_record.order_index + 1) if last_record else 1
+                # Build lookup maps for existing records: Key is (sku, category)
+                existing_by_combo = {}
+                existing_by_sig = {}
+                for rec in item.data_records.all():
+                    sku_norm = rec.sku.strip().upper() if rec.sku else None
+                    cat_norm = (rec.category or '').strip().upper()
+                    if sku_norm:
+                        combo_key = (sku_norm, cat_norm)
+                        if combo_key not in existing_by_combo:
+                            existing_by_combo[combo_key] = rec
+                    rec_sig = (
+                        cat_norm,
+                        str(rec.lot or '').strip().upper(),
+                        str(rec.center_stone_shape or '').strip().upper(),
+                        str(rec.gold_weight or '').strip(),
+                        str(rec.cost_usd or '').strip(),
+                        str(rec.selling_price_usd or '').strip(),
+                        str(rec.center_diamond_clarity or '').strip().upper(),
+                    )
+                    if rec_sig not in existing_by_sig:
+                        existing_by_sig[rec_sig] = rec
+
+            new_objs = []
+            updated_count = 0
+            skipped_duplicates = 0
+            seen_file_combos = set()
+            seen_file_sigs = set()
+
+            for r_data in records_data:
+                raw_sku = (r_data.get('sku') or '').strip()
+                sku_norm = raw_sku.upper() if raw_sku else None
+                cat_norm = (r_data.get('category') or '').strip().upper()
+                combo_key = (sku_norm, cat_norm) if sku_norm else None
+                sig = make_signature(r_data)
+
+                # 1. Prevent duplicate rows within the uploaded file itself
+                if combo_key:
+                    if combo_key in seen_file_combos:
+                        skipped_duplicates += 1
+                        continue
+                    seen_file_combos.add(combo_key)
+                else:
+                    if sig in seen_file_sigs:
+                        skipped_duplicates += 1
+                        continue
+                    seen_file_sigs.add(sig)
+
+                # 2. In append mode, check against existing DB records
+                # If SKU matches BUT Category is different -> combo_key is different -> APPENDS as new!
+                if import_mode != 'replace':
+                    target_rec = None
+                    if combo_key and combo_key in existing_by_combo:
+                        target_rec = existing_by_combo[combo_key]
+                    elif not combo_key and sig in existing_by_sig:
+                        target_rec = existing_by_sig[sig]
+
+                    if target_rec:
+                        # Existing record with same SKU AND same Category found: check if all fields match
+                        is_identical = True
+                        for f in fields_to_compare:
+                            old_val = str(getattr(target_rec, f, '') or '').strip()
+                            new_val = str(r_data.get(f, '') or '').strip()
+                            if old_val != new_val:
+                                is_identical = False
+                                break
+
+                        if is_identical:
+                            # Exact identical duplicate in same category: do not append!
+                            skipped_duplicates += 1
+                            continue
+                        else:
+                            # Same SKU & Category with updated attributes: update existing record
+                            for f in fields_to_compare:
+                                setattr(target_rec, f, r_data.get(f, ''))
+                            if r_data.get('sheet_name'):
+                                target_rec.sheet_name = r_data['sheet_name']
+                            if r_data.get('extra_data'):
+                                target_rec.extra_data = r_data['extra_data']
+                            target_rec.save()
+                            updated_count += 1
+                            continue
+
+                # 3. New record (different SKU or different Category)
+                new_objs.append(PartyDataRecord(
+                    party=item,
+                    order_index=start_order + len(new_objs),
+                    sheet_name=r_data.get('sheet_name', ''),
+                    sku=raw_sku,
+                    lot=r_data['lot'],
+                    category=r_data['category'],
+                    certified=r_data['certified'],
+                    gold_kt=r_data['gold_kt'],
+                    gold_color=r_data['gold_color'],
+                    gold_weight=r_data['gold_weight'],
+                    center_diamond_clarity=r_data['center_diamond_clarity'],
+                    center_diamond_color=r_data['center_diamond_color'],
+                    center_stone_shape=r_data['center_stone_shape'],
+                    center_stone_weight=r_data['center_stone_weight'],
+                    side_stone_shape=r_data['side_stone_shape'],
+                    side_stone_weight=r_data['side_stone_weight'],
+                    side_stone_color_clarity=r_data['side_stone_color_clarity'],
+                    setting=r_data['setting'],
+                    total_diamond_pcs=r_data['total_diamond_pcs'],
+                    cost_usd=r_data['cost_usd'],
+                    selling_price_usd=r_data['selling_price_usd'],
+                    extra_data=r_data.get('extra_data', {}),
+                ))
+
+            if new_objs:
+                PartyDataRecord.objects.bulk_create(new_objs)
+
+            # Record Edit History entry
+            history_summary = f"Imported data (Mode: {import_mode.title()}): {len(new_objs)} added"
+            if updated_count:
+                history_summary += f", {updated_count} updated"
+            if skipped_duplicates:
+                history_summary += f", {skipped_duplicates} duplicate skipped"
+
+            ProcessItemHistory.objects.create(
+                item=item,
+                action_type='imported',
+                summary=history_summary,
+                changes=[{
+                    'field': 'data_records',
+                    'label': 'Catalog Data',
+                    'old': f"{item.data_records.count() - len(new_objs)} items",
+                    'new': f"{item.data_records.count()} items (+{len(new_objs)})",
+                }]
+            )
+
+            msg_parts = []
+            if new_objs:
+                msg_parts.append(f"{len(new_objs)} naye items add hue")
+            if updated_count:
+                msg_parts.append(f"{updated_count} items update hue")
+            if skipped_duplicates:
+                msg_parts.append(f"{skipped_duplicates} duplicate items skip kar diye gaye (same category & data)")
+
+            if not msg_parts:
+                messages.info(request, "Uploaded file ka sara data already exist karta hai, koi duplicate record add nahi kiya gaya.")
+            else:
+                messages.success(request, f"Import report ({item.client_name}): " + ", ".join(msg_parts) + ".")
+        except Exception as e:
+            messages.error(request, f"Error processing file: {str(e)}")
+
+    return redirect('tracker:party_data', pk=item.pk)
+
+
+@login_required
+@csrf_exempt
+def party_data_deduplicate(request, pk):
+    """
+    Scans all catalog records for this party and deletes any duplicate rows,
+    keeping only the first instance of each (SKU, Category) combination.
+    Records with different categories are strictly preserved.
+    """
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not (profile.is_admin or profile.can_view_party_data or request.user.is_superuser):
+        messages.error(request, "Permission denied.")
+        return redirect('tracker:dashboard')
+    if not profile.is_party_allowed(pk):
+        messages.error(request, "Permission denied.")
+        return redirect('tracker:dashboard')
+
+    if not (profile.is_admin or profile.can_import_party_data or request.user.is_superuser):
+        messages.error(request, "Permission denied: Action not allowed.")
+        return redirect('tracker:party_data', pk=pk)
+
+    item = get_object_or_404(ProcessItem, pk=pk)
+    records = list(item.data_records.all().order_by('order_index', 'id'))
+    seen_combos = set()
+    seen_sigs = set()
+    duplicate_ids = []
+
+    for r in records:
+        sku_norm = r.sku.strip().upper() if r.sku else None
+        cat_norm = (r.category or '').strip().upper()
+        if sku_norm:
+            combo_key = (sku_norm, cat_norm)
+            if combo_key in seen_combos:
+                duplicate_ids.append(r.id)
+            else:
+                seen_combos.add(combo_key)
+        else:
+            sig = (
+                cat_norm,
+                str(r.lot or '').strip().upper(),
+                str(r.center_stone_shape or '').strip().upper(),
+                str(r.gold_weight or '').strip(),
+                str(r.cost_usd or '').strip(),
+                str(r.selling_price_usd or '').strip(),
+            )
+            if sig in seen_sigs:
+                duplicate_ids.append(r.id)
+            else:
+                seen_sigs.add(sig)
+
+    if duplicate_ids:
+        count = len(duplicate_ids)
+        PartyDataRecord.objects.filter(id__in=duplicate_ids).delete()
+
+        # Re-index cleanly
+        for idx, rec in enumerate(item.data_records.all().order_by('order_index', 'id'), start=1):
+            if rec.order_index != idx:
+                rec.order_index = idx
+                rec.save(update_fields=['order_index'])
+
+        ProcessItemHistory.objects.create(
+            item=item,
+            action_type='edited',
+            summary=f"Cleaned {count} duplicate catalog records",
+            changes=[{'field': 'data_records', 'label': 'Clean Duplicates', 'old': f"{len(records)} items", 'new': f"{len(records) - count} items"}]
+        )
+        messages.success(request, f"Deduplication complete! {count} duplicate records successfully remove kar diye gaye.")
+    else:
+        messages.info(request, "Koi duplicate records nahi mile. Sabhi records already unique hain!")
+
+    return redirect('tracker:party_data', pk=item.pk)
+
+
+@login_required
+def party_data_export(request, pk):
+    """
+    Export PartyDataRecords to formatted Excel (.xlsx) file.
+    Creates separate worksheets for each sheet/category tab (e.g. RING, EARRINGS, PENDANT, BRACELET),
+    matching the multi-sheet structure of the catalog!
+    """
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not (profile.is_admin or profile.can_view_party_data or request.user.is_superuser):
+        return HttpResponse("Permission denied", status=403)
+    if not profile.is_party_allowed(pk):
+        return HttpResponse("Permission denied", status=403)
+
+    item = get_object_or_404(ProcessItem, pk=pk)
+    records = list(item.data_records.all().order_by('order_index', 'id'))
+
+    headers = [
+        '#', 'LOT', 'CATEGORY', 'SKU', 'Certified', 'GOLD_KT', 'GOLD_COLOR',
+        'GOLD_WEIGHT', 'CENTER_DIAMOND_CLARITY', 'CENTER_DIAMOND_COLOR',
+        'CENTER_STONE_SHAPE', 'CENTER_STONE_WEIGHT', 'SIDE_STONE_SHAPE',
+        'SIDE_STONE_WEIGHT', 'SIDE_STONE_COLOR_CLARITY', 'SETTING',
+        'TOTAL_DIAMOND_PCS', 'COST_USD', 'SELLING_PRICE_USD'
+    ]
+
+    # Group records by sheet_name / category
+    detected_sheets = item.custom_fields.get('catalog_sheets', []) if isinstance(item.custom_fields, dict) else []
+    records_by_sheet = {}
+    for r in records:
+        sheet_key = (r.sheet_name.strip() if r.sheet_name else (r.category.strip() if r.category else 'General'))
+        if sheet_key not in records_by_sheet:
+            records_by_sheet[sheet_key] = []
+        records_by_sheet[sheet_key].append(r)
+
+    # Ensure detected sheets with 0 records also appear in export if appropriate
+    for s in detected_sheets:
+        if s not in records_by_sheet:
+            records_by_sheet[s] = []
+
+    wb = openpyxl.Workbook()
+    default_sheet = wb.active
+    wb.remove(default_sheet)
+
+    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+    header_font = Font(name="Segoe UI", size=10, bold=True, color="FFFFFF")
+
+    if not records_by_sheet:
+        ws = wb.create_sheet(title="Catalog Data")
+        ws.append(headers)
+        for col_idx in range(1, len(headers) + 1):
+            cell = ws.cell(row=1, column=col_idx)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+    else:
+        for s_title, s_records in records_by_sheet.items():
+            clean_title = re.sub(r'[\\/*?:\[\]]', '_', s_title)[:31].strip() or 'Sheet'
+            ws = wb.create_sheet(title=clean_title)
+            ws.append(headers)
+            for col_idx in range(1, len(headers) + 1):
+                cell = ws.cell(row=1, column=col_idx)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+
+            for idx, r in enumerate(s_records, start=1):
+                ws.append([
+                    idx, r.lot, r.category, r.sku, r.certified, r.gold_kt, r.gold_color,
+                    r.gold_weight, r.center_diamond_clarity, r.center_diamond_color,
+                    r.center_stone_shape, r.center_stone_weight, r.side_stone_shape,
+                    r.side_stone_weight, r.side_stone_color_clarity, r.setting,
+                    r.total_diamond_pcs, r.cost_usd, r.selling_price_usd
+                ])
+
+            for col in ws.columns:
+                max_len = max(len(str(cell.value or '')) for cell in col)
+                col_letter = openpyxl.utils.get_column_letter(col[0].column)
+                ws.column_dimensions[col_letter].width = max(max_len + 3, 11)
+
+    clean_name = "".join(c for c in item.client_name if c.isalnum() or c in (' ', '_', '-')).strip() or f"party_{item.id}"
+    filename = f"{clean_name}_Catalog_Data_{date.today().strftime('%Y%m%d')}.xlsx"
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
+
+@login_required
+@csrf_exempt
+def party_data_clear(request, pk):
+    """Clear all catalog data records for a party with permission check and random CAPTCHA validation"""
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not (profile.is_admin or profile.can_clear_party_data or request.user.is_superuser):
+        messages.error(request, "Permission denied: Catalog data delete / clear karne ki permission admin dwara nahi di gayi hai.")
+        return redirect('tracker:party_data', pk=pk)
+    if not profile.is_party_allowed(pk):
+        messages.error(request, "Permission denied.")
+        return redirect('tracker:dashboard')
+
+    item = get_object_or_404(ProcessItem, pk=pk)
+
+    if request.method == 'POST':
+        captcha_input = request.POST.get('captcha_input', '').strip().upper()
+        expected_captcha = request.POST.get('expected_captcha', '').strip().upper()
+
+        if not captcha_input or not expected_captcha or captcha_input != expected_captcha:
+            messages.error(request, "Security verification fail: Captcha code galat enter kiya gaya. Data clear nahi hua.")
+            return redirect('tracker:party_data', pk=pk)
+
+        count = item.data_records.count()
+        item.data_records.all().delete()
+
+        ProcessItemHistory.objects.create(
+            item=item,
+            action_type='edited',
+            summary=f"Cleared all {count} catalog records",
+            changes=[{'field': 'data_records', 'label': 'Clear Catalog Data', 'old': f"{count} items", 'new': "0 items"}]
+        )
+        messages.success(request, f"'{item.client_name}' ke sabhi {count} catalog records successfully delete kar diye gaye.")
+
+    return redirect('tracker:party_data', pk=item.pk)
+
+
+@login_required
+@csrf_exempt
+def party_data_add_record(request, pk):
+    """Add a single PartyDataRecord manually"""
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not (profile.is_admin or profile.can_import_party_data or request.user.is_superuser):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+    if not profile.is_party_allowed(pk):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    item = get_object_or_404(ProcessItem, pk=pk)
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid method'}, status=405)
+
+    try:
+        data = json.loads(request.body.decode('utf-8')) if request.body else request.POST
+        sku = data.get('sku', '').strip()
+        category = data.get('category', '').strip()
+        sheet_name = data.get('sheet_name', '').strip()
+        if not sku:
+            return JsonResponse({'success': False, 'error': 'SKU is required'}, status=400)
+
+        existing = item.data_records.filter(sku__iexact=sku, category__iexact=category).first()
+        if existing:
+            return JsonResponse({'success': False, 'error': f"SKU '{sku}' category '{category}' me already exist karta hai! Same category me duplicate allowed nahi hai."}, status=400)
+
+        last_record = item.data_records.order_by('-order_index').first()
+        next_order = (last_record.order_index + 1) if last_record else 1
+
+        record = PartyDataRecord.objects.create(
+            party=item,
+            order_index=next_order,
+            sheet_name=sheet_name or (category.upper() if category else ''),
+            sku=sku,
+            lot=data.get('lot', '').strip(),
+            category=category,
+            certified=data.get('certified', '').strip(),
+            gold_kt=data.get('gold_kt', '').strip(),
+            gold_color=data.get('gold_color', '').strip(),
+            gold_weight=data.get('gold_weight', '').strip(),
+            center_diamond_clarity=data.get('center_diamond_clarity', '').strip(),
+            center_diamond_color=data.get('center_diamond_color', '').strip(),
+            center_stone_shape=data.get('center_stone_shape', '').strip(),
+            center_stone_weight=data.get('center_stone_weight', '').strip(),
+            side_stone_shape=data.get('side_stone_shape', '').strip(),
+            side_stone_weight=data.get('side_stone_weight', '').strip(),
+            side_stone_color_clarity=data.get('side_stone_color_clarity', '').strip(),
+            setting=data.get('setting', '').strip(),
+            total_diamond_pcs=data.get('total_diamond_pcs', '').strip(),
+            cost_usd=data.get('cost_usd', '').strip(),
+            selling_price_usd=data.get('selling_price_usd', '').strip(),
+        )
+        return JsonResponse({'success': True, 'record_id': record.id, 'sku': record.sku})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
+@csrf_exempt
+def party_data_update_record(request, record_id):
+    """Update a single PartyDataRecord"""
+    record = get_object_or_404(PartyDataRecord, pk=record_id)
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not (profile.is_admin or profile.can_import_party_data or request.user.is_superuser):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+    if not profile.is_party_allowed(record.party_id):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid method'}, status=405)
+
+    try:
+        data = json.loads(request.body.decode('utf-8')) if request.body else request.POST
+        fields = [
+            'sheet_name', 'sku', 'lot', 'category', 'certified', 'gold_kt', 'gold_color',
+            'gold_weight', 'center_diamond_clarity', 'center_diamond_color',
+            'center_stone_shape', 'center_stone_weight', 'side_stone_shape',
+            'side_stone_weight', 'side_stone_color_clarity', 'setting',
+            'total_diamond_pcs', 'cost_usd', 'selling_price_usd'
+        ]
+        for f in fields:
+            if f in data:
+                setattr(record, f, str(data[f]).strip())
+        record.save()
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
+@csrf_exempt
+def party_data_delete_record(request, record_id):
+    """Delete a single PartyDataRecord"""
+    record = get_object_or_404(PartyDataRecord, pk=record_id)
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not (profile.is_admin or profile.can_clear_party_data or profile.can_import_party_data or request.user.is_superuser):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+    if not profile.is_party_allowed(record.party_id):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    record.delete()
+    return JsonResponse({'success': True})
+
 
 
 

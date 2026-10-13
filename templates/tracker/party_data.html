@@ -1,0 +1,1114 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ item.client_name }} - Product & SKU Catalog Data{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Ultra-compact top control panel so table occupies full screen */
+    .catalog-top-panel {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 6px 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        margin-bottom: 6px;
+    }
+
+    .kpi-mini-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 5px;
+        font-size: 0.74rem;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        color: #475569;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+    .kpi-mini-pill b {
+        color: #0f172a;
+        font-weight: 700;
+    }
+
+    .sheet-tab-pill {
+        font-size: 0.74rem;
+        padding: 3px 9px;
+        border-radius: 5px;
+        font-weight: 600;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #475569;
+        text-decoration: none;
+        transition: all 0.15s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+    .sheet-tab-pill:hover {
+        background: #f1f5f9;
+        color: #1e293b;
+    }
+    .sheet-tab-pill.active {
+        background: #0f172a;
+        color: #ffffff;
+        border-color: #0f172a;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+    }
+    .sheet-tab-pill .badge {
+        font-size: 0.68rem;
+        padding: 1px 5px;
+    }
+
+    /* Table Container fills full remaining screen height */
+    .catalog-table-wrapper {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        height: calc(100vh - 128px);
+        max-height: calc(100vh - 128px);
+        overflow: auto;
+        position: relative;
+    }
+
+    .catalog-table {
+        margin-bottom: 0;
+        font-size: 0.78rem;
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    /* All Header and Data Cells are centered horizontally & vertically */
+    .catalog-table th {
+        background: #0f172a !important;
+        color: #f8fafc !important;
+        font-weight: 700;
+        font-size: 0.72rem;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        padding: 7px 10px;
+        border: none;
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        text-align: center !important;
+        vertical-align: middle !important;
+    }
+
+    .catalog-table td {
+        padding: 5px 10px;
+        vertical-align: middle !important;
+        text-align: center !important;
+        border-bottom: 1px solid #f1f5f9;
+        color: #1e293b;
+        white-space: nowrap;
+        line-height: 1.35;
+    }
+
+    .catalog-table tbody tr:hover {
+        background-color: #f8fafc !important;
+    }
+
+    .sku-badge {
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 4px;
+        border: 1px solid #bfdbfe;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        letter-spacing: 0.2px;
+        cursor: pointer;
+        display: inline-block;
+    }
+    .sku-badge:hover {
+        background: #dbeafe;
+    }
+
+    .highlight-search {
+        background-color: #fef08a !important;
+        color: #854d0e !important;
+        font-weight: bold;
+        padding: 0 2px;
+        border-radius: 2px;
+    }
+
+    .drag-drop-zone {
+        border: 2px dashed #94a3b8;
+        border-radius: 10px;
+        padding: 22px 16px;
+        text-align: center;
+        background: #f8fafc;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .drag-drop-zone:hover, .drag-drop-zone.dragover {
+        border-color: #2563eb;
+        background: #eff6ff;
+    }
+
+    /* Random Captcha box styling */
+    .captcha-badge-box {
+        font-family: 'Courier New', Courier, monospace;
+        font-weight: 900;
+        letter-spacing: 8px;
+        background: #fff1f2;
+        border: 2px dashed #f43f5e;
+        color: #be123c;
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-size: 1.6rem;
+        user-select: none;
+        display: inline-block;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-1">
+
+    <!-- Unified Ultra-Compact Top Control Panel (Only 2 slim rows, ~68px total height) -->
+    <div class="catalog-top-panel">
+        <!-- Row 1: Breadcrumb + Inline KPIs + Action Buttons -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1 pb-1 border-bottom">
+            <!-- Left: Breadcrumb & KPIs -->
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <a href="{% url 'tracker:dashboard' %}" class="btn btn-sm btn-light border py-0 px-2 text-muted" style="font-size: 0.76rem; height: 26px; display: inline-flex; align-items: center;" title="Back to Dashboard">
+                    <i class="bi bi-arrow-left me-1"></i>Dashboard
+                </a>
+                <span class="text-muted small">/</span>
+                <a href="{% url 'tracker:party_detail' item.id %}" class="fw-bold text-dark text-decoration-none small">
+                    {{ item.client_name }}
+                </a>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0 small" style="font-size: 0.72rem; line-height: 20px;">
+                    Catalog Data
+                </span>
+                {% if item.lot_progress %}
+                <span class="badge bg-secondary-subtle text-secondary border px-2 py-0 small" style="font-size: 0.72rem; line-height: 20px;">
+                    LOT: {{ item.lot_progress }}
+                </span>
+                {% endif %}
+
+                <!-- Inline KPI Stats Strip -->
+                <div class="d-flex align-items-center gap-1 ms-1 flex-wrap">
+                    <span class="kpi-mini-pill"><i class="bi bi-upc-scan text-primary"></i> <b id="kpiTotalSkus">{{ metrics.total_items }}</b> SKUs</span>
+                    <span class="kpi-mini-pill"><i class="bi bi-currency-dollar text-success"></i> Selling: <b id="kpiTotalSelling" class="text-success">${{ metrics.total_selling|floatformat:2 }}</b></span>
+                    <span class="kpi-mini-pill"><i class="bi bi-wallet2 text-warning"></i> Cost: <b id="kpiTotalCost" class="text-warning-emphasis">${{ metrics.total_cost|floatformat:2 }}</b></span>
+                    <span class="kpi-mini-pill"><i class="bi bi-speedometer2 text-info"></i> Gold: <b id="kpiTotalGold" class="text-info">{{ metrics.total_gold_wt|floatformat:2 }}g</b></span>
+                    <span class="kpi-mini-pill"><i class="bi bi-gem text-danger"></i> Dia: <b id="kpiTotalDiamonds" class="text-danger">{{ metrics.total_diamonds }}</b></span>
+                </div>
+            </div>
+
+            <!-- Right: Action Buttons in One Compact Line -->
+            <div class="d-flex align-items-center gap-1 flex-wrap">
+                {% if can_import %}
+                <button type="button" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1 py-0 px-2 fw-semibold" style="height: 26px; font-size: 0.76rem;" data-bs-toggle="modal" data-bs-target="#importDataModal">
+                    <i class="bi bi-cloud-arrow-up-fill"></i>
+                    <span>Import File</span>
+                </button>
+                {% endif %}
+
+                {% if all_records_count > 0 %}
+                <a href="{% url 'tracker:party_data_export' item.id %}" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1 py-0 px-2" style="height: 26px; font-size: 0.76rem;" title="Export multi-sheet Excel file">
+                    <i class="bi bi-file-earmark-excel"></i>
+                    <span>Export</span>
+                </a>
+                {% endif %}
+
+                {% if can_edit %}
+                <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 py-0 px-2" style="height: 26px; font-size: 0.76rem;" data-bs-toggle="modal" data-bs-target="#addRecordModal">
+                    <i class="bi bi-plus-circle"></i>
+                    <span>Add Item</span>
+                </button>
+                {% endif %}
+
+                {% if can_import and all_records_count > 0 %}
+                <form action="{% url 'tracker:party_data_deduplicate' item.id %}" method="POST" class="d-inline" onsubmit="return confirm('Clean duplicate SKUs? Different categories will be preserved.');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 py-0 px-2" style="height: 26px; font-size: 0.76rem;" title="Clean exact duplicate rows">
+                        <i class="bi bi-magic"></i>
+                        <span>Clean Dups</span>
+                    </button>
+                </form>
+                {% endif %}
+
+                <a href="{% url 'tracker:party_detail' item.id %}" class="btn btn-sm btn-outline-secondary py-0 px-2 d-inline-flex align-items-center gap-1" style="height: 26px; font-size: 0.76rem;" title="View Custom Tabs & Tables">
+                    <i class="bi bi-folder2-open"></i>
+                    <span>Custom Tabs</span>
+                </a>
+
+                {% if can_clear and all_records_count > 0 %}
+                <button type="button" class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1 py-0 px-2" style="height: 26px; font-size: 0.76rem;" data-bs-toggle="modal" data-bs-target="#clearDataModal" onclick="generateRandomCaptcha()" title="Clear all catalog items for this party">
+                    <i class="bi bi-trash3-fill"></i>
+                    <span>Clear Data</span>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Row 2: Sheet Tabs (Left) + Search & Filter Controls (Right) in One Single Line -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <!-- Left: Sheet Tabs -->
+            <div class="d-flex align-items-center gap-1 overflow-auto">
+                <span class="small fw-bold text-muted text-uppercase me-1" style="font-size: 0.7rem;">Sheets:</span>
+                {% for t in catalog_tabs %}
+                <button type="button" 
+                        class="sheet-tab-pill {% if t.is_active %}active{% endif %}"
+                        data-tab-name="{{ t.name }}"
+                        onclick="switchCatalogTab('{{ t.name }}')">
+                    <i class="bi {% if t.name == 'All' %}bi-grid-fill{% elif 'ring' in t.name|lower %}bi-circle{% elif 'earring' in t.name|lower %}bi-flower1{% elif 'pendant' in t.name|lower %}bi-gem{% elif 'bracelet' in t.name|lower %}bi-link-45deg{% else %}bi-folder-fill{% endif %}"></i>
+                    <span>{{ t.display }}</span>
+                    <span class="badge {% if t.is_active %}bg-white text-dark{% else %}bg-secondary-subtle text-secondary{% endif %} rounded-pill">
+                        {{ t.count }}
+                    </span>
+                </button>
+                {% endfor %}
+            </div>
+
+            <!-- Right: Search + Filters in compact horizontal row -->
+            <div class="d-flex align-items-center gap-1 flex-wrap ms-auto">
+                <div class="input-group input-group-sm" style="width: 210px;">
+                    <span class="input-group-text bg-white border-end-0 text-primary py-0 px-2" style="height: 28px;">
+                        <i class="bi bi-search" style="font-size: 0.75rem;"></i>
+                    </span>
+                    <input type="text" id="skuSearchInput" class="form-control border-start-0 ps-0 fw-semibold" style="height: 28px; font-size: 0.78rem;" placeholder="Search SKU or detail..." value="{{ search_query }}" autocomplete="off">
+                    <button class="btn btn-outline-secondary py-0 px-2" style="height: 28px;" type="button" id="btnClearSearch" title="Clear search">
+                        <i class="bi bi-x-lg" style="font-size: 0.7rem;"></i>
+                    </button>
+                </div>
+
+                <select id="filterCategory" class="form-select form-select-sm" style="width: 135px; height: 28px; font-size: 0.76rem; padding-top: 2px; padding-bottom: 2px;">
+                    <option value="">All Categories ({{ categories|length }})</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat }}" {% if category_filter == cat %}selected{% endif %}>{{ cat }}</option>
+                    {% endfor %}
+                </select>
+
+                <select id="filterColor" class="form-select form-select-sm" style="width: 120px; height: 28px; font-size: 0.76rem; padding-top: 2px; padding-bottom: 2px;">
+                    <option value="">All Gold Colors</option>
+                    {% for col in gold_colors %}
+                    <option value="{{ col }}" {% if color_filter == col %}selected{% endif %}>{{ col }}</option>
+                    {% endfor %}
+                </select>
+
+                <select id="filterShape" class="form-select form-select-sm" style="width: 110px; height: 28px; font-size: 0.76rem; padding-top: 2px; padding-bottom: 2px;">
+                    <option value="">All Shapes</option>
+                    {% for shp in shapes %}
+                    <option value="{{ shp }}" {% if shape_filter == shp %}selected{% endif %}>{{ shp }}</option>
+                    {% endfor %}
+                </select>
+
+                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" style="height: 28px; font-size: 0.76rem;" id="btnResetFilters" title="Reset all filters">
+                    <i class="bi bi-arrow-counterclockwise"></i> Reset
+                </button>
+
+                <span class="badge bg-light text-dark border px-2" style="height: 28px; display: inline-flex; align-items: center; font-size: 0.75rem;">
+                    <span id="filteredCountBadge" class="fw-bold">{{ filtered_count }}</span>&nbsp;/ {{ all_records_count }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Table Wrapper (Full Screen Viewport with Sticky Header and Centered Cells) -->
+    <div class="catalog-table-wrapper">
+        {% if all_records_count == 0 %}
+        <!-- Empty State -->
+        <div class="text-center py-5 px-3">
+            <div class="mb-3 text-muted display-4">
+                <i class="bi bi-file-earmark-spreadsheet"></i>
+            </div>
+            <h5 class="fw-bold text-dark">No Catalog / SKU Data Uploaded Yet</h5>
+            <p class="text-muted small max-w-md mx-auto mb-4" style="max-width: 500px;">
+                Is party ke paas abhi koi SKU data upload nahi hai. Aap apna Excel (.xlsx/.xls) ya CSV file upload karke sabhi sheets aur categories ko add kar sakte hain.
+            </p>
+            {% if can_import %}
+            <button type="button" class="btn btn-primary px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#importDataModal">
+                <i class="bi bi-cloud-arrow-up-fill me-1"></i> Import Excel / CSV File Now
+            </button>
+            {% endif %}
+        </div>
+        {% else %}
+        <table class="catalog-table table table-hover align-middle mb-0" id="catalogMainTable">
+            <thead>
+                <tr>
+                    <th class="text-center" style="width: 45px;">#</th>
+                    <th class="text-center">LOT</th>
+                    <th class="text-center">CATEGORY</th>
+                    <th class="text-center">SKU</th>
+                    <th class="text-center">Certified</th>
+                    <th class="text-center">GOLD_KT</th>
+                    <th class="text-center">GOLD_COLOR</th>
+                    <th class="text-center">GOLD_WEIGHT</th>
+                    <th class="text-center">CENTER_DIAMOND_CLARITY</th>
+                    <th class="text-center">CENTER_DIAMOND_COLOR</th>
+                    <th class="text-center">CENTER_STONE_SHAPE</th>
+                    <th class="text-center">CENTER_STONE_WEIGHT</th>
+                    <th class="text-center">SIDE_STONE_SHAPE</th>
+                    <th class="text-center">SIDE_STONE_WEIGHT</th>
+                    <th class="text-center">SIDE_STONE_COLOR_CLARITY</th>
+                    <th class="text-center">SETTING</th>
+                    <th class="text-center">TOTAL_DIAMOND_PCS</th>
+                    <th class="text-center">COST_USD</th>
+                    <th class="text-center">SELLING_PRICE_USD</th>
+                    {% for xk in extra_keys %}
+                    <th class="text-center">{{ xk|upper }}</th>
+                    {% endfor %}
+                    {% if can_edit %}
+                    <th class="text-center" style="width: 75px;">ACTIONS</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody id="catalogTableBody">
+                {% for r in records %}
+                <tr class="catalog-row" 
+                    data-id="{{ r.id }}" 
+                    data-tab="{{ r.tab_label|lower }}" 
+                    data-sheet="{{ r.sheet_name|lower }}" 
+                    data-sku="{{ r.sku|lower }}" 
+                    data-cat="{{ r.category|lower }}" 
+                    data-color="{{ r.gold_color|lower }}" 
+                    data-shape="{{ r.center_stone_shape|lower }}" 
+                    data-cost="{{ r.cost_numeric }}" 
+                    data-selling="{{ r.selling_numeric }}" 
+                    data-gold="{{ r.gold_weight_numeric }}" 
+                    data-dia="{{ r.diamond_pcs_numeric }}" 
+                    data-search="{{ r.sku }} {{ r.category }} {{ r.lot }} {{ r.center_stone_shape }} {{ r.certified }} {{ r.gold_color }} {{ r.gold_kt }} {{ r.sheet_name }}">
+                    <td class="text-center text-muted small fw-medium row-num">{{ forloop.counter }}</td>
+                    <td class="text-center"><span class="badge bg-light text-secondary border">{{ r.lot|default:"-" }}</span></td>
+                    <td class="text-center cell-category">
+                        <span class="fw-semibold text-dark cell-category-text">{{ r.category|default:"-" }}</span>
+                        {% if r.sheet_name and r.sheet_name|lower != r.category|lower %}
+                        <span class="badge bg-light text-secondary border ms-1" style="font-size: 0.68rem;">
+                            <i class="bi bi-file-earmark me-1"></i>{{ r.sheet_name }}
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <span class="sku-badge cell-sku" title="Click to copy SKU" onclick="copySku('{{ r.sku }}')">
+                            {{ r.sku|default:"-" }}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        {% if r.certified %}
+                        <span class="badge bg-info-subtle text-info border border-info-subtle">{{ r.certified }}</span>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">{{ r.gold_kt|default:"-" }}</td>
+                    <td class="text-center">
+                        {% if r.gold_color|lower == 'yellow' %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">Yellow</span>
+                        {% elif r.gold_color|lower == 'white' %}
+                        <span class="badge bg-light text-dark border">White</span>
+                        {% elif r.gold_color|lower == 'rose' %}
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Rose</span>
+                        {% else %}
+                        {{ r.gold_color|default:"-" }}
+                        {% endif %}
+                    </td>
+                    <td class="text-center font-monospace">{{ r.gold_weight_display|default:"-" }}</td>
+                    <td class="text-center">{{ r.center_diamond_clarity|default:"-" }}</td>
+                    <td class="text-center">{{ r.center_diamond_color|default:"-" }}</td>
+                    <td class="text-center">
+                        {% if r.center_stone_shape %}
+                        <span class="fw-semibold text-secondary cell-shape">{{ r.center_stone_shape }}</span>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center font-monospace">{{ r.center_stone_weight_display|default:"-" }}</td>
+                    <td class="text-center">{{ r.side_stone_shape|default:"-" }}</td>
+                    <td class="text-center font-monospace">{{ r.side_stone_weight_display|default:"-" }}</td>
+                    <td class="text-center">{{ r.side_stone_color_clarity|default:"-" }}</td>
+                    <td class="text-center">{{ r.setting|default:"-" }}</td>
+                    <td class="text-center font-monospace">{{ r.total_diamond_pcs|default:"-" }}</td>
+                    <td class="text-center text-muted font-monospace">
+                        {% if r.cost_usd_display %}${{ r.cost_usd_display }}{% else %}-{% endif %}
+                    </td>
+                    <td class="text-center fw-bold text-success font-monospace">
+                        {% if r.selling_price_usd_display %}${{ r.selling_price_usd_display }}{% else %}-{% endif %}
+                    </td>
+                    {% for val in r.extra_values %}
+                    <td class="text-center small text-muted">{{ val }}</td>
+                    {% endfor %}
+                    {% if can_edit %}
+                    <td class="text-center text-nowrap">
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-light text-primary py-0 px-2" onclick="openEditRecordModal({{ r.id }})" title="Edit SKU record">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                            <button type="button" class="btn btn-light text-danger py-0 px-2" onclick="deleteRecord({{ r.id }}, '{{ r.sku }}')" title="Delete SKU record">
+                                <i class="bi bi-trash3"></i>
+                            </button>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div id="noResultsState" class="text-center py-5" style="display: none;">
+            <i class="bi bi-search text-muted display-6"></i>
+            <h6 class="mt-2 fw-bold text-dark">No matching SKUs found</h6>
+            <p class="text-muted small">Aapke search query ke anusaar koi item match nahi hua.</p>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="clearSearch()">Clear Search</button>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- Import Modal (Supports Multi-sheet Append vs Replace) -->
+<div class="modal fade" id="importDataModal" tabindex="-1" aria-labelledby="importDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white py-2 px-3">
+                <h6 class="modal-title fw-bold mb-0" id="importDataModalLabel">
+                    <i class="bi bi-cloud-arrow-up-fill me-2"></i> Import Catalog Data
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{% url 'tracker:party_data_import' item.id %}" method="POST" enctype="multipart/form-data" id="importDataForm">
+                {% csrf_token %}
+                <div class="modal-body p-3">
+                    <p class="text-muted small mb-2">
+                        Excel (<strong>.xlsx</strong>, <strong>.xls</strong>) ya <strong>.csv</strong> file select karein. Sabhi sheets (RING, EARRINGS, PENDANT, BRACELET) automatic alag-alag tabs me import aur map ho jayengi.
+                    </p>
+
+                    <!-- File Drop / Select Area -->
+                    <div class="drag-drop-zone mb-3" id="dropZone" onclick="document.getElementById('importFileInput').click()">
+                        <i class="bi bi-file-earmark-spreadsheet-fill text-primary display-5 mb-2 d-block"></i>
+                        <div class="fw-bold text-dark" id="dropZoneText">Click here or Drag & Drop Excel file</div>
+                        <div class="text-muted small">Supports multi-sheet .xlsx, .xls, .csv</div>
+                        <input type="file" name="file" id="importFileInput" accept=".xlsx,.xls,.csv" class="d-none" required onchange="handleFileSelected(this)">
+                    </div>
+
+                    <div id="selectedFileInfo" class="alert alert-info py-2 px-3 small d-flex align-items-center justify-content-between mb-3" style="display: none !important;">
+                        <div>
+                            <i class="bi bi-check-circle-fill text-success me-1"></i>
+                            <span id="selectedFileName" class="fw-bold"></span>
+                            <span id="selectedFileSize" class="text-muted ms-1"></span>
+                        </div>
+                        <button type="button" class="btn-close btn-sm" onclick="clearSelectedFile()"></button>
+                    </div>
+
+                    <!-- Import Mode (Append vs Replace) -->
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Import Option</label>
+                        <div class="border rounded p-2 bg-light">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="import_mode" id="modeAppend" value="append" checked>
+                                <label class="form-check-label fw-bold text-dark" for="modeAppend">
+                                    <i class="bi bi-node-plus-fill text-primary me-1"></i> Append (Smart Multi-Sheet Deduplication)
+                                </label>
+                                <div class="text-muted small ps-4">Naye items list ke sath jud jayenge. Same SKU agar alag category ka hai to append hoga. Exact duplicate row skip ho jayegi.</div>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="import_mode" id="modeReplace" value="replace">
+                                <label class="form-check-label fw-bold text-danger" for="modeReplace">
+                                    <i class="bi bi-arrow-repeat text-danger me-1"></i> Replace All Existing Data
+                                </label>
+                                <div class="text-muted small ps-4">Puraana data delete ho jayega aur sirf naya file import hoga.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2 px-3">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-sm px-4 fw-semibold" id="btnSubmitImport" disabled>
+                        <i class="bi bi-upload me-1"></i> Start Import
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Clear Data Confirmation Modal with RANDOM CAPTCHA -->
+<div class="modal fade" id="clearDataModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white py-2 px-3">
+                <h6 class="modal-title fw-bold mb-0 d-flex align-items-center gap-2">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Security Verification: Clear All Catalog Data
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{% url 'tracker:party_data_clear' item.id %}" method="POST" id="clearDataForm" onsubmit="return validateCaptchaSubmit()">
+                {% csrf_token %}
+                <input type="hidden" name="expected_captcha" id="expectedCaptchaCode" value="">
+                <div class="modal-body p-4 text-center">
+                    <div class="text-danger mb-2">
+                        <i class="bi bi-shield-lock-fill display-5"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-1">Are you sure you want to delete ALL catalog items for {{ item.client_name }}?</h6>
+                    <p class="text-muted small mb-3">
+                        Total <strong>{{ all_records_count }} items</strong> permanently delete ho jayenge. Yeh action undo nahi kiya ja sakta.
+                    </p>
+
+                    <!-- Random Captcha Display Box -->
+                    <div class="p-3 bg-light border rounded-3 mb-3 text-center">
+                        <div class="small fw-semibold text-muted mb-2 text-uppercase">Enter Security Captcha Below</div>
+                        <div class="d-flex align-items-center justify-content-center gap-2 mb-2">
+                            <div id="captchaDisplayBox" class="captcha-badge-box">
+                                8F3K9
+                            </div>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="generateRandomCaptcha()" title="Refresh Captcha">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                        </div>
+                        <div class="small text-muted mb-2">Type the exact letters/numbers shown above:</div>
+                        <input type="text" class="form-control text-center font-monospace fw-bold fs-5 text-uppercase" id="captchaInput" name="captcha_input" placeholder="Type CAPTCHA here" autocomplete="off" maxlength="6" style="letter-spacing: 4px;" onkeyup="checkCaptchaMatch()">
+                        <div id="captchaFeedback" class="small mt-1 text-muted">Verification code required</div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2 px-3">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger btn-sm px-4 fw-bold" id="btnConfirmClearData" disabled>
+                        <i class="bi bi-trash3-fill me-1"></i> Yes, Delete All Data
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add / Edit Record Modal -->
+<div class="modal fade" id="addRecordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white py-2 px-3">
+                <h6 class="modal-title fw-bold mb-0" id="recordModalTitle"><i class="bi bi-plus-circle me-2"></i> Add Catalog Item</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+                <input type="hidden" id="editRecordId" value="">
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">SKU <span class="text-danger">*</span></label>
+                        <input type="text" id="m_sku" class="form-control form-control-sm" required placeholder="e.g. ORM013LR-81bbx">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">CATEGORY</label>
+                        <input type="text" id="m_category" class="form-control form-control-sm" placeholder="e.g. RING">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">SHEET NAME</label>
+                        <input type="text" id="m_sheet_name" class="form-control form-control-sm" placeholder="e.g. RING, EARRINGS">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">LOT</label>
+                        <input type="text" id="m_lot" class="form-control form-control-sm" placeholder="e.g. 5">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">Certified</label>
+                        <input type="text" id="m_certified" class="form-control form-control-sm" placeholder="e.g. IGI, GIA">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">GOLD_KT</label>
+                        <input type="text" id="m_gold_kt" class="form-control form-control-sm" placeholder="e.g. 14k, 18k">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">GOLD_COLOR</label>
+                        <input type="text" id="m_gold_color" class="form-control form-control-sm" placeholder="e.g. White, Yellow">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">GOLD_WEIGHT (gm)</label>
+                        <input type="text" id="m_gold_weight" class="form-control form-control-sm" placeholder="e.g. 3.20">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">CENTER_STONE_SHAPE</label>
+                        <input type="text" id="m_center_shape" class="form-control form-control-sm" placeholder="e.g. PEAR, ROUND">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">CENTER_STONE_WEIGHT</label>
+                        <input type="text" id="m_center_wt" class="form-control form-control-sm" placeholder="e.g. 3.13">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">CENTER_DIAMOND CLARITY / COLOR</label>
+                        <div class="d-flex gap-2">
+                            <input type="text" id="m_center_clarity" class="form-control form-control-sm" placeholder="VVS-VS">
+                            <input type="text" id="m_center_color" class="form-control form-control-sm" placeholder="F-G">
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">SIDE_STONE_SHAPE</label>
+                        <input type="text" id="m_side_shape" class="form-control form-control-sm" placeholder="e.g. ROUND">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">SIDE_STONE_WEIGHT</label>
+                        <input type="text" id="m_side_wt" class="form-control form-control-sm" placeholder="e.g. 0.15">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">SIDE_STONE_COLOR_CLARITY</label>
+                        <input type="text" id="m_side_clarity" class="form-control form-control-sm" placeholder="F-G / VVS-VS">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">SETTING</label>
+                        <input type="text" id="m_setting" class="form-control form-control-sm" placeholder="e.g. PRONG">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">TOTAL_DIAMOND_PCS</label>
+                        <input type="text" id="m_dia_pcs" class="form-control form-control-sm" placeholder="e.g. 11">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">COST_USD</label>
+                        <input type="text" id="m_cost_usd" class="form-control form-control-sm" placeholder="e.g. 800.39">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">SELLING_PRICE_USD</label>
+                        <input type="text" id="m_selling_usd" class="form-control form-control-sm" placeholder="e.g. 1100.49">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2 px-3">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm px-4 fw-semibold" onclick="saveRecordModal()">Save Record</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Copy SKU to clipboard helper
+    function copySku(sku) {
+        if (!sku) return;
+        navigator.clipboard.writeText(sku).then(() => {
+            const toast = document.createElement('div');
+            toast.className = 'position-fixed bottom-0 end-0 p-3';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `<div class="toast show bg-dark text-white p-2 px-3 rounded shadow small"><i class="bi bi-clipboard-check me-1 text-success"></i> Copied SKU: <strong>${sku}</strong></div>`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        });
+    }
+
+    // Drag and Drop file handling
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('importFileInput');
+    if (dropZone && fileInput) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.add('dragover');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('dragover');
+            });
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileSelected(fileInput);
+            }
+        });
+    }
+
+    function handleFileSelected(input) {
+        const btnSubmit = document.getElementById('btnSubmitImport');
+        const infoDiv = document.getElementById('selectedFileInfo');
+        const nameSpan = document.getElementById('selectedFileName');
+        const sizeSpan = document.getElementById('selectedFileSize');
+
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            nameSpan.textContent = file.name;
+            sizeSpan.textContent = `(${(file.size / 1024).toFixed(1)} KB)`;
+            infoDiv.style.removeProperty('display');
+            btnSubmit.disabled = false;
+        } else {
+            clearSelectedFile();
+        }
+    }
+
+    function clearSelectedFile() {
+        const fileInput = document.getElementById('importFileInput');
+        if (fileInput) fileInput.value = '';
+        const infoDiv = document.getElementById('selectedFileInfo');
+        if (infoDiv) infoDiv.style.setProperty('display', 'none', 'important');
+        const btnSubmit = document.getElementById('btnSubmitImport');
+        if (btnSubmit) btnSubmit.disabled = true;
+    }
+
+    // ==========================================
+    // RANDOM CAPTCHA VERIFICATION FOR CLEAR DATA
+    // ==========================================
+    function generateRandomCaptcha() {
+        const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+        let code = '';
+        for (let i = 0; i < 5; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        const displayBox = document.getElementById('captchaDisplayBox');
+        const expectedInput = document.getElementById('expectedCaptchaCode');
+        const userInput = document.getElementById('captchaInput');
+        const btnConfirm = document.getElementById('btnConfirmClearData');
+        const feedback = document.getElementById('captchaFeedback');
+
+        if (displayBox) displayBox.textContent = code;
+        if (expectedInput) expectedInput.value = code;
+        if (userInput) {
+            userInput.value = '';
+            userInput.classList.remove('is-valid', 'is-invalid');
+            userInput.focus();
+        }
+        if (btnConfirm) btnConfirm.disabled = true;
+        if (feedback) {
+            feedback.textContent = 'Type the exact 5-character code above';
+            feedback.className = 'small mt-1 text-muted';
+        }
+    }
+
+    function checkCaptchaMatch() {
+        const expected = (document.getElementById('expectedCaptchaCode')?.value || '').trim().toUpperCase();
+        const userInput = document.getElementById('captchaInput');
+        const userVal = (userInput?.value || '').trim().toUpperCase();
+        const btnConfirm = document.getElementById('btnConfirmClearData');
+        const feedback = document.getElementById('captchaFeedback');
+
+        if (!userVal) {
+            if (btnConfirm) btnConfirm.disabled = true;
+            if (userInput) userInput.classList.remove('is-valid', 'is-invalid');
+            if (feedback) {
+                feedback.textContent = 'Type the exact 5-character code above';
+                feedback.className = 'small mt-1 text-muted';
+            }
+            return;
+        }
+
+        if (userVal === expected) {
+            if (btnConfirm) btnConfirm.disabled = false;
+            if (userInput) {
+                userInput.classList.remove('is-invalid');
+                userInput.classList.add('is-valid');
+            }
+            if (feedback) {
+                feedback.textContent = '✓ Captcha code verified! Click Delete below to proceed.';
+                feedback.className = 'small mt-1 text-success fw-bold';
+            }
+        } else {
+            if (btnConfirm) btnConfirm.disabled = true;
+            if (userInput) {
+                userInput.classList.remove('is-valid');
+                userInput.classList.add('is-invalid');
+            }
+            if (feedback) {
+                feedback.textContent = '✗ Captcha match nahi hua';
+                feedback.className = 'small mt-1 text-danger fw-semibold';
+            }
+        }
+    }
+
+    function validateCaptchaSubmit() {
+        const expected = (document.getElementById('expectedCaptchaCode')?.value || '').trim().toUpperCase();
+        const userVal = (document.getElementById('captchaInput')?.value || '').trim().toUpperCase();
+        if (userVal !== expected) {
+            alert('Security verification failed: Captcha code galat hai.');
+            return false;
+        }
+        return true;
+    }
+
+    // Auto-generate fresh captcha when modal opens
+    const clearModalEl = document.getElementById('clearDataModal');
+    if (clearModalEl) {
+        clearModalEl.addEventListener('show.bs.modal', generateRandomCaptcha);
+    }
+
+    // ==========================================
+    // Real-Time SKU Search & Instant Filter Engine
+    // ==========================================
+    const searchInput = document.getElementById('skuSearchInput');
+    const filterCat = document.getElementById('filterCategory');
+    const filterCol = document.getElementById('filterColor');
+    const filterShp = document.getElementById('filterShape');
+    const btnClear = document.getElementById('btnClearSearch');
+    const btnReset = document.getElementById('btnResetFilters');
+    const filteredCountBadge = document.getElementById('filteredCountBadge');
+    const noResultsState = document.getElementById('noResultsState');
+
+    let activeCatalogTab = '{{ active_tab|lower }}' || 'all';
+
+    function switchCatalogTab(tabName) {
+        activeCatalogTab = tabName.toLowerCase();
+
+        document.querySelectorAll('.sheet-tab-pill').forEach(btn => {
+            const bTab = (btn.getAttribute('data-tab-name') || '').toLowerCase();
+            const badge = btn.querySelector('.badge');
+            if (bTab === activeCatalogTab) {
+                btn.classList.add('active');
+                if (badge) {
+                    badge.className = 'badge bg-white text-dark rounded-pill';
+                }
+            } else {
+                btn.classList.remove('active');
+                if (badge) {
+                    badge.className = 'badge bg-secondary-subtle text-secondary rounded-pill';
+                }
+            }
+        });
+
+        applyRealtimeFilters();
+
+        const url = new URL(window.location);
+        if (activeCatalogTab === 'all') {
+            url.searchParams.delete('tab');
+        } else {
+            url.searchParams.set('tab', tabName);
+        }
+        window.history.replaceState({}, '', url);
+    }
+
+    function applyRealtimeFilters() {
+        const query = (searchInput?.value || '').trim().toLowerCase();
+        const cat = (filterCat?.value || '').trim().toLowerCase();
+        const col = (filterCol?.value || '').trim().toLowerCase();
+        const shp = (filterShp?.value || '').trim().toLowerCase();
+
+        const rows = document.querySelectorAll('.catalog-row');
+        let visibleCount = 0;
+        let totalCost = 0;
+        let totalSelling = 0;
+        let totalGold = 0;
+        let totalDia = 0;
+
+        rows.forEach(row => {
+            const rowSku = (row.getAttribute('data-sku') || '').toLowerCase();
+            const rowTab = (row.getAttribute('data-tab') || '').toLowerCase();
+            const rowSheet = (row.getAttribute('data-sheet') || '').toLowerCase();
+            const rowCat = (row.getAttribute('data-cat') || '').toLowerCase();
+            const rowColor = (row.getAttribute('data-color') || '').toLowerCase();
+            const rowShape = (row.getAttribute('data-shape') || '').toLowerCase();
+            const rowSearch = (row.getAttribute('data-search') || '').toLowerCase();
+
+            let tabMatch = (activeCatalogTab === 'all' || rowTab === activeCatalogTab || rowSheet === activeCatalogTab || rowCat === activeCatalogTab);
+            let matches = tabMatch;
+
+            if (matches && query) {
+                matches = rowSearch.includes(query) || rowSku.includes(query);
+            }
+            if (matches && cat) {
+                matches = rowCat === cat;
+            }
+            if (matches && col) {
+                matches = rowColor === col;
+            }
+            if (matches && shp) {
+                matches = rowShape === shp;
+            }
+
+            if (matches) {
+                row.style.display = '';
+                visibleCount++;
+                const rowNum = row.querySelector('.row-num');
+                if (rowNum) rowNum.textContent = visibleCount;
+
+                // Accumulate metrics for visible items
+                const cost = parseFloat((row.getAttribute('data-cost') || '0').replace(/[^0-9.-]/g, '')) || 0;
+                const selling = parseFloat((row.getAttribute('data-selling') || '0').replace(/[^0-9.-]/g, '')) || 0;
+                const gold = parseFloat((row.getAttribute('data-gold') || '0').replace(/[^0-9.-]/g, '')) || 0;
+                const dia = parseInt(row.getAttribute('data-dia') || '0') || 0;
+                totalCost += cost;
+                totalSelling += selling;
+                totalGold += gold;
+                totalDia += dia;
+
+                // Highlight matching SKU text
+                const skuElem = row.querySelector('.cell-sku');
+                if (skuElem) {
+                    const rawText = skuElem.getAttribute('data-original') || skuElem.textContent.trim();
+                    if (!skuElem.getAttribute('data-original')) {
+                        skuElem.setAttribute('data-original', rawText);
+                    }
+                    if (query && rawText.toLowerCase().includes(query)) {
+                        const regex = new RegExp(`(${query})`, 'gi');
+                        skuElem.innerHTML = rawText.replace(regex, '<span class="highlight-search">$1</span>');
+                    } else {
+                        skuElem.textContent = rawText;
+                    }
+                }
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Update live KPI summary ribbon
+        const kpiSkus = document.getElementById('kpiTotalSkus');
+        if (kpiSkus) kpiSkus.textContent = visibleCount;
+        const kpiSelling = document.getElementById('kpiTotalSelling');
+        if (kpiSelling) kpiSelling.textContent = '$' + totalSelling.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const kpiCost = document.getElementById('kpiTotalCost');
+        if (kpiCost) kpiCost.textContent = '$' + totalCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const kpiGold = document.getElementById('kpiTotalGold');
+        if (kpiGold) kpiGold.textContent = totalGold.toFixed(2) + 'g';
+        const kpiDia = document.getElementById('kpiTotalDiamonds');
+        if (kpiDia) kpiDia.textContent = totalDia;
+
+        if (filteredCountBadge) filteredCountBadge.textContent = visibleCount;
+        if (noResultsState) noResultsState.style.display = (visibleCount === 0 && rows.length > 0) ? 'block' : 'none';
+    }
+
+    if (searchInput) searchInput.addEventListener('input', applyRealtimeFilters);
+    if (filterCat) filterCat.addEventListener('change', applyRealtimeFilters);
+    if (filterCol) filterCol.addEventListener('change', applyRealtimeFilters);
+    if (filterShape) filterShape.addEventListener('change', applyRealtimeFilters);
+
+    if (btnClear) {
+        btnClear.addEventListener('click', () => {
+            if (searchInput) {
+                searchInput.value = '';
+                searchInput.focus();
+                applyRealtimeFilters();
+            }
+        });
+    }
+
+    if (btnReset) {
+        btnReset.addEventListener('click', () => {
+            if (searchInput) searchInput.value = '';
+            if (filterCat) filterCat.value = '';
+            if (filterCol) filterCol.value = '';
+            if (filterShape) filterShape.value = '';
+            applyRealtimeFilters();
+        });
+    }
+
+    function clearSearch() {
+        if (searchInput) searchInput.value = '';
+        if (filterCat) filterCat.value = '';
+        if (filterCol) filterCol.value = '';
+        if (filterShape) filterShape.value = '';
+        applyRealtimeFilters();
+    }
+
+    // Add / Edit Record Modal Logic
+    function openEditRecordModal(id) {
+        const row = document.querySelector(`.catalog-row[data-id="${id}"]`);
+        if (!row) return;
+
+        document.getElementById('editRecordId').value = id;
+        document.getElementById('recordModalTitle').innerHTML = '<i class="bi bi-pencil-square me-2"></i> Edit Catalog Item';
+
+        document.getElementById('m_sku').value = row.querySelector('.cell-sku')?.getAttribute('data-original') || row.querySelector('.cell-sku')?.textContent.trim() || '';
+        document.getElementById('m_category').value = row.querySelector('.cell-category-text')?.textContent.trim() || row.getAttribute('data-cat') || '';
+        document.getElementById('m_sheet_name').value = row.getAttribute('data-sheet') || '';
+        document.getElementById('m_lot').value = row.children[1]?.textContent.trim().replace('-', '') || '';
+        document.getElementById('m_certified').value = row.children[4]?.textContent.trim().replace('-', '') || '';
+        document.getElementById('m_gold_kt').value = row.children[5]?.textContent.trim().replace('-', '') || '';
+        document.getElementById('m_gold_color').value = row.getAttribute('data-color') || '';
+        document.getElementById('m_gold_weight').value = row.children[7]?.textContent.trim().replace('-', '') || '';
+        document.getElementById('m_center_clarity').value = row.children[8]?.textContent.trim().replace('-', '') || '';
+        document.getElementById('m_center_color').value = row.children[9]?.textContent.trim().replace('-', '') || '';
+        document.getElementById('m_center_shape').value = row.querySelector('.cell-shape')?.textContent.trim() || '';
+        document.getElementById('m_center_wt').value = row.children[11]?.textContent.trim().replace('-', '') || '';
+        document.getElementById('m_side_shape').value = row.children[12]?.textContent.trim().replace('-', '') || '';
+        document.getElementById('m_side_wt').value = row.children[13]?.textContent.trim().replace('-', '') || '';
+        document.getElementById('m_side_clarity').value = row.children[14]?.textContent.trim().replace('-', '') || '';
+        document.getElementById('m_setting').value = row.children[15]?.textContent.trim().replace('-', '') || '';
+        document.getElementById('m_dia_pcs').value = row.children[16]?.textContent.trim().replace('-', '') || '';
+        document.getElementById('m_cost_usd').value = row.children[17]?.textContent.trim().replace('$', '').replace('-', '') || '';
+        document.getElementById('m_selling_usd').value = row.children[18]?.textContent.trim().replace('$', '').replace('-', '') || '';
+
+        const modal = new bootstrap.Modal(document.getElementById('addRecordModal'));
+        modal.show();
+    }
+
+    function saveRecordModal() {
+        const recordId = document.getElementById('editRecordId').value;
+        const partyId = '{{ item.id }}';
+        const payload = {
+            sku: document.getElementById('m_sku').value.trim(),
+            category: document.getElementById('m_category').value.trim(),
+            sheet_name: document.getElementById('m_sheet_name').value.trim(),
+            lot: document.getElementById('m_lot').value.trim(),
+            certified: document.getElementById('m_certified').value.trim(),
+            gold_kt: document.getElementById('m_gold_kt').value.trim(),
+            gold_color: document.getElementById('m_gold_color').value.trim(),
+            gold_weight: document.getElementById('m_gold_weight').value.trim(),
+            center_diamond_clarity: document.getElementById('m_center_clarity').value.trim(),
+            center_diamond_color: document.getElementById('m_center_color').value.trim(),
+            center_stone_shape: document.getElementById('m_center_shape').value.trim(),
+            center_stone_weight: document.getElementById('m_center_wt').value.trim(),
+            side_stone_shape: document.getElementById('m_side_shape').value.trim(),
+            side_stone_weight: document.getElementById('m_side_wt').value.trim(),
+            side_stone_color_clarity: document.getElementById('m_side_clarity').value.trim(),
+            setting: document.getElementById('m_setting')?.value.trim() || '',
+            total_diamond_pcs: document.getElementById('m_dia_pcs').value.trim(),
+            cost_usd: document.getElementById('m_cost_usd').value.trim(),
+            selling_price_usd: document.getElementById('m_selling_usd').value.trim(),
+        };
+
+        if (!payload.sku) {
+            alert('Please enter a SKU code');
+            return;
+        }
+
+        const url = recordId ? `/party/data-record/${recordId}/update/` : `/party/${partyId}/data/add-record/`;
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Server error'));
+            }
+        })
+        .catch(err => alert('Network error: ' + err));
+    }
+
+    function deleteRecord(id, sku) {
+        if (!confirm(`Delete record for SKU: ${sku || id}?`)) return;
+
+        fetch(`/party/data-record/${id}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const row = document.querySelector(`.catalog-row[data-id="${id}"]`);
+                if (row) {
+                    row.remove();
+                    applyRealtimeFilters();
+                }
+            } else {
+                alert('Error: ' + (data.error || 'Failed to delete'));
+            }
+        })
+        .catch(err => alert('Network error: ' + err));
+    }
+</script>
+{% endblock %}
