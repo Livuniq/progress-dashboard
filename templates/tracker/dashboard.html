@@ -25,27 +25,27 @@
     /* Dashboard Split Layout: Left Sidebar + Maximized Main Table */
     .dashboard-wrapper {
         display: flex;
-        gap: 16px;
+        gap: 18px;
         align-items: flex-start;
         width: 100%;
         position: relative;
     }
 
     .dashboard-sidebar {
-        width: 290px;
-        min-width: 290px;
-        max-width: 290px;
+        width: 295px;
+        min-width: 295px;
+        max-width: 295px;
         background: #ffffff;
-        border: 1px solid var(--card-border);
-        border-radius: 14px;
-        padding: 16px;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        padding: 18px 16px;
+        box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
         position: sticky;
-        top: 14px;
-        max-height: calc(100vh - 28px);
+        top: 76px;
+        max-height: calc(100vh - 90px);
         overflow-y: auto;
         overflow-x: hidden;
-        transition: all 0.25s ease-in-out;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         z-index: 100;
         flex-shrink: 0;
     }
@@ -59,7 +59,7 @@
     }
 
     .dashboard-sidebar.is-collapsed {
-        margin-left: -306px;
+        margin-left: -315px;
         opacity: 0;
         pointer-events: none;
         visibility: hidden;
@@ -69,7 +69,80 @@
         flex: 1 1 0;
         min-width: 0;
         width: 100%;
-        transition: all 0.25s ease-in-out;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Sidebar User Greeting & Branding Card */
+    .sidebar-user-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 12px 14px;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+    }
+
+    /* Sidebar Navigation Pages Section */
+    .sidebar-nav-tab {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        border-radius: 10px;
+        font-size: 0.84rem;
+        font-weight: 500;
+        color: #334155;
+        text-decoration: none;
+        transition: all 0.15s ease;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 6px;
+    }
+    .sidebar-nav-tab:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+        border-color: #cbd5e1;
+    }
+    .sidebar-nav-tab.active {
+        background: #0f172a !important;
+        color: #ffffff !important;
+        font-weight: 600;
+        border-color: #0f172a !important;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+    }
+    .sidebar-nav-tab.active .nav-tab-icon {
+        background: rgba(255, 255, 255, 0.2) !important;
+        color: #ffffff !important;
+    }
+    .sidebar-nav-tab.active span {
+        color: #ffffff !important;
+    }
+    .sidebar-nav-tab.active .badge {
+        background: #ffffff !important;
+        color: #0f172a !important;
+    }
+
+    .nav-tab-icon {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        flex-shrink: 0;
+    }
+
+    /* Quick Search Input with Pill Design */
+    .pill-search-container {
+        border-radius: 9999px;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        transition: all 0.2s ease;
+    }
+    .pill-search-container:focus-within {
+        background: #ffffff;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
     }
 
     /* Sidebar Navigation Items */
@@ -77,8 +150,8 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 6px 10px;
-        border-radius: 8px;
+        padding: 7px 12px;
+        border-radius: 10px;
         font-size: 0.84rem;
         font-weight: 500;
         color: #334155;
@@ -86,15 +159,17 @@
         transition: all 0.15s ease;
         background: #f8fafc;
         border: 1px solid transparent;
+        margin-bottom: 2px;
     }
     .sidebar-filter-item:hover {
-        background: #e2e8f0;
+        background: #f1f5f9;
         color: #0f172a;
     }
     .sidebar-filter-item.active-all {
         background: #0f172a;
         color: #ffffff;
         font-weight: 600;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
     }
     .sidebar-filter-item.active-working {
         background: #d1e7dd;
@@ -142,40 +217,65 @@
     }
 
     .stat-icon-xs {
-        width: 28px !important;
-        height: 28px !important;
-        border-radius: 6px !important;
-        font-size: 0.85rem !important;
+        width: 30px !important;
+        height: 30px !important;
+        border-radius: 9px !important;
+        font-size: 0.95rem !important;
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
     }
 
-    /* Stat card tweaks inside sidebar */
+    /* Stat cards inside sidebar (Taskzone Clean SaaS Look) */
     .dashboard-sidebar .stat-card {
-        border-radius: 10px;
-        box-shadow: none;
-        background: #fafafa;
+        border-radius: 14px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
         cursor: pointer;
-        transition: all 0.15s ease-in-out;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         user-select: none;
+        padding: 10px 12px;
     }
     .dashboard-sidebar .stat-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-        background: #ffffff;
+        box-shadow: 0 8px 18px -4px rgba(15, 23, 42, 0.08);
+        border-color: #cbd5e1;
     }
     .dashboard-sidebar .stat-card.active-metric-filter {
         background: #ffffff !important;
-        box-shadow: 0 0 0 2px #0d6efd, 0 4px 12px rgba(13, 110, 253, 0.15) !important;
+        box-shadow: 0 0 0 2px #2563eb, 0 8px 20px rgba(37, 99, 235, 0.18) !important;
+        border-color: #2563eb !important;
     }
     .dashboard-sidebar .stat-card .h3 {
-        font-size: 1.25rem;
+        font-size: 1.35rem;
+        font-weight: 800;
+        letter-spacing: -0.5px;
     }
 
     /* Maximized table container */
     .dashboard-main .table-custom {
         margin-bottom: 0;
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
+        background: #ffffff;
+    }
+    .dashboard-main .table-custom thead th {
+        background-color: #f8fafc !important;
+        color: #475569 !important;
+        font-size: 0.74rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.5px !important;
+        text-transform: uppercase !important;
+        padding: 10px 12px !important;
+        border-bottom: 2px solid #e2e8f0 !important;
+    }
+    .dashboard-main .table-custom tbody td {
+        padding: 6px 10px !important;
+        vertical-align: middle !important;
+        font-size: 0.81rem !important;
     }
 
     /* Hidden Client Rows */
@@ -254,60 +354,159 @@
 <div class="dashboard-wrapper">
     <!-- Left Sidebar: Controls, Filters & Summary Metrics -->
     <aside class="dashboard-sidebar" id="dashboardSidebar">
-        <!-- Sidebar Header -->
-        <div class="sidebar-header d-flex align-items-center justify-content-between mb-3">
-            <span class="sidebar-title fw-bold text-dark d-flex align-items-center gap-2">
-                <i class="bi bi-sliders text-primary"></i> Control Panel
-            </span>
-            <button type="button" class="btn btn-sm btn-light border text-secondary py-0 px-2" id="collapseSidebarBtn" title="Collapse sidebar to maximize table">
-                <i class="bi bi-chevron-bar-left"></i>
+        <!-- Sidebar User Greeting & Quick Profile Header -->
+        <div class="sidebar-user-card mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="user-avatar-gradient" style="width: 32px; height: 32px; font-size: 0.88rem;">
+                        {{ user.username|slice:":1"|upper }}
+                    </div>
+                    <div class="d-flex flex-column text-start">
+                        <span class="fw-bold text-dark lh-1" style="font-size: 0.95rem;">
+                            Good <span id="timeGreeting">Day</span>, <span class="text-primary">{{ user_profile.display_name|default:user.username }}</span>! 👋
+                        </span>
+                        <span class="text-muted" style="font-size: 0.7rem;">
+                            {% if is_admin %}
+                            <span class="badge bg-warning-subtle text-dark border border-warning-subtle rounded-pill px-2 py-0">Administrator</span>
+                            {% else %}
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0">{{ user_profile.get_role_display|default:'Operator' }}</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-white border text-secondary py-1 px-2 rounded-2 shadow-sm" id="collapseSidebarBtn" title="Hide Sidebar">
+                    <i class="bi bi-chevron-bar-left"></i>
+                </button>
+            </div>
+            
+            {% if can_add_party %}
+            <button class="btn btn-primary btn-sm w-100 fw-semibold mt-2 py-2 d-flex align-items-center justify-content-center gap-2 rounded-3 shadow-sm hero-cta-btn" data-bs-toggle="modal" data-bs-target="#addModal">
+                <i class="bi bi-plus-circle-fill"></i>
+                <span>Add New Client</span>
             </button>
+            {% endif %}
         </div>
 
-        <!-- 1. Quick Search -->
+        <!-- Navigation Pages Section (Admin & Permissions Protected) -->
         <div class="sidebar-section mb-3">
-            <div class="input-group input-group-sm">
-                <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
-                <input type="text" id="liveSearchInput" class="form-control" placeholder="Quick search..." value="{{ search_query }}">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="small fw-bold text-uppercase text-secondary" style="font-size: 11px; letter-spacing: 0.5px;">Navigation Pages</span>
+            </div>
+            
+            <!-- 1. Dashboard (Always accessible to logged in users) -->
+            <button type="button" class="sidebar-nav-tab active w-100 border-0 text-start" id="sidebarDashboardTab" onclick="showProcessTableView()">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="nav-tab-icon" style="background: rgba(255, 255, 255, 0.2); color: #ffffff;"><i class="bi bi-grid-fill"></i></div>
+                    <span class="small">Dashboard & Process</span>
+                </div>
+                <span class="badge bg-white text-dark rounded-pill px-2 py-0" style="font-size: 10px;">{{ total_clients }}</span>
+            </button>
+
+            <!-- 2. Admin Panel (STRICTLY GATED BY ADMIN PERMISSION) -->
+            {% if is_admin %}
+            <a href="{% url 'tracker:admin_panel' %}" class="sidebar-nav-tab">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="nav-tab-icon" style="background: #fef3c7; color: #b45309;"><i class="bi bi-shield-shaded"></i></div>
+                    <span class="small">Admin Panel</span>
+                </div>
+                <span class="badge bg-warning-subtle text-dark border border-warning-subtle rounded-pill px-2 py-0" style="font-size: 9.5px;">Admin Only</span>
+            </a>
+            {% endif %}
+
+            <!-- 3. SKU Catalog Data (Gated by can_view_party_data) -->
+            {% if can_view_party_data %}
+            <div class="dropdown mb-1">
+                <button class="sidebar-nav-tab w-100 border-0 bg-transparent text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="sidebarCatalogNavBtn">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="nav-tab-icon" style="background: #e0f2fe; color: #0284c7;"><i class="bi bi-file-earmark-spreadsheet-fill"></i></div>
+                        <span class="small">Product & SKU Catalog</span>
+                    </div>
+                </button>
+                <ul class="dropdown-menu shadow-lg border-0 py-2 rounded-3" style="max-height: 240px; overflow-y: auto; min-width: 230px;">
+                    <li class="px-3 py-1 text-muted small fw-bold" style="font-size: 10px; text-transform: uppercase;">Select Client Catalog:</li>
+                    {% for p in items %}
+                    <li>
+                        <button type="button" class="dropdown-item py-1 px-3 small d-flex align-items-center justify-content-between border-0 bg-transparent text-start w-100" onclick="openPartyCatalogSamePage('{{ p.pk }}', '{{ p.client_name|escapejs }}')">
+                            <span class="text-truncate" style="max-width: 160px;">{{ p.client_name }}</span>
+                            <i class="bi bi-eye text-primary" style="font-size: 11px;"></i>
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <!-- 4. Custom Tabs & Tables (Gated by can_view_party_details) -->
+            {% if can_view_party_details %}
+            <div class="dropdown mb-1">
+                <button class="sidebar-nav-tab w-100 border-0 bg-transparent text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="nav-tab-icon" style="background: #f1f5f9; color: #475569;"><i class="bi bi-folder2-open"></i></div>
+                        <span class="small">Custom Tabs & Tables</span>
+                    </div>
+                </button>
+                <ul class="dropdown-menu shadow-lg border-0 py-2 rounded-3" style="max-height: 240px; overflow-y: auto; min-width: 230px;">
+                    <li class="px-3 py-1 text-muted small fw-bold" style="font-size: 10px; text-transform: uppercase;">Select Client Details:</li>
+                    {% for p in items %}
+                    <li>
+                        <a class="dropdown-item py-1 px-3 small d-flex align-items-center justify-content-between" href="{% url 'tracker:party_detail' p.pk %}">
+                            <span class="text-truncate" style="max-width: 160px;">{{ p.client_name }}</span>
+                            <i class="bi bi-arrow-right text-muted" style="font-size: 10px;"></i>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+
+        <hr class="my-2 text-muted opacity-25">
+
+        <!-- Quick Search with Modern Pill Styling -->
+        <div class="sidebar-section mb-3">
+            <div class="pill-search-container d-flex align-items-center px-3 py-1">
+                <i class="bi bi-search text-muted me-2" style="font-size: 0.85rem;"></i>
+                <input type="text" id="liveSearchInput" class="form-control form-control-sm border-0 bg-transparent shadow-none px-0 py-1" placeholder="Search clients, lots, notes..." value="{{ search_query }}" style="font-size: 0.84rem;">
+                {% if search_query %}
+                <button type="button" class="btn btn-link btn-sm text-secondary p-0 ms-1 text-decoration-none" onclick="document.getElementById('liveSearchInput').value=''; filterTableLive('');" title="Clear search">&times;</button>
+                {% endif %}
             </div>
         </div>
 
-        <!-- 2. Primary Actions -->
+        <!-- Quick Actions & Settings -->
         <div class="sidebar-section mb-3">
-            {% if can_add_party %}
-            <button class="btn btn-primary btn-sm w-100 fw-semibold mb-2 py-2 d-flex align-items-center justify-content-center gap-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#addModal">
-                <i class="bi bi-plus-lg"></i> Add New Client
-            </button>
-            {% endif %}
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="small fw-bold text-uppercase text-secondary" style="font-size: 11px; letter-spacing: 0.5px;">Quick Actions</span>
+            </div>
             <div class="row g-1">
                 {% if can_manage_settings %}
                 <div class="col-4">
-                    <button class="btn btn-sm btn-outline-dark w-100 text-truncate py-1 px-1" data-bs-toggle="modal" data-bs-target="#headerModal" title="Add, edit, or remove header columns" style="font-size: 11px;">
-                        <i class="bi bi-layout-three-columns me-1"></i> Headers
+                    <button class="btn btn-sm btn-outline-secondary bg-white w-100 text-truncate py-1 px-1 rounded-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#headerModal" title="Add, edit, or remove header columns" style="font-size: 11px; border-color: #e2e8f0;">
+                        <i class="bi bi-layout-three-columns me-1 text-primary"></i> Headers
                     </button>
                 </div>
                 <div class="col-4">
-                    <button class="btn btn-sm btn-outline-dark w-100 text-truncate py-1 px-1" data-bs-toggle="modal" data-bs-target="#colorsModal" title="Change row highlight colors using Hex" style="font-size: 11px;">
-                        <i class="bi bi-palette me-1"></i> Colors
+                    <button class="btn btn-sm btn-outline-secondary bg-white w-100 text-truncate py-1 px-1 rounded-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#colorsModal" title="Change row highlight colors using Hex" style="font-size: 11px; border-color: #e2e8f0;">
+                        <i class="bi bi-palette me-1 text-warning"></i> Colors
                     </button>
                 </div>
                 <div class="col-4">
-                    <button class="btn btn-sm btn-outline-primary w-100 text-truncate py-1 px-1" data-bs-toggle="modal" data-bs-target="#statusManagerModal" title="Add, edit, or remove status options" style="font-size: 11px;">
-                        <i class="bi bi-tags me-1"></i> Statuses
+                    <button class="btn btn-sm btn-outline-secondary bg-white w-100 text-truncate py-1 px-1 rounded-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#statusManagerModal" title="Add, edit, or remove status options" style="font-size: 11px; border-color: #e2e8f0;">
+                        <i class="bi bi-tags me-1 text-info"></i> Statuses
                     </button>
                 </div>
                 {% endif %}
                 {% if can_export_excel %}
                 <div class="{% if can_import_excel %}col-6{% else %}col-12{% endif %}">
-                    <button type="button" class="btn btn-sm btn-outline-success w-100 text-truncate py-1 px-1" data-bs-toggle="modal" data-bs-target="#exportModal" title="Download Excel (.xlsx) options" style="font-size: 11.5px;">
+                    <button type="button" class="btn btn-sm btn-outline-success bg-white w-100 text-truncate py-1 px-1 rounded-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#exportModal" title="Download Excel (.xlsx) options" style="font-size: 11.5px; border-color: #86efac;">
                         <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export
                     </button>
                 </div>
                 {% endif %}
                 {% if can_import_excel %}
                 <div class="{% if can_export_excel %}col-6{% else %}col-12{% endif %}">
-                    <button class="btn btn-sm btn-outline-secondary w-100 text-truncate py-1 px-1" data-bs-toggle="modal" data-bs-target="#importModal" title="Upload Excel (.xlsx)" style="font-size: 11.5px;">
-                        <i class="bi bi-upload me-1"></i> Import
+                    <button class="btn btn-sm btn-outline-secondary bg-white w-100 text-truncate py-1 px-1 rounded-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#importModal" title="Upload Excel (.xlsx)" style="font-size: 11.5px; border-color: #e2e8f0;">
+                        <i class="bi bi-upload me-1 text-primary"></i> Import
                     </button>
                 </div>
                 {% endif %}
@@ -316,7 +515,7 @@
 
         <hr class="my-3 text-muted opacity-25">
 
-        <!-- 3. Key Metrics / KPI Summary Cards -->
+        <!-- Key Metrics / KPI Summary Cards (Taskzone Modern Clean Aesthetic) -->
         <div class="sidebar-section">
             <div class="d-flex align-items-center justify-content-between mb-2">
                 <span class="small fw-bold text-uppercase text-secondary" style="font-size: 11px; letter-spacing: 0.5px;">Summary Metrics</span>
@@ -326,66 +525,66 @@
                 <div class="col-6">
                     <div class="stat-card p-2 text-start" data-metric-filter="all" title="Click to show all visible clients">
                         <div class="d-flex align-items-center justify-content-between mb-1">
-                            <span class="text-secondary small fw-medium" style="font-size: 10px;">Total Clients</span>
-                            <div class="stat-icon stat-icon-xs bg-light text-primary"><i class="bi bi-people-fill"></i></div>
+                            <span class="text-secondary small fw-bold" style="font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.3px;">Total</span>
+                            <div class="stat-icon stat-icon-xs" style="background: #eff6ff; color: #2563eb;"><i class="bi bi-people-fill"></i></div>
                         </div>
                         <div class="h3 fw-bold mb-0 text-dark" id="statTotalCount">{{ total_clients }}</div>
-                        <span class="text-muted" style="font-size: 9px;">Registered Accounts</span>
+                        <span class="text-muted" style="font-size: 8.5px;">Accounts</span>
                     </div>
                 </div>
                 <!-- Working -->
                 <div class="col-6">
                     <div class="stat-card p-2 text-start" data-metric-filter="working" title="Click to filter by Working">
                         <div class="d-flex align-items-center justify-content-between mb-1">
-                            <span class="text-secondary small fw-medium" style="font-size: 10px;">Working</span>
-                            <div class="stat-icon stat-icon-xs bg-success-subtle text-success"><i class="bi bi-play-circle-fill"></i></div>
+                            <span class="text-secondary small fw-bold" style="font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.3px;">Working</span>
+                            <div class="stat-icon stat-icon-xs" style="background: #ecfdf5; color: #059669;"><i class="bi bi-play-circle-fill"></i></div>
                         </div>
                         <div class="h3 fw-bold mb-0 text-success" id="statWorkingCount">{{ working_count }}</div>
-                        <span class="text-muted" style="font-size: 9px;">Active in progress</span>
+                        <span class="text-muted" style="font-size: 8.5px;">Active</span>
                     </div>
                 </div>
                 <!-- No Data -->
                 <div class="col-6">
                     <div class="stat-card p-2 text-start" data-metric-filter="no_data" title="Click to filter by No Data">
                         <div class="d-flex align-items-center justify-content-between mb-1">
-                            <span class="text-secondary small fw-medium" style="font-size: 10px;">No Data</span>
-                            <div class="stat-icon stat-icon-xs bg-danger-subtle text-danger"><i class="bi bi-exclamation-octagon-fill"></i></div>
+                            <span class="text-secondary small fw-bold" style="font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.3px;">No Data</span>
+                            <div class="stat-icon stat-icon-xs" style="background: #fff1f2; color: #e11d48;"><i class="bi bi-exclamation-octagon-fill"></i></div>
                         </div>
                         <div class="h3 fw-bold mb-0 text-danger" id="statNoDataCount">{{ no_data_count }}</div>
-                        <span class="text-muted" style="font-size: 9px;">Needs Attention</span>
+                        <span class="text-muted" style="font-size: 8.5px;">Alerts</span>
                     </div>
                 </div>
                 <!-- Finished -->
                 <div class="col-6">
                     <div class="stat-card p-2 text-start" data-metric-filter="finished" title="Click to filter by Finished">
                         <div class="d-flex align-items-center justify-content-between mb-1">
-                            <span class="text-secondary small fw-medium" style="font-size: 10px;">Finished</span>
-                            <div class="stat-icon stat-icon-xs bg-secondary-subtle text-secondary"><i class="bi bi-check2-circle"></i></div>
+                            <span class="text-secondary small fw-bold" style="font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.3px;">Finished</span>
+                            <div class="stat-icon stat-icon-xs" style="background: #f1f5f9; color: #475569;"><i class="bi bi-check2-circle"></i></div>
                         </div>
                         <div class="h3 fw-bold mb-0 text-dark" id="statFinishedCount">{{ finished_count }}</div>
-                        <span class="text-muted" style="font-size: 9px;">Completed lots</span>
+                        <span class="text-muted" style="font-size: 8.5px;">Completed</span>
                     </div>
                 </div>
                 <!-- Overdue Items -->
                 <div class="col-6">
                     <div class="stat-card p-2 text-start border-danger-subtle" data-metric-filter="overdue" title="Click to filter by Overdue items">
                         <div class="d-flex align-items-center justify-content-between mb-1">
-                            <span class="text-secondary small fw-medium" style="font-size: 10px;">Overdue Items</span>
-                            <div class="stat-icon stat-icon-xs bg-danger-subtle text-danger"><i class="bi bi-clock-history"></i></div>
+                            <span class="text-secondary small fw-bold" style="font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.3px;">Overdue</span>
+                            <div class="stat-icon stat-icon-xs" style="background: #fef2f2; color: #dc2626;"><i class="bi bi-clock-history"></i></div>
                         </div>
                         <div class="h3 fw-bold mb-0 text-danger" id="statOverdueCount">{{ overdue_count }}</div>
-                        <span class="text-danger" style="font-size: 9px;">Past target date</span>
+                        <span class="text-danger" style="font-size: 8.5px;">Late</span>
                     </div>
                 </div>
                 <!-- Pending Units -->
                 <div class="col-6">
                     <div class="stat-card p-2 text-start" data-metric-filter="pending_units" title="Click to filter by Pending clients">
                         <div class="d-flex align-items-center justify-content-between mb-1">
-                            <span class="text-secondary small fw-medium" style="font-size: 10px;">Pending Units</span>
-                            <div class="stat-icon stat-icon-xs bg-warning-subtle text-warning"><i class="bi bi-hourglass-split"></i></div>
+                            <span class="text-secondary small fw-bold" style="font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.3px;">Pending</span>
+                            <div class="stat-icon stat-icon-xs" style="background: #fffbeb; color: #d97706;"><i class="bi bi-hourglass-split"></i></div>
                         </div>
                         <div class="h3 fw-bold mb-0 text-dark" id="statPendingCount">{{ total_pending }}</div>
-                        <span class="text-muted" style="font-size: 9px;">In pipeline: <span id="statReadyCount">{{ total_ready }}</span></span>
+                        <span class="text-muted" style="font-size: 8.5px;">Ready: <span id="statReadyCount">{{ total_ready }}</span></span>
                     </div>
                 </div>
             </div>
@@ -394,29 +593,31 @@
 
     <!-- Main Content Area: Maximized Main Table -->
     <main class="dashboard-main" id="dashboardMain">
-        <!-- Compact Toolbar above table -->
-        <div class="d-flex align-items-center justify-content-between mb-2 px-1">
-            <div class="d-flex align-items-center gap-2">
-                <button type="button" class="btn btn-sm btn-white border shadow-sm px-2 py-1 sidebar-toggle-btn" id="expandSidebarBtn" title="Toggle sidebar to maximize table width">
+        <!-- View 1: Main Process Dashboard Table -->
+        <div id="processTableView">
+            <!-- Compact Toolbar above table -->
+        <div class="d-flex align-items-center justify-content-between mb-2 px-1 flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button type="button" class="btn btn-sm btn-white border shadow-sm px-3 py-1 rounded-pill sidebar-toggle-btn fw-semibold bg-white" id="expandSidebarBtn" title="Toggle sidebar to maximize table width" style="font-size: 0.8rem;">
                     <i class="bi bi-layout-sidebar-inset me-1 text-primary"></i>
-                    <span class="small fw-semibold" id="sidebarToggleLabel">Hide Sidebar</span>
+                    <span id="sidebarToggleLabel">Hide Sidebar</span>
                 </button>
-                <span class="badge bg-light text-secondary border px-2 py-1 small {% if not status_filter or status_filter == 'all' %}d-none{% endif %}" id="activeFilterBadge">
+                <span class="badge bg-white text-secondary border shadow-sm px-3 py-1 rounded-pill small {% if not status_filter or status_filter == 'all' %}d-none{% endif %}" id="activeFilterBadge" style="font-size: 0.8rem;">
                     Filter: <strong class="text-dark" id="activeFilterLabel">{{ status_filter|title }}</strong>
-                    <button type="button" class="btn btn-link text-danger p-0 ms-1 fw-bold text-decoration-none" id="clearFilterBtn" title="Clear filter" style="font-size: 13px; line-height: 1;">&times;</button>
+                    <button type="button" class="btn btn-link text-danger p-0 ms-1 fw-bold text-decoration-none" id="clearFilterBtn" title="Clear filter" style="font-size: 14px; line-height: 1;">&times;</button>
                 </span>
-                <button type="button" class="btn btn-sm btn-white border shadow-sm px-2 py-1" id="toggleShowHiddenBtn" title="Toggle visibility of hidden clients">
+                <button type="button" class="btn btn-sm btn-white border shadow-sm px-3 py-1 rounded-pill fw-semibold bg-white" id="toggleShowHiddenBtn" title="Toggle visibility of hidden clients" style="font-size: 0.8rem;">
                     <i class="bi bi-eye-slash me-1 text-secondary" id="toggleShowHiddenIcon"></i>
-                    <span class="small fw-semibold" id="toggleShowHiddenLabel">Show Hidden</span>
+                    <span id="toggleShowHiddenLabel">Show Hidden</span>
                     <span class="badge bg-secondary-subtle text-secondary rounded-pill ms-1" id="hiddenCountBadge">{{ hidden_count }}</span>
                 </button>
-                <span class="text-muted small d-none d-sm-inline">
-                    Showing <strong id="showingClientsCount">{{ visible_count }}</strong> client accounts
+                <span class="text-muted small d-none d-sm-inline" style="font-size: 0.82rem;">
+                    Showing <strong id="showingClientsCount" class="text-dark">{{ visible_count }}</strong> clients
                 </span>
             </div>
             <div class="d-flex align-items-center gap-2">
-                <span class="text-muted small d-none d-md-inline" style="font-size: 11.5px;">
-                    <i class="bi bi-info-circle me-1"></i> Double-click to edit cell | Long-press row for priority
+                <span class="text-muted small d-none d-md-inline" style="font-size: 0.78rem;">
+                    <i class="bi bi-info-circle text-primary me-1"></i> Double-click to edit cell &bull; Right-click for SKU Catalog
                 </span>
             </div>
         </div>
@@ -652,9 +853,9 @@
                                     </a>
                                     {% endif %}
                                     {% if can_view_party_data %}
-                                    <a href="{% url 'tracker:party_data' item.id %}" target="_blank" class="btn btn-light text-info py-0 px-2" title="Open Product & SKU Catalog Data">
-                                        <i class="bi bi-file-earmark-spreadsheet"></i>
-                                    </a>
+                                    <button type="button" class="btn btn-light text-info py-0 px-2" title="Open Product & SKU Catalog Data (Same Page)" onclick="openPartyCatalogSamePage('{{ item.id }}', '{{ item.client_name|escapejs }}')">
+                                        <i class="bi bi-file-earmark-spreadsheet-fill"></i>
+                                    </button>
                                     {% endif %}
                                     {% if can_view_history %}
                                     <button class="btn btn-light text-secondary py-0 px-2 btn-history" data-id="{{ item.id }}" title="View Edit History">
@@ -695,6 +896,42 @@
         </table>
     </div>
 </div>
+        </div> <!-- /#processTableView -->
+
+        <!-- View 2: Product & SKU Catalog View (Same-Page Display) -->
+        <div id="catalogDataView" class="d-none">
+            <!-- Catalog View Header Bar -->
+            <div class="d-flex align-items-center justify-content-between mb-2 px-3 py-2 bg-white rounded-3 border shadow-sm flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 py-1 fw-semibold d-inline-flex align-items-center gap-1 shadow-sm" onclick="showProcessTableView()" title="Back to Process Table">
+                        <i class="bi bi-arrow-left"></i>
+                        <span>Back to Dashboard</span>
+                    </button>
+                    <span class="text-muted small d-none d-sm-inline">|</span>
+                    <span class="fw-bold text-dark fs-6" id="catalogViewClientTitle">Product & SKU Catalog</span>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0 small" id="catalogViewClientBadge">Same-Page View</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-white border rounded-pill px-3 py-1 fw-semibold bg-white shadow-sm" onclick="refreshCatalogFrame()" title="Reload catalog data">
+                        <i class="bi bi-arrow-clockwise me-1 text-primary"></i>
+                        <span>Refresh</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-white border rounded-pill px-3 py-1 fw-semibold bg-white shadow-sm" onclick="popOutCatalogFrame()" title="Open catalog in new tab if needed">
+                        <i class="bi bi-box-arrow-up-right me-1 text-secondary"></i>
+                        <span>New Tab</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Embedded Catalog Iframe Container (Full Screen Responsive) -->
+            <div class="catalog-frame-wrapper rounded-3 overflow-hidden border bg-white shadow-sm position-relative" style="height: calc(100vh - 142px);">
+                <div id="catalogFrameLoader" class="position-absolute top-50 start-50 translate-middle text-center" style="z-index: 5;">
+                    <div class="spinner-border text-primary mb-2" role="status" style="width: 2.2rem; height: 2.2rem;"></div>
+                    <div class="text-secondary small fw-semibold">Loading Catalog Data...</div>
+                </div>
+                <iframe id="catalogFrame" src="" style="width: 100%; height: 100%; border: none; display: block; position: relative; z-index: 10;" onload="const l=document.getElementById('catalogFrameLoader'); if(l) l.style.display='none';" allow="clipboard-write"></iframe>
+            </div>
+        </div> <!-- /#catalogDataView -->
     </main>
 </div>
 
@@ -1680,12 +1917,17 @@
 
     function updateSidebarState(collapsed) {
         if (!dashboardSidebar) return;
+        const icon = expandSidebarBtn ? expandSidebarBtn.querySelector('i') : null;
         if (collapsed) {
             dashboardSidebar.classList.add('is-collapsed');
             if (sidebarToggleLabel) sidebarToggleLabel.textContent = 'Show Sidebar';
+            if (icon) icon.className = 'bi bi-layout-sidebar me-1 text-primary';
+            if (expandSidebarBtn) expandSidebarBtn.title = 'Show sidebar to access navigation & filters';
         } else {
             dashboardSidebar.classList.remove('is-collapsed');
             if (sidebarToggleLabel) sidebarToggleLabel.textContent = 'Hide Sidebar';
+            if (icon) icon.className = 'bi bi-layout-sidebar-inset me-1 text-primary';
+            if (expandSidebarBtn) expandSidebarBtn.title = 'Hide sidebar to maximize table width';
         }
     }
 
@@ -1709,6 +1951,122 @@
             localStorage.setItem('process_dashboard_sidebar_collapsed', 'true');
         });
     }
+
+    // ==========================================
+    // SAME-PAGE PRODUCT & SKU CATALOG VIEW CONTROLLER
+    // ==========================================
+    let currentCatalogPartyId = null;
+
+    window.openPartyCatalogSamePage = function(itemId, clientName) {
+        if (!itemId) return;
+        currentCatalogPartyId = itemId;
+
+        const processView = document.getElementById('processTableView');
+        const catalogView = document.getElementById('catalogDataView');
+        const catalogFrame = document.getElementById('catalogFrame');
+        const titleEl = document.getElementById('catalogViewClientTitle');
+        const badgeEl = document.getElementById('catalogViewClientBadge');
+
+        if (titleEl) {
+            titleEl.textContent = (clientName ? clientName + ' - ' : '') + 'Product & SKU Catalog';
+        }
+        if (badgeEl) {
+            badgeEl.textContent = clientName || 'Catalog Data';
+        }
+
+        const loader = document.getElementById('catalogFrameLoader');
+        if (loader) loader.style.display = 'block';
+
+        if (catalogFrame) {
+            // Load embedded version without double navbar/header
+            catalogFrame.src = `/party/${itemId}/data/?embedded=1`;
+        }
+
+        if (processView) processView.classList.add('d-none');
+        if (catalogView) catalogView.classList.remove('d-none');
+
+        // Update URL query string without reloading
+        try {
+            const url = new URL(window.location.href);
+            url.searchParams.set('catalog', itemId);
+            window.history.pushState({ view: 'catalog', itemId: itemId, clientName: clientName }, '', url.toString());
+        } catch (e) {
+            console.warn(e);
+        }
+
+        // Update active class in sidebar tabs
+        document.querySelectorAll('.sidebar-nav-tab').forEach(tab => tab.classList.remove('active'));
+        const catalogNavBtn = document.getElementById('sidebarCatalogNavBtn');
+        if (catalogNavBtn) catalogNavBtn.classList.add('active');
+
+        // Smooth scroll to top of main area
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.showProcessTableView = function() {
+        const processView = document.getElementById('processTableView');
+        const catalogView = document.getElementById('catalogDataView');
+
+        if (processView) processView.classList.remove('d-none');
+        if (catalogView) catalogView.classList.add('d-none');
+
+        currentCatalogPartyId = null;
+
+        // Reset URL query param without reload
+        try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('catalog');
+            window.history.pushState({ view: 'dashboard' }, '', url.toString());
+        } catch (e) {
+            console.warn(e);
+        }
+
+        // Reset sidebar active tab
+        document.querySelectorAll('.sidebar-nav-tab').forEach(tab => tab.classList.remove('active'));
+        const dashboardTab = document.getElementById('sidebarDashboardTab');
+        if (dashboardTab) dashboardTab.classList.add('active');
+
+        if (typeof updateDynamicDashboard === 'function') {
+            updateDynamicDashboard();
+        }
+    };
+
+    window.refreshCatalogFrame = function() {
+        const catalogFrame = document.getElementById('catalogFrame');
+        if (catalogFrame && currentCatalogPartyId) {
+            catalogFrame.src = `/party/${currentCatalogPartyId}/data/?embedded=1&t=` + new Date().getTime();
+        }
+    };
+
+    window.popOutCatalogFrame = function() {
+        if (currentCatalogPartyId) {
+            window.open(`/party/${currentCatalogPartyId}/data/`, '_blank');
+        }
+    };
+
+    // Support browser Back / Forward buttons
+    window.addEventListener('popstate', function(e) {
+        try {
+            const url = new URL(window.location.href);
+            const catalogId = url.searchParams.get('catalog');
+            if (catalogId) {
+                openPartyCatalogSamePage(catalogId);
+            } else {
+                showProcessTableView();
+            }
+        } catch (err) {}
+    });
+
+    // Auto-open catalog if URL has ?catalog=<id> on load
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            const url = new URL(window.location.href);
+            const catalogId = url.searchParams.get('catalog');
+            if (catalogId) {
+                openPartyCatalogSamePage(catalogId);
+            }
+        } catch (err) {}
+    });
 
     // Active Status Filter State (supports: 'all', 'working', 'no_data', 'finished', 'overdue', 'pending_units')
     let activeMetricFilter = '{{ status_filter|default:"all" }}';
@@ -3208,11 +3566,23 @@
         });
     });
 
-    // Run dynamic date check on page load
+    function initTimeGreeting() {
+        const hour = new Date().getHours();
+        const el = document.getElementById('timeGreeting');
+        if (el) {
+            if (hour < 12) el.textContent = 'Morning';
+            else if (hour < 17) el.textContent = 'Afternoon';
+            else el.textContent = 'Evening';
+        }
+    }
+
+    // Run dynamic date check & greeting on page load
     document.addEventListener('DOMContentLoaded', () => {
+        initTimeGreeting();
         updateDynamicDashboard();
         updateOrderBadgesAndInputs();
     });
+    initTimeGreeting();
     updateDynamicDashboard();
 
     // ==========================================
@@ -3354,9 +3724,10 @@
             e.stopPropagation();
             if (currentTargetRow) {
                 const itemId = currentTargetRow.getAttribute('data-id');
+                const clientName = currentTargetRow.getAttribute('data-client-name') || currentTargetRow.querySelector('.client-name-text')?.textContent.trim() || 'Client';
                 closeRowContextMenu();
                 if (itemId) {
-                    window.open(`/party/${itemId}/data/`, '_blank');
+                    openPartyCatalogSamePage(itemId, clientName);
                 }
             }
         });

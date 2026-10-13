@@ -7,6 +7,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.clickjacking import xframe_options_exempt, xframe_options_sameorigin
 from django.conf import settings
 from datetime import date, datetime
 import os
@@ -2434,6 +2435,7 @@ def parse_catalog_file(uploaded_file):
 
 
 @login_required
+@xframe_options_exempt
 def party_data_view(request, pk):
     """
     Dedicated Product / Catalog / SKU Data page for a specific Party.
@@ -2590,6 +2592,7 @@ def party_data_view(request, pk):
 
 @login_required
 @csrf_exempt
+@xframe_options_exempt
 def party_data_import(request, pk):
     """
     Import Excel (.xlsx/.xls) or CSV data into PartyDataRecord.
@@ -2806,6 +2809,7 @@ def party_data_import(request, pk):
 
 @login_required
 @csrf_exempt
+@xframe_options_exempt
 def party_data_deduplicate(request, pk):
     """
     Scans all catalog records for this party and deletes any duplicate rows,
@@ -2965,6 +2969,7 @@ def party_data_export(request, pk):
 
 @login_required
 @csrf_exempt
+@xframe_options_exempt
 def party_data_clear(request, pk):
     """Clear all catalog data records for a party with permission check and random CAPTCHA validation"""
     profile = UserAccessProfile.get_or_create_for_user(request.user)

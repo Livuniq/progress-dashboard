@@ -133,3 +133,6 @@ LOGIN_URL = 'tracker:login'
 LOGIN_REDIRECT_URL = 'tracker:dashboard'
 LOGOUT_REDIRECT_URL = 'tracker:login'
 
+# Allow same-origin iframe embedding for same-page catalog display
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+

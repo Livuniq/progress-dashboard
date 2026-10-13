@@ -9,35 +9,125 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <!-- Google Fonts: Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --primary-bg: #f8fafc;
+            --primary-bg: #f4f7fe;
             --card-border: #e2e8f0;
             --excel-green-bg: #d1e7dd;
             --excel-green-text: #0f5132;
             --excel-pink-bg: #f8d7da;
             --excel-pink-text: #842029;
+            --brand-primary: #2563eb;
             --brand-dark: #0f172a;
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--primary-bg);
-            color: #1e293b;
+            color: #0f172a;
+            -webkit-font-smoothing: antialiased;
         }
 
         .navbar-custom {
-            background-color: var(--brand-dark);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
+            transition: all 0.2s ease;
         }
 
         .navbar-brand {
             font-weight: 700;
-            letter-spacing: -0.5px;
-            color: #fff !important;
+            letter-spacing: -0.4px;
+            color: #0f172a !important;
+        }
+
+        .brand-logo-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 9px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.28);
+        }
+
+        .nav-pill-custom {
+            color: #475569 !important;
+            font-weight: 500;
+            font-size: 0.88rem;
+            padding: 7px 14px !important;
+            border-radius: 10px;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+        }
+
+        .nav-pill-custom:hover {
+            background-color: #f1f5f9;
+            color: #0f172a !important;
+        }
+
+        .nav-pill-custom.active {
+            background-color: #eff6ff !important;
+            color: #1d4ed8 !important;
+            font-weight: 600;
+        }
+
+        .nav-pill-custom.active-admin {
+            background-color: #fffbeb !important;
+            color: #b45309 !important;
+            font-weight: 600;
+        }
+
+        .date-pill {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            color: #475569;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 5px 14px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+        }
+
+        .user-profile-pill {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 9999px;
+            padding: 4px 12px 4px 5px !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            transition: all 0.15s ease;
+            cursor: pointer;
+        }
+
+        .user-profile-pill:hover {
+            border-color: #cbd5e1;
+            background: #f8fafc;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+        }
+
+        .user-avatar-gradient {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1, #3b82f6);
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 0.82rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
         }
 
         .stat-card {
@@ -945,56 +1035,65 @@
         </div>
     </div>
 
-    <!-- Top Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom py-2">
-        <div class="container-fluid px-4">
-            <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'tracker:dashboard' %}">
-                <i class="bi bi-kanban-fill text-primary fs-4"></i>
-                <span>Process Dashboard</span>
+    <!-- Top Navigation (Modern Light SaaS Style) -->
+    {% if not request.GET.embedded %}
+    <nav class="navbar navbar-expand-lg navbar-light navbar-custom py-2 sticky-top">
+        <div class="container-fluid px-3 px-md-4">
+            <a class="navbar-brand d-flex align-items-center gap-2 py-0" href="{% url 'tracker:dashboard' %}">
+                <div class="brand-logo-icon">
+                    <i class="bi bi-kanban-fill fs-5"></i>
+                </div>
+                <div class="d-flex flex-column">
+                    <span class="fw-bolder text-dark lh-1" style="font-size: 1.05rem; letter-spacing: -0.4px;">Process Dashboard</span>
+                    <span class="text-muted fw-semibold" style="font-size: 0.65rem; letter-spacing: 0.4px; text-transform: uppercase;">Operations &bull; v2.0</span>
+                </div>
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav">
+            <button class="navbar-toggler border-0 shadow-none px-1" type="button" data-bs-toggle="collapse" data-bs-target="#topNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="topNav">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3 gap-1">
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'tracker:dashboard' %}">
-                            <i class="bi bi-speedometer2 me-1"></i> Dashboard & Process
+                        <a class="nav-pill-custom {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'tracker:dashboard' %}">
+                            <i class="bi bi-grid-fill"></i>
+                            <span>Dashboard</span>
                         </a>
                     </li>
                     {% if is_admin %}
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'admin_panel' %}active{% endif %}" href="{% url 'tracker:admin_panel' %}">
-                            <i class="bi bi-shield-shaded me-1 text-warning"></i> Admin Panel
+                        <a class="nav-pill-custom {% if request.resolver_match.url_name == 'admin_panel' %}active-admin{% endif %}" href="{% url 'tracker:admin_panel' %}">
+                            <i class="bi bi-shield-shaded text-warning"></i>
+                            <span>Admin Panel</span>
                         </a>
                     </li>
                     {% endif %}
                 </ul>
 
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-dark border border-secondary text-light px-3 py-2 d-none d-md-inline-block">
-                        <i class="bi bi-calendar3 me-1"></i> Today: {{ today|date:"d/m/Y" }}
+                <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                    <span class="date-pill d-none d-md-inline-flex align-items-center gap-1">
+                        <i class="bi bi-calendar3 text-primary me-1"></i> {{ today|date:"d M Y" }}
                     </span>
 
                     {% if user.is_authenticated %}
                     <div class="dropdown">
-                        <button class="btn btn-sm btn-outline-light d-flex align-items-center gap-2 py-1 px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <div class="user-avatar-circle-sm">
+                        <button class="btn user-profile-pill d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <div class="user-avatar-gradient">
                                 {{ user.username|slice:":1"|upper }}
                             </div>
-                            <span class="fw-semibold d-none d-sm-inline">{{ user_profile.display_name|default:user.username }}</span>
-                            {% if is_admin %}
-                                <span class="badge bg-warning text-dark" style="font-size: 0.65rem;">Admin</span>
-                            {% else %}
-                                <span class="badge bg-secondary" style="font-size: 0.65rem;">{{ user_profile.get_role_display|default:'User' }}</span>
-                            {% endif %}
-                            <i class="bi bi-chevron-down small"></i>
+                            <div class="d-none d-sm-flex flex-column text-start me-1">
+                                <span class="fw-bold text-dark lh-1" style="font-size: 0.82rem;">{{ user_profile.display_name|default:user.username }}</span>
+                                <span class="text-muted" style="font-size: 0.65rem;">{% if is_admin %}Administrator{% else %}{{ user_profile.get_role_display|default:'User' }}{% endif %}</span>
+                            </div>
+                            <i class="bi bi-chevron-down text-muted" style="font-size: 0.72rem;"></i>
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2">
-                            <li><h6 class="dropdown-header small text-muted">User: {{ user_profile.display_name|default:user.username }}</h6></li>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 py-2 rounded-3" style="min-width: 220px;">
+                            <li class="px-3 py-2 border-bottom mb-1 bg-light rounded-top">
+                                <div class="fw-bold text-dark small">{{ user_profile.display_name|default:user.username }}</div>
+                                <div class="text-muted small" style="font-size: 0.72rem;">{{ user.username }} &bull; {% if is_admin %}Admin{% else %}User{% endif %}</div>
+                            </li>
                             {% if is_admin %}
                             <li>
-                                <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{% url 'tracker:admin_panel' %}">
+                                <a class="dropdown-item d-flex align-items-center gap-2 py-2 text-dark" href="{% url 'tracker:admin_panel' %}">
                                     <i class="bi bi-shield-shaded text-primary"></i> Admin Panel (Users & Rights)
                                 </a>
                             </li>
@@ -1013,11 +1112,12 @@
                         </ul>
                     </div>
 
-                    <button type="button" class="btn btn-sm btn-outline-warning" onclick="lockCurrentScreen()" title="Lock Screen (Ctrl+L)">
-                        <i class="bi bi-lock-fill me-1"></i> Lock
+                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 fw-semibold d-flex align-items-center gap-1 shadow-sm" style="font-size: 0.8rem; background: #ffffff;" onclick="lockCurrentScreen()" title="Lock Screen (Ctrl+L)">
+                        <i class="bi bi-lock-fill text-warning"></i>
+                        <span>Lock</span>
                     </button>
                     {% else %}
-                    <a href="{% url 'tracker:login' %}" class="btn btn-sm btn-primary">
+                    <a href="{% url 'tracker:login' %}" class="btn btn-sm btn-primary rounded-pill px-3 py-1 fw-semibold shadow-sm">
                         <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
                     </a>
                     {% endif %}
@@ -1025,9 +1125,10 @@
             </div>
         </div>
     </nav>
+    {% endif %}
 
     <!-- Main Container -->
-    <div class="container-fluid px-2 px-md-3 py-2">
+    <div class="container-fluid {% if request.GET.embedded %}p-0 m-0{% else %}px-2 px-md-3 py-2{% endif %}">
         <!-- Toast / Alerts -->
         {% if messages %}
         <div class="mb-3">

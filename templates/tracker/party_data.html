@@ -169,11 +169,32 @@
         display: inline-block;
         box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
     }
+
+    {% if request.GET.embedded %}
+    body {
+        background-color: #ffffff !important;
+    }
+    .catalog-top-panel {
+        border-radius: 0 !important;
+        border-left: none !important;
+        border-right: none !important;
+        border-top: none !important;
+        margin-bottom: 2px !important;
+    }
+    .catalog-table-wrapper {
+        height: calc(100vh - 72px) !important;
+        max-height: calc(100vh - 72px) !important;
+        border-radius: 0 !important;
+        border-left: none !important;
+        border-right: none !important;
+        border-bottom: none !important;
+    }
+    {% endif %}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid px-3 py-1">
+<div class="container-fluid {% if request.GET.embedded %}p-0 m-0{% else %}px-3 py-1{% endif %}">
 
     <!-- Unified Ultra-Compact Top Control Panel (Only 2 slim rows, ~68px total height) -->
     <div class="catalog-top-panel">
@@ -181,7 +202,7 @@
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1 pb-1 border-bottom">
             <!-- Left: Breadcrumb & KPIs -->
             <div class="d-flex align-items-center gap-2 flex-wrap">
-                <a href="{% url 'tracker:dashboard' %}" class="btn btn-sm btn-light border py-0 px-2 text-muted" style="font-size: 0.76rem; height: 26px; display: inline-flex; align-items: center;" title="Back to Dashboard">
+                <a href="{% url 'tracker:dashboard' %}" class="btn btn-sm btn-light border py-0 px-2 text-muted" style="font-size: 0.76rem; height: 26px; display: inline-flex; align-items: center;" title="Back to Dashboard" onclick="if(window.parent && window.parent.showProcessTableView){ window.parent.showProcessTableView(); return false; }">
                     <i class="bi bi-arrow-left me-1"></i>Dashboard
                 </a>
                 <span class="text-muted small">/</span>
