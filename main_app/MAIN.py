@@ -17,27 +17,48 @@ def get_actual_max_row(ws):
 # 7. openpyxl: Multi_API.xlsx फ़ाइल की एक्सेल फ़ॉर्मैटिंग (styles/headers) बिना बिगाड़े डेटा जोड़ने (append करने) के लिए।
 # 8. db_manager: SQLite डेटाबेस (app_database.db) से सेटिंग्स, प्रोडक्ट्स, पॉलिसीज़ और HTML कोड मैनेज करने के लिए।
 
-import eel 
-from gevent.lock import RLock
+try:
+    import eel
+    from gevent.lock import RLock
 
-# Eel WebSocket Thread/Greenlet-safe Lock
-# बड़े पेलोड्स (जैसे HTML टेम्पलेट्स) और स्टार्टअप पर एक साथ होने वाले कई API कॉल्स के दौरान 
-# सॉकेट में कॉन्करेंट राइट्स (WinError 10035 / 10053) व ऐप क्रैश को रोकने के लिए
-_eel_ws_lock = RLock()
-_orig_eel_repeated_send = eel._repeated_send
+    # Eel WebSocket Thread/Greenlet-safe Lock
+    # बड़े पेलोड्स (जैसे HTML टेम्पलेट्स) और स्टार्टअप पर एक साथ होने वाले कई API कॉल्स के दौरान 
+    # सॉकेट में कॉन्करेंट राइट्स (WinError 10035 / 10053) व ऐप क्रैश को रोकने के लिए
+    _eel_ws_lock = RLock()
+    _orig_eel_repeated_send = getattr(eel, '_repeated_send', None)
 
-def _threadsafe_eel_repeated_send(ws, msg):
-    with _eel_ws_lock:
-        for attempt in range(100):
-            try:
-                if getattr(ws, 'closed', False):
+    def _threadsafe_eel_repeated_send(ws, msg):
+        with _eel_ws_lock:
+            for attempt in range(100):
+                try:
+                    if getattr(ws, 'closed', False):
+                        break
+                    ws.send(msg)
                     break
-                ws.send(msg)
-                break
-            except Exception:
-                eel.sleep(0.001)
+                except Exception:
+                    if hasattr(eel, 'sleep'):
+                        eel.sleep(0.001)
 
-eel._repeated_send = _threadsafe_eel_repeated_send
+    if _orig_eel_repeated_send:
+        eel._repeated_send = _threadsafe_eel_repeated_send
+except Exception:
+    # Graceful dummy eel fallback for Django / headless web servers (e.g. PythonAnywhere)
+    class DummyEel:
+        def expose(self, func):
+            return func
+        def sleep(self, s):
+            import time
+            time.sleep(s)
+        def init(self, *args, **kwargs):
+            pass
+        def start(self, *args, **kwargs):
+            pass
+        def __getattr__(self, name):
+            def dummy_call(*args, **kwargs):
+                return lambda *a, **k: None
+            return dummy_call
+    eel = DummyEel()
+
 import threading
 import re
 import random
@@ -47,7 +68,16 @@ import os
 import shutil
 import warnings
 import pandas as pd 
-from screeninfo import get_monitors 
+
+try:
+    from screeninfo import get_monitors 
+except Exception:
+    def get_monitors():
+        class DummyMonitor:
+            width = 1920
+            height = 1080
+        return [DummyMonitor()]
+
 from datetime import datetime, timedelta
 import openpyxl
 try:
