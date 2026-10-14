@@ -124,13 +124,22 @@ def init_db():
     )
     """)
 
-    # 6. Categories table
+    # 6. Categories table (with optional company_name scope)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL
+        name TEXT NOT NULL,
+        company_name TEXT DEFAULT 'All'
     )
     """)
+    try:
+        cursor.execute("PRAGMA table_info(categories)")
+        cat_cols = [r[1] for r in cursor.fetchall()]
+        if 'company_name' not in cat_cols:
+            cursor.execute("ALTER TABLE categories ADD COLUMN company_name TEXT DEFAULT 'All'")
+    except Exception as e:
+        print(f"Categories migration note: {e}")
+
 
     # 7. Setting Columns table (with category scoping and UNIQUE(name, category))
     cursor.execute("""
@@ -231,9 +240,16 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         category TEXT NOT NULL DEFAULT 'Engagement Ring',
         name TEXT NOT NULL,
-        UNIQUE(category, name)
+        company_name TEXT DEFAULT 'All'
     )
     """)
+    try:
+        cursor.execute("PRAGMA table_info(subcategories)")
+        sub_cols = [r[1] for r in cursor.fetchall()]
+        if 'company_name' not in sub_cols:
+            cursor.execute("ALTER TABLE subcategories ADD COLUMN company_name TEXT DEFAULT 'All'")
+    except Exception as e:
+        print(f"Subcategories company_name migration note: {e}")
 
     # 10. Excel Mappings table (maps data.xlsx sheet columns to Multi_API.xlsx sheet columns)
     cursor.execute("""
@@ -513,17 +529,99 @@ def get_all_company_policies():
     conn.close()
     return rows
 
+def sync_company_to_dashboard(company_name, old_name=None):
+    """
+    Syncs a company policy from Main App into the Process Dashboard (tracker_processitem).
+    If a ProcessItem with this name does not exist, creates it.
+    If it was renamed, updates the existing ProcessItem.
+    """
+    if not company_name or not str(company_name).strip():
+        return
+    company_name = str(company_name).strip()
+    try:
+        import os, django
+        if not os.environ.get('DJANGO_SETTINGS_MODULE'):
+            os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+            django.setup()
+        from tracker.models import ProcessItem, ProcessItemHistory
+
+        # Handle rename
+        if old_name and str(old_name).strip() and str(old_name).strip().lower() != company_name.lower():
+            old_clean = str(old_name).strip()
+            old_item = ProcessItem.objects.filter(client_name__iexact=old_clean).first()
+            if old_item:
+                old_item.client_name = company_name
+                old_item.save(update_fields=['client_name'])
+                ProcessItemHistory.objects.create(
+                    item=old_item,
+                    action_type='edited',
+                    summary=f"Renamed client to '{company_name}' from Main App Company Policy"
+                )
+                return
+
+        # Check if already exists (case-insensitive)
+        existing = ProcessItem.objects.filter(client_name__iexact=company_name).first()
+        if not existing:
+            max_order = ProcessItem.objects.all().order_by('-order_index').values_list('order_index', flat=True).first() or 0
+            new_item = ProcessItem.objects.create(
+                client_name=company_name,
+                status='working',
+                order_index=max_order + 1,
+                is_status_manual=True
+            )
+            ProcessItemHistory.objects.create(
+                item=new_item,
+                action_type='created',
+                summary=f"Added client '{company_name}' from Main App Company Policy"
+            )
+    except Exception as e:
+        print(f"Error syncing company '{company_name}' to Dashboard: {e}")
+
+def sync_client_to_company_policy(client_name):
+    """
+    Syncs a client from Process Dashboard (item_create) into Main App business_policies table.
+    """
+    if not client_name or not str(client_name).strip():
+        return
+    client_name = str(client_name).strip()
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM business_policies WHERE LOWER(company_name)=LOWER(?)", (client_name,))
+        if not cursor.fetchone():
+            cursor.execute("""
+                INSERT INTO business_policies 
+                (company_name, brand_name, location, shipping_profile_name, return_profile_name, payment_profile_name, shipping_html, payment_html, return_html, about_us_html)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                client_name, client_name, "USA",
+                f"{client_name} - Shipping", f"{client_name} - Return", f"{client_name} - Payment",
+                "", "", "", ""
+            ))
+            conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error syncing client '{client_name}' to business_policies: {e}")
+
 def save_company_policy(data):
     conn = get_db_connection()
     cursor = conn.cursor()
+    comp_name = data.get("company_name", "").strip() if data.get("company_name") else ""
+    old_comp_name = None
+
     if data.get("id"):
+        cursor.execute("SELECT company_name FROM business_policies WHERE id=?", (data.get("id"),))
+        row = cursor.fetchone()
+        if row:
+            old_comp_name = row["company_name"]
+
         cursor.execute("""
             UPDATE business_policies SET
                 company_name=?, shipping_profile_name=?, return_profile_name=?, payment_profile_name=?,
                 brand_name=?, location=?, shipping_html=?, payment_html=?, return_html=?, about_us_html=?
             WHERE id=?
         """, (
-            data.get("company_name"), data.get("shipping_profile_name"), data.get("return_profile_name"),
+            comp_name, data.get("shipping_profile_name"), data.get("return_profile_name"),
             data.get("payment_profile_name"), data.get("brand_name"), data.get("location"),
             data.get("shipping_html"), data.get("payment_html"), data.get("return_html"), data.get("about_us_html"),
             data.get("id")
@@ -534,12 +632,17 @@ def save_company_policy(data):
             (company_name, shipping_profile_name, return_profile_name, payment_profile_name, brand_name, location, shipping_html, payment_html, return_html, about_us_html)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            data.get("company_name"), data.get("shipping_profile_name"), data.get("return_profile_name"),
+            comp_name, data.get("shipping_profile_name"), data.get("return_profile_name"),
             data.get("payment_profile_name"), data.get("brand_name"), data.get("location"),
             data.get("shipping_html"), data.get("payment_html"), data.get("return_html"), data.get("about_us_html")
         ))
     conn.commit()
     conn.close()
+
+    # Automatically sync new/updated company to Dashboard ProcessItem
+    if comp_name:
+        sync_company_to_dashboard(comp_name, old_name=old_comp_name)
+
     return True
 
 def delete_company_policy(policy_id):
@@ -637,21 +740,37 @@ def delete_placeholder(placeholder_id):
     return True
 
 # Category CRUD Functions
-def get_all_categories():
+def get_all_categories(company_name=""):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM categories ORDER BY CASE WHEN LOWER(name) = 'default' THEN 0 ELSE 1 END, name ASC")
+    if company_name and company_name.strip() and company_name.strip().lower() != 'all':
+        cursor.execute("""
+            SELECT * FROM categories 
+            WHERE company_name IS NULL OR company_name = '' OR LOWER(company_name) = 'all' OR LOWER(company_name) = LOWER(?)
+            ORDER BY CASE WHEN LOWER(name) = 'default' THEN 0 ELSE 1 END, name ASC
+        """, (company_name.strip(),))
+    else:
+        cursor.execute("SELECT * FROM categories ORDER BY CASE WHEN LOWER(name) = 'default' THEN 0 ELSE 1 END, name ASC")
     rows = [dict(r) for r in cursor.fetchall()]
     conn.close()
     return rows
 
-def add_category(name):
+def add_category(name, company_name="All"):
     name = name.strip()
+    company_name = company_name.strip() if company_name and company_name.strip() else "All"
     if not name:
         return False
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO categories (name) VALUES (?)", (name,))
+    # Check if category already exists for this scope or globally
+    cursor.execute("""
+        SELECT id FROM categories 
+        WHERE LOWER(name) = LOWER(?) AND (LOWER(company_name) = LOWER(?) OR LOWER(company_name) = 'all')
+    """, (name, company_name))
+    if cursor.fetchone():
+        conn.close()
+        return True
+    cursor.execute("INSERT INTO categories (name, company_name) VALUES (?, ?)", (name, company_name))
     conn.commit()
     conn.close()
     return True
@@ -1051,38 +1170,57 @@ def get_all_company_html_templates(company_name=""):
     conn.close()
     return rows
 # Subcategory CRUD Functions
-def get_all_subcategories(category=""):
+def get_all_subcategories(category="", company_name=""):
     conn = get_db_connection()
     cursor = conn.cursor()
+    params = []
+    where_clauses = []
+
     if category and category.strip() and category.strip().lower() != 'all':
-        cursor.execute("""
-            SELECT * FROM subcategories 
-            WHERE LOWER(category) = LOWER(?)
-            ORDER BY CASE WHEN LOWER(name) = 'default' THEN 0 ELSE 1 END, name ASC
-        """, (category.strip(),))
-        rows = [dict(r) for r in cursor.fetchall()]
-        
+        where_clauses.append("LOWER(category) = LOWER(?)")
+        params.append(category.strip())
+
+    if company_name and company_name.strip() and company_name.strip().lower() != 'all':
+        where_clauses.append("(company_name IS NULL OR company_name = '' OR LOWER(company_name) = 'all' OR LOWER(company_name) = LOWER(?))")
+        params.append(company_name.strip())
+
+    where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+    cursor.execute(f"""
+        SELECT * FROM subcategories 
+        {where_sql}
+        ORDER BY CASE WHEN LOWER(name) = 'default' THEN 0 ELSE 1 END, category ASC, name ASC
+    """, params)
+    rows = [dict(r) for r in cursor.fetchall()]
+    
+    if category and category.strip() and category.strip().lower() != 'all':
         # Ensure Default is present at top (index 0)
         has_default = any(r["name"].lower() == "default" for r in rows)
         if not has_default:
-            rows.insert(0, {"id": 0, "category": category, "name": "Default"})
-    else:
-        cursor.execute("""
-            SELECT * FROM subcategories 
-            ORDER BY CASE WHEN LOWER(name) = 'default' THEN 0 ELSE 1 END, category ASC, name ASC
-        """)
-        rows = [dict(r) for r in cursor.fetchall()]
+            rows.insert(0, {"id": 0, "category": category, "name": "Default", "company_name": "All"})
     conn.close()
     return rows
 
-def add_subcategory(category, name):
+def add_subcategory(category, name=None, company_name="All"):
+    # Gracefully handle argument order if passed as (name, category)
+    if name is None:
+        name = category
+        category = "Engagement Ring"
     category = category.strip() if category and category.strip() else "Engagement Ring"
-    name = name.strip()
+    name = name.strip() if name else ""
+    company_name = company_name.strip() if company_name and company_name.strip() else "All"
     if not name:
         return False
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO subcategories (category, name) VALUES (?, ?)", (category, name))
+    # Check if subcategory already exists for this scope or globally
+    cursor.execute("""
+        SELECT id FROM subcategories 
+        WHERE LOWER(category) = LOWER(?) AND LOWER(name) = LOWER(?) AND (LOWER(company_name) = LOWER(?) OR LOWER(company_name) = 'all')
+    """, (category, name, company_name))
+    if cursor.fetchone():
+        conn.close()
+        return True
+    cursor.execute("INSERT INTO subcategories (category, name, company_name) VALUES (?, ?, ?)", (category, name, company_name))
     conn.commit()
     conn.close()
     return True
@@ -1961,46 +2099,154 @@ def restore_database(backup_file_path=None, file_bytes=None):
         return {"status": "error", "message": f"Failed to restore database: {str(e)}"}
 
 def export_html_templates_to_excel(company_name=""):
-    """Export saved HTML templates to an Excel (.xlsx) file base64 string."""
+    """
+    Export HTML templates to an Excel (.xlsx) file base64 string.
+    Ensures that for the selected company (or all companies), ALL registered
+    categories and their subcategories are exported in the Excel file,
+    even if their HTML template is currently blank/empty.
+    """
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        # 1. Determine target companies
+        target_companies = []
+        is_single_company = False
         if company_name and company_name.strip() and company_name.strip().lower() != 'all':
-            cursor.execute("SELECT company_name, category, subcategory, html_template FROM company_html_templates WHERE LOWER(company_name)=LOWER(?) ORDER BY company_name ASC, category ASC, subcategory ASC", (company_name.strip(),))
+            req_comp = company_name.strip()
+            # Match canonical company name from business_policies if possible
+            cursor.execute("SELECT company_name FROM business_policies WHERE LOWER(company_name)=LOWER(?)", (req_comp,))
+            matched = cursor.fetchone()
+            if matched:
+                target_companies = [matched["company_name"]]
+            else:
+                target_companies = [req_comp]
+            is_single_company = True
         else:
-            cursor.execute("SELECT company_name, category, subcategory, html_template FROM company_html_templates ORDER BY company_name ASC, category ASC, subcategory ASC")
-        
-        rows = [dict(r) for r in cursor.fetchall()]
+            cursor.execute("SELECT company_name FROM business_policies ORDER BY company_name ASC")
+            target_companies = [r["company_name"] for r in cursor.fetchall()]
+            # Also add any company present in company_html_templates that might not have a business policy
+            cursor.execute("SELECT DISTINCT company_name FROM company_html_templates")
+            existing_comps = [r["company_name"] for r in cursor.fetchall()]
+            for ec in existing_comps:
+                if ec and not any(ec.lower() == tc.lower() for tc in target_companies):
+                    target_companies.append(ec)
+            if not target_companies:
+                target_companies = ["Default Company"]
+
+        # 2. Fetch existing HTML templates into a fast lookup map
+        if is_single_company:
+            cursor.execute("""
+                SELECT company_name, category, subcategory, html_template 
+                FROM company_html_templates 
+                WHERE LOWER(company_name)=LOWER(?)
+            """, (target_companies[0],))
+        else:
+            cursor.execute("""
+                SELECT company_name, category, subcategory, html_template 
+                FROM company_html_templates
+            """)
+        existing_tpls = cursor.fetchall()
         conn.close()
 
-        if not rows:
-            return {"status": "error", "message": "No HTML templates found in database to export."}
+        # lookup key: (comp.lower(), cat.lower(), subcat.lower()) -> html_template
+        existing_map = {}
+        extra_pairs_by_comp = {}
+        for row in existing_tpls:
+            c_name = row["company_name"]
+            cat_name = row["category"]
+            subcat_name = row["subcategory"]
+            tpl = row["html_template"] or ""
+            key = (c_name.lower().strip(), cat_name.lower().strip(), subcat_name.lower().strip())
+            existing_map[key] = tpl
+
+            comp_lower = c_name.lower().strip()
+            if comp_lower not in extra_pairs_by_comp:
+                extra_pairs_by_comp[comp_lower] = []
+            extra_pairs_by_comp[comp_lower].append((cat_name, subcat_name))
+
+        # 3. Build comprehensive row list
+        rows = []
+        for comp in target_companies:
+            comp_lower = comp.lower().strip()
+            visited_keys = set()
+
+            # Fetch categories applicable to this company (All + Company-specific)
+            comp_categories = [c["name"] for c in get_all_categories(comp)]
+            if not comp_categories:
+                comp_categories = ['Engagement Ring', 'Wedding Band', 'Wedding Ring Set', "Men's Ring", 'Pendant', 'Earrings', 'Bracelet']
+
+            for cat in comp_categories:
+                # Fetch subcategories applicable to this company and category
+                subcats_objs = get_all_subcategories(cat, comp)
+                subcats = [s["name"] for s in subcats_objs]
+                if not any(s.lower() == 'default' for s in subcats):
+                    subcats.insert(0, 'Default')
+
+                for subcat in subcats:
+                    key = (comp_lower, cat.lower().strip(), subcat.lower().strip())
+                    visited_keys.add(key)
+                    html_code = existing_map.get(key, "")
+
+                    rows.append({
+                        "Company Scope": comp,
+                        "Category": cat,
+                        "Subcategory": subcat,
+                        "HTML Code": html_code
+                    })
+
+            # Include any custom/legacy template rows (like 'default / default') that were already saved in the DB
+            for cat_name, subcat_name in extra_pairs_by_comp.get(comp_lower, []):
+                key = (comp_lower, cat_name.lower().strip(), subcat_name.lower().strip())
+                if key not in visited_keys and key in existing_map:
+                    visited_keys.add(key)
+                    rows.append({
+                        "Company Scope": comp,
+                        "Category": cat_name,
+                        "Subcategory": subcat_name,
+                        "HTML Code": existing_map[key]
+                    })
 
         df = pd.DataFrame(rows)
-        df.rename(columns={
-            "company_name": "Company Scope",
-            "category": "Category",
-            "subcategory": "Subcategory",
-            "html_template": "HTML Code"
-        }, inplace=True)
 
         import io
         import base64
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='HTML_Templates')
+            
+            # Format column widths nicely
+            try:
+                ws = writer.sheets['HTML_Templates']
+                ws.column_dimensions['A'].width = 28 # Company Scope
+                ws.column_dimensions['B'].width = 22 # Category
+                ws.column_dimensions['C'].width = 20 # Subcategory
+                ws.column_dimensions['D'].width = 60 # HTML Code
+            except Exception:
+                pass
         
         excel_bytes = output.getvalue()
         b64_str = base64.b64encode(excel_bytes).decode('utf-8')
         
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        if is_single_company:
+            clean_name = re.sub(r'[^\w\-_.]', '_', target_companies[0].strip())
+            filename = f"HTML_Templates_{clean_name}_{timestamp}.xlsx"
+            msg = f"Successfully exported all {len(rows)} categories & subcategories for {target_companies[0]} to Excel!"
+        else:
+            filename = f"HTML_Templates_All_Companies_{timestamp}.xlsx"
+            msg = f"Successfully exported {len(rows)} template slots across {len(target_companies)} companies to Excel!"
+
         return {
             "status": "success",
             "count": len(rows),
-            "filename": f"HTML_Templates_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            "filename": filename,
             "file_b64": b64_str,
-            "message": f"Successfully exported {len(rows)} HTML templates to Excel!"
+            "message": msg
         }
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return {"status": "error", "message": f"Export failed: {str(e)}"}
 
 def import_html_templates_from_excel(file_path=None, file_b64=None):

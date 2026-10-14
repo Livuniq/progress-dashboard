@@ -1220,6 +1220,10 @@ function App() {
   const [newColCat, setNewColCat] = useState('');
   const [newSubcatName, setNewSubcatName] = useState('');
   const [newSubcatCat, setNewSubcatCat] = useState('');
+  const [newCatScope, setNewCatScope] = useState('all');
+  const [newCatCompany, setNewCatCompany] = useState('');
+  const [newSubcatScope, setNewSubcatScope] = useState('all');
+  const [newSubcatCompany, setNewSubcatCompany] = useState('');
   
   const [showAddPlaceholderInput, setShowAddPlaceholderInput] = useState(false);
   const [showAddCatModal, setShowAddCatModal] = useState(false);
@@ -1717,6 +1721,27 @@ function App() {
     }
   }, [selectedHtmlCategory]);
 
+  useEffect(() => {
+    if (selectedHtmlCompany && dbCategories.length > 0) {
+      const validCats = dbCategories.filter(c => !c.company_name || c.company_name === 'All' || c.company_name.toLowerCase() === selectedHtmlCompany.toLowerCase());
+      if (validCats.length > 0 && !validCats.some(c => c.name.toLowerCase() === (selectedHtmlCategory || '').toLowerCase())) {
+        setSelectedHtmlCategory(validCats[0].name);
+      }
+    }
+  }, [selectedHtmlCompany, dbCategories]);
+
+  useEffect(() => {
+    if (selectedHtmlCompany && selectedHtmlCategory && dbSubcategories.length > 0) {
+      const validSubs = dbSubcategories.filter(s => 
+        (!s.category || s.category.toLowerCase() === selectedHtmlCategory.toLowerCase()) &&
+        (!s.company_name || s.company_name === 'All' || s.company_name.toLowerCase() === selectedHtmlCompany.toLowerCase())
+      );
+      if (validSubs.length > 0 && !validSubs.some(s => s.name.toLowerCase() === (selectedHtmlSubcategory || '').toLowerCase())) {
+        setSelectedHtmlSubcategory(validSubs[0].name);
+      }
+    }
+  }, [selectedHtmlCompany, selectedHtmlCategory, dbSubcategories]);
+
   const loadCategoriesAndColumns = async () => {
     try {
       const cats = await callEel('get_all_categories');
@@ -2139,10 +2164,12 @@ function App() {
   const handleAddCategoryToDb = async (e) => {
     e.preventDefault();
     if (!newCatName.trim()) return;
+    const compScope = newCatScope === 'party' ? (newCatCompany || selectedHtmlCompany || 'All') : 'All';
     try {
-      await callEel('add_category', newCatName.trim());
-      showToast(`Category "${newCatName.trim()}" added to DB!`, 'success');
+      await callEel('add_category', newCatName.trim(), compScope);
+      showToast(`Category "${newCatName.trim()}" added to DB (${compScope === 'All' ? 'All Parties' : compScope})!`, 'success');
       setNewCatName('');
+      setNewCatScope('all');
       setShowAddCatModal(false);
       await loadCategoriesAndColumns();
     } catch (err) {
@@ -2196,11 +2223,13 @@ function App() {
     if (e && e.preventDefault) e.preventDefault();
     if (!newSubcatName.trim()) return;
     const targetCat = catForSubcat || newSubcatCat || selectedHtmlCategory || (dbCategories[0] ? dbCategories[0].name : 'Engagement Ring');
+    const compScope = newSubcatScope === 'party' ? (newSubcatCompany || selectedHtmlCompany || 'All') : 'All';
     try {
-      await callEel('add_subcategory', targetCat, newSubcatName.trim());
-      showToast(`Subcategory "${newSubcatName.trim()}" added to ${targetCat}!`, 'success');
+      await callEel('add_subcategory', targetCat, newSubcatName.trim(), compScope);
+      showToast(`Subcategory "${newSubcatName.trim()}" added to ${targetCat} (${compScope === 'All' ? 'All Parties' : compScope})!`, 'success');
       setNewSubcatName('');
       setNewSubcatCat('');
+      setNewSubcatScope('all');
       setShowAddSubcatModal(false);
       await loadSubcategories(selectedHtmlCategory);
     } catch (err) {
@@ -2302,7 +2331,14 @@ function App() {
     }
     try {
       await callEel('save_company_policy', editingPolicy);
-      showToast('Company Policy saved to database!', 'success');
+      showToast('Company Policy saved & synced to Dashboard!', 'success');
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'CLIENT_ADDED', clientName: editingPolicy.company_name }, '*');
+        }
+      } catch (postErr) {
+        console.warn('postMessage to parent failed:', postErr);
+      }
       setEditingPolicy(null);
       await loadDatabaseItems();
       await reloadCompaniesAndProducts();
@@ -2572,7 +2608,11 @@ function App() {
                   <div className="flex justify-between items-center mb-1">
                     <label className="block text-[11px] font-bold text-gray-300">Category:</label>
                     <button
-                      onClick={() => setShowAddCatModal(true)}
+                      onClick={() => {
+                        setNewCatScope('all');
+                        setNewCatCompany(selectedHtmlCompany || (companies[0] || ''));
+                        setShowAddCatModal(true);
+                      }}
                       className="text-[10px] text-purple-300 hover:text-white font-bold underline"
                     >
                       + New
@@ -2584,9 +2624,11 @@ function App() {
                       onChange={(e) => setSelectedHtmlCategory(e.target.value)}
                       className="w-full glass-input px-2.5 py-1.5 text-xs font-semibold text-purple-300 truncate"
                     >
-                      {dbCategories.map((c, idx) => (
-                        <option key={idx} value={c.name} className="bg-gray-900">{c.name}</option>
-                      ))}
+                      {dbCategories
+                        .filter(c => !c.company_name || c.company_name === 'All' || !selectedHtmlCompany || c.company_name.toLowerCase() === selectedHtmlCompany.toLowerCase())
+                        .map((c, idx) => (
+                          <option key={idx} value={c.name} className="bg-gray-900">{c.name}</option>
+                        ))}
                     </select>
                     {isAdminMode && selectedHtmlCategory && selectedHtmlCategory.toLowerCase() !== 'default' && (
                       <div className="flex items-center space-x-1 shrink-0">
@@ -2620,7 +2662,12 @@ function App() {
                   <div className="flex justify-between items-center mb-1">
                     <label className="block text-[11px] font-bold text-gray-300">Subcategory:</label>
                     <button
-                      onClick={() => setShowAddSubcatModal(true)}
+                      onClick={() => {
+                        setNewSubcatScope('all');
+                        setNewSubcatCompany(selectedHtmlCompany || (companies[0] || ''));
+                        setNewSubcatCat(selectedHtmlCategory);
+                        setShowAddSubcatModal(true);
+                      }}
                       className="text-[10px] text-emerald-300 hover:text-white font-bold underline"
                     >
                       + New
@@ -2632,7 +2679,12 @@ function App() {
                       onChange={(e) => setSelectedHtmlSubcategory(e.target.value)}
                       className="w-full glass-input px-2.5 py-1.5 text-xs font-semibold text-emerald-300 truncate"
                     >
-                      {sortWithDefaultFirst(dbSubcategories.filter(s => !s.category || s.category.toLowerCase() === (selectedHtmlCategory || '').toLowerCase())).map((sub, idx) => (
+                      {sortWithDefaultFirst(
+                        dbSubcategories.filter(s => 
+                          (!s.category || s.category.toLowerCase() === (selectedHtmlCategory || '').toLowerCase()) &&
+                          (!s.company_name || s.company_name === 'All' || !selectedHtmlCompany || s.company_name.toLowerCase() === selectedHtmlCompany.toLowerCase())
+                        )
+                      ).map((sub, idx) => (
                         <option key={idx} value={sub.name} className="bg-gray-900">{sub.name}</option>
                       ))}
                     </select>
@@ -3651,7 +3703,11 @@ function App() {
                             ))}
                           </select>
                           <button
-                            onClick={() => setShowAddCatModal(true)}
+                            onClick={() => {
+                              setNewCatScope(templateCompanyFilter !== 'all' ? 'party' : 'all');
+                              setNewCatCompany(templateCompanyFilter !== 'all' ? templateCompanyFilter : (selectedHtmlCompany || companies[0] || ''));
+                              setShowAddCatModal(true);
+                            }}
                             className="px-2 py-1 text-xs rounded bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 border border-indigo-500/30 font-semibold"
                             title="Add New Category"
                           >
@@ -4908,7 +4964,11 @@ function App() {
                         <span>Categories ({dbCategories.length})</span>
                       </h3>
                       <button
-                        onClick={() => setShowAddCatModal(true)}
+                        onClick={() => {
+                          setNewCatScope('all');
+                          setNewCatCompany(selectedHtmlCompany || (companies[0] || ''));
+                          setShowAddCatModal(true);
+                        }}
                         className="btn-primary px-2 py-1 text-[11px] flex items-center space-x-1"
                       >
                         <i className="fa-solid fa-plus text-[9px]"></i>
@@ -4919,7 +4979,12 @@ function App() {
                     <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
                       {dbCategories.map(c => (
                         <div key={c.id} className="p-2.5 glass-card bg-white/[0.02] flex justify-between items-center text-xs">
-                          <span className="font-medium text-gray-200 truncate">{c.name}</span>
+                          <div className="flex items-center space-x-1.5 truncate">
+                            <span className="font-medium text-gray-200 truncate">{c.name}</span>
+                            <span className={`px-1.5 py-0.5 text-[9px] font-semibold rounded border ${c.company_name && c.company_name !== 'All' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-gray-500/20 text-gray-400 border-gray-500/30'}`}>
+                              {c.company_name && c.company_name !== 'All' ? c.company_name : 'All Parties'}
+                            </span>
+                          </div>
                           <div className="flex items-center space-x-1">
                             <button
                               onClick={() => handleEditCategoryInDb(c)}
@@ -4951,7 +5016,12 @@ function App() {
                         <span>Subcategories ({dbSubcategories.length})</span>
                       </h3>
                       <button
-                        onClick={() => setShowAddSubcatModal(true)}
+                        onClick={() => {
+                          setNewSubcatScope('all');
+                          setNewSubcatCompany(selectedHtmlCompany || (companies[0] || ''));
+                          setNewSubcatCat(selectedHtmlCategory || (dbCategories[0] ? dbCategories[0].name : 'Engagement Ring'));
+                          setShowAddSubcatModal(true);
+                        }}
                         className="btn-primary px-2 py-1 text-[11px] flex items-center space-x-1"
                       >
                         <i className="fa-solid fa-plus text-[9px]"></i>
@@ -4967,6 +5037,9 @@ function App() {
                               {sub.category || 'Engagement Ring'}
                             </span>
                             <span className="font-medium text-gray-200 truncate">{sub.name}</span>
+                            <span className={`px-1.5 py-0.5 text-[9px] font-semibold rounded border ${sub.company_name && sub.company_name !== 'All' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-gray-500/20 text-gray-400 border-gray-500/30'}`}>
+                              {sub.company_name && sub.company_name !== 'All' ? sub.company_name : 'All Parties'}
+                            </span>
                           </div>
                           <div className="flex items-center space-x-1">
                             {sub.name.toLowerCase() !== 'default' && (
@@ -5105,6 +5178,15 @@ function App() {
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
+                      <a
+                        href="/database/export/"
+                        className="px-4 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl shadow-lg shadow-indigo-500/20 flex items-center space-x-2 transition-all no-underline"
+                        title="Download complete database bundle (.zip) containing Process Dashboard + Main App"
+                      >
+                        <i className="fa-solid fa-file-zipper text-sm"></i>
+                        <span>Download Full DB Bundle (.zip)</span>
+                      </a>
+
                       <button
                         onClick={() => {
                           setBackupDescriptionInput('');
@@ -5113,8 +5195,8 @@ function App() {
                         disabled={isDbOperationPending}
                         className="px-4 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-xl shadow-lg shadow-emerald-500/20 flex items-center space-x-2 transition-all disabled:opacity-50 cursor-pointer"
                       >
-                        <i className="fa-solid fa-download text-sm"></i>
-                        <span>Create Instant Backup</span>
+                        <i className="fa-solid fa-camera text-sm"></i>
+                        <span>Create Local Snapshot</span>
                       </button>
 
                       <label className="px-4 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 rounded-xl shadow-lg shadow-indigo-500/20 flex items-center space-x-2 transition-all cursor-pointer">
@@ -5122,7 +5204,7 @@ function App() {
                         <span>Restore DB File</span>
                         <input
                           type="file"
-                          accept=".db,.sqlite"
+                          accept=".db,.sqlite,.zip"
                           className="hidden"
                           onChange={handleRestoreFromFileUpload}
                         />
@@ -5963,20 +6045,72 @@ function App() {
 
       {/* Quick Add Category Modal */}
       {showAddCatModal && (
-
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="glass-card max-w-sm w-full p-6 space-y-4">
-            <h3 className="text-sm font-bold text-white">Add New Template Category</h3>
+            <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+              <i className="fa-solid fa-folder-plus text-purple-400"></i>
+              <span>Add New Template Category</span>
+            </h3>
             <form onSubmit={handleAddCategoryToDb} className="space-y-4">
-              <input
-                type="text"
-                placeholder="e.g. Engagement Ring, Pendant, etc."
-                value={newCatName}
-                onChange={(e) => setNewCatName(e.target.value)}
-                className="w-full glass-input px-3 py-2 text-sm"
-                required
-              />
-              <div className="flex justify-end space-x-2">
+              <div>
+                <label className="text-xs text-gray-400 font-semibold mb-1 block">Category Name:</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Engagement Ring, Pendant, etc."
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  className="w-full glass-input px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-400 font-semibold mb-1.5 block">Category Scope / Availability:</label>
+                <div className="space-y-2">
+                  <label className={`flex items-start space-x-2.5 p-2 rounded-lg border cursor-pointer transition-all ${newCatScope === 'all' ? 'bg-indigo-500/15 border-indigo-500/50 text-white' : 'bg-white/[0.02] border-white/10 text-gray-300 hover:bg-white/[0.05]'}`}>
+                    <input
+                      type="radio"
+                      name="catScope"
+                      value="all"
+                      checked={newCatScope === 'all'}
+                      onChange={() => setNewCatScope('all')}
+                      className="mt-0.5 text-indigo-500 focus:ring-indigo-500"
+                    />
+                    <div className="text-xs">
+                      <span className="font-semibold block">All Parties (Common for All)</span>
+                      <span className="text-[10px] text-gray-400">Sabhi parties ke liye common rahegi</span>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-start space-x-2.5 p-2 rounded-lg border cursor-pointer transition-all ${newCatScope === 'party' ? 'bg-indigo-500/15 border-indigo-500/50 text-white' : 'bg-white/[0.02] border-white/10 text-gray-300 hover:bg-white/[0.05]'}`}>
+                    <input
+                      type="radio"
+                      name="catScope"
+                      value="party"
+                      checked={newCatScope === 'party'}
+                      onChange={() => setNewCatScope('party')}
+                      className="mt-0.5 text-indigo-500 focus:ring-indigo-500"
+                    />
+                    <div className="text-xs flex-1">
+                      <span className="font-semibold block">Only for this party</span>
+                      <span className="text-[10px] text-gray-400">Sirf selected party ke liye rahegi</span>
+                      {newCatScope === 'party' && (
+                        <select
+                          value={newCatCompany || selectedHtmlCompany}
+                          onChange={(e) => setNewCatCompany(e.target.value)}
+                          className="mt-2 w-full glass-input px-2 py-1 text-xs text-indigo-300 font-semibold"
+                        >
+                          {companies.map((c, idx) => (
+                            <option key={idx} value={c} className="bg-gray-900 text-white">{c}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowAddCatModal(false)}
@@ -5997,7 +6131,10 @@ function App() {
       {showAddSubcatModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="glass-card max-w-sm w-full p-6 space-y-4">
-            <h3 className="text-sm font-bold text-white">Add New Subcategory</h3>
+            <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+              <i className="fa-solid fa-tags text-emerald-400"></i>
+              <span>Add New Subcategory</span>
+            </h3>
             <form onSubmit={(e) => handleAddSubcategoryToDb(e, newSubcatCat)} className="space-y-4">
               <div>
                 <label className="text-xs text-gray-400 font-semibold mb-1 block">Main Category:</label>
@@ -6006,9 +6143,12 @@ function App() {
                   onChange={(e) => setNewSubcatCat(e.target.value)}
                   className="w-full glass-input px-3 py-2 text-sm text-purple-300 font-semibold"
                 >
-                  {dbCategories.map((c, idx) => (
-                    <option key={idx} value={c.name} className="bg-gray-900 text-white">{c.name}</option>
-                  ))}
+                  {dbCategories
+                    .filter(c => !c.company_name || c.company_name === 'All' || !selectedHtmlCompany || c.company_name.toLowerCase() === (newSubcatCompany || selectedHtmlCompany).toLowerCase())
+                    .map((c, idx) => (
+                      <option key={idx} value={c.name} className="bg-gray-900 text-white">{c.name}</option>
+                    ))
+                  }
                 </select>
               </div>
 
@@ -6024,7 +6164,53 @@ function App() {
                 />
               </div>
 
-              <div className="flex justify-end space-x-2">
+              <div>
+                <label className="text-xs text-gray-400 font-semibold mb-1.5 block">Subcategory Scope / Availability:</label>
+                <div className="space-y-2">
+                  <label className={`flex items-start space-x-2.5 p-2 rounded-lg border cursor-pointer transition-all ${newSubcatScope === 'all' ? 'bg-emerald-500/15 border-emerald-500/50 text-white' : 'bg-white/[0.02] border-white/10 text-gray-300 hover:bg-white/[0.05]'}`}>
+                    <input
+                      type="radio"
+                      name="subcatScope"
+                      value="all"
+                      checked={newSubcatScope === 'all'}
+                      onChange={() => setNewSubcatScope('all')}
+                      className="mt-0.5 text-emerald-500 focus:ring-emerald-500"
+                    />
+                    <div className="text-xs">
+                      <span className="font-semibold block">All Parties (Common for All)</span>
+                      <span className="text-[10px] text-gray-400">Sabhi parties ke liye common rahegi</span>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-start space-x-2.5 p-2 rounded-lg border cursor-pointer transition-all ${newSubcatScope === 'party' ? 'bg-emerald-500/15 border-emerald-500/50 text-white' : 'bg-white/[0.02] border-white/10 text-gray-300 hover:bg-white/[0.05]'}`}>
+                    <input
+                      type="radio"
+                      name="subcatScope"
+                      value="party"
+                      checked={newSubcatScope === 'party'}
+                      onChange={() => setNewSubcatScope('party')}
+                      className="mt-0.5 text-emerald-500 focus:ring-emerald-500"
+                    />
+                    <div className="text-xs flex-1">
+                      <span className="font-semibold block">Only for this party</span>
+                      <span className="text-[10px] text-gray-400">Sirf selected party ke liye rahegi</span>
+                      {newSubcatScope === 'party' && (
+                        <select
+                          value={newSubcatCompany || selectedHtmlCompany}
+                          onChange={(e) => setNewSubcatCompany(e.target.value)}
+                          className="mt-2 w-full glass-input px-2 py-1 text-xs text-emerald-300 font-semibold"
+                        >
+                          {companies.map((c, idx) => (
+                            <option key={idx} value={c} className="bg-gray-900 text-white">{c}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowAddSubcatModal(false)}

@@ -521,6 +521,14 @@
                     </button>
                 </div>
                 {% endif %}
+                {% if is_admin or can_manage_settings %}
+                <div class="col-12 mt-1">
+                    <button type="button" class="btn btn-sm btn-outline-primary bg-white w-100 text-truncate py-1 px-1 rounded-2 fw-semibold d-flex align-items-center justify-content-center gap-1.5 shadow-xs" data-bs-toggle="modal" data-bs-target="#dbSyncModal" title="Export or Import complete live database bundle (.zip)" style="font-size: 11px; border-color: #c7d2fe; color: #4338ca;">
+                        <i class="bi bi-database-fill-gear text-primary"></i>
+                        <span>DB Sync / Backup (.zip)</span>
+                    </button>
+                </div>
+                {% endif %}
             </div>
         </div>
 
@@ -1313,6 +1321,93 @@
     </div>
 </div>
 
+<!-- DATABASE SYNC & BACKUP MODAL -->
+<div class="modal fade" id="dbSyncModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header py-3 text-white" style="background: linear-gradient(135deg, #4338ca 0%, #6366f1 100%);">
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width: 36px; height: 36px; background: rgba(255,255,255,0.2); border-radius: 10px;" class="d-flex align-items-center justify-content-center text-white fs-5">
+                        <i class="bi bi-database-fill-gear"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0 text-white" style="font-size: 1.05rem;">Full Database Sync & Backup</h5>
+                        <p class="mb-0 text-white-50" style="font-size: 0.75rem;">Export from Live Server & Import into Local Environment</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <div class="row g-4">
+                    <!-- Option A: Export Database Bundle -->
+                    <div class="col-md-6">
+                        <div class="card h-100 border-0 shadow-sm p-3 bg-white" style="border-radius: 12px;">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <div class="stat-icon" style="background: #eef2ff; color: #4f46e5; width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="bi bi-cloud-arrow-down-fill fs-5"></i>
+                                </div>
+                                <h6 class="fw-bold mb-0 text-dark">Export Live Database</h6>
+                            </div>
+                            <p class="text-secondary small mb-3" style="font-size: 0.8rem; line-height: 1.4;">
+                                Download complete database bundle containing both <strong>Process Dashboard</strong> (clients, LOTs, tabs, tables) and <strong>Main App</strong> (policies, HTML templates, formulas).
+                            </p>
+                            <div class="mt-auto pt-2">
+                                <a href="{% url 'tracker:database_export_bundle' %}" class="btn btn-primary w-100 fw-semibold py-2 d-flex align-items-center justify-content-center gap-2 rounded-3 shadow-sm" style="background: #4f46e5; border-color: #4f46e5;">
+                                    <i class="bi bi-download"></i>
+                                    <span>Download Bundle (.zip)</span>
+                                </a>
+                                <div class="text-muted text-center mt-2" style="font-size: 0.7rem;">
+                                    <i class="bi bi-shield-check text-success me-1"></i>Includes <code>db.sqlite3</code> & <code>app_database.db</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Option B: Import Database Bundle -->
+                    <div class="col-md-6">
+                        <div class="card h-100 border-0 shadow-sm p-3 bg-white" style="border-radius: 12px;">
+                            <form method="post" action="{% url 'tracker:database_import_bundle' %}" enctype="multipart/form-data" onsubmit="return confirm('⚠️ CAUTION: Importing will replace your current local database with the uploaded live data.\n\n(A safety backup of your existing local database will be automatically created first).\n\nDo you want to proceed?');">
+                                {% csrf_token %}
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <div class="stat-icon" style="background: #ecfdf5; color: #059669; width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="bi bi-cloud-arrow-up-fill fs-5"></i>
+                                    </div>
+                                    <h6 class="fw-bold mb-0 text-dark">Import into Local</h6>
+                                </div>
+                                <p class="text-secondary small mb-2" style="font-size: 0.8rem; line-height: 1.4;">
+                                    Upload the <code>.zip</code> bundle downloaded from live server (or individual <code>.db</code> / <code>.sqlite3</code> file) to load all live data locally.
+                                </p>
+                                <div class="mb-3">
+                                    <input type="file" name="db_file" class="form-control form-control-sm" accept=".zip,.db,.sqlite3" required style="font-size: 0.8rem;">
+                                </div>
+                                <button type="submit" class="btn btn-success w-100 fw-semibold py-2 d-flex align-items-center justify-content-center gap-2 rounded-3 shadow-sm" style="background: #059669; border-color: #059669;">
+                                    <i class="bi bi-box-arrow-in-down"></i>
+                                    <span>Restore Database</span>
+                                </button>
+                                <div class="text-muted text-center mt-2" style="font-size: 0.7rem;">
+                                    <i class="bi bi-arrow-repeat text-primary me-1"></i>Auto safety backup created before restore
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info border-0 rounded-3 mt-3 mb-0 p-2.5 d-flex align-items-start gap-2 shadow-xs" style="background: #e0f2fe; color: #0369a1; font-size: 0.78rem;">
+                    <i class="bi bi-info-circle-fill fs-6 mt-0.5 text-primary"></i>
+                    <div>
+                        <strong>Live to Local Sync Guide:</strong>
+                        1. PythonAnywhere (Live Server) par yeh modal open karke <strong>Download Bundle (.zip)</strong> click karein.<br>
+                        2. Apne Local System me yeh modal open karein aur downloaded zip file upload karke <strong>Restore Database</strong> karein.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2 bg-light border-top">
+                <button type="button" class="btn btn-secondary btn-sm rounded-pill px-3" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- HISTORY / AUDIT LOG MODAL -->
 <div class="modal fade" id="historyModal" tabindex="-1">
     <div class="modal-dialog modal-xl">
@@ -2077,7 +2172,19 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    window.hasNewClientAdded = false;
+    window.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'CLIENT_ADDED') {
+            window.hasNewClientAdded = true;
+        }
+    });
+
     window.showProcessTableView = function() {
+        if (window.hasNewClientAdded) {
+            window.location.href = '/';
+            return;
+        }
+
         const processView = document.getElementById('processTableView');
         const catalogView = document.getElementById('catalogDataView');
         const mainAppView = document.getElementById('mainAppView');

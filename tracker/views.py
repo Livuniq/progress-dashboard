@@ -664,6 +664,14 @@ def item_create(request):
                 summary="Created initial record",
                 changes=initial_changes,
             )
+
+            # Automatically sync to Main App Company Policy
+            try:
+                from main_app import db_manager
+                db_manager.sync_client_to_company_policy(item.client_name)
+            except Exception as e:
+                print(f"Error syncing client '{item.client_name}' to Main App: {e}")
+
             messages.success(request, f"Added client '{item.client_name}' successfully!")
         else:
             messages.error(request, "Error adding item. Please check the form fields.")
@@ -740,6 +748,18 @@ def item_update(request, pk):
                     summary=summary,
                     changes=changes,
                 )
+
+            # If client_name was updated, sync to Main App
+            if old_values.get('client_name') and old_values['client_name'].strip().lower() != updated_item.client_name.strip().lower():
+                try:
+                    from main_app import db_manager
+                    conn = db_manager.get_db_connection()
+                    cur = conn.cursor()
+                    cur.execute("UPDATE business_policies SET company_name=? WHERE LOWER(company_name)=LOWER(?)", (updated_item.client_name.strip(), old_values['client_name'].strip()))
+                    conn.commit()
+                    conn.close()
+                except Exception as e:
+                    print(f"Error syncing renamed client to Main App: {e}")
 
             messages.success(request, f"Updated '{item.client_name}' successfully!")
         else:
@@ -1857,6 +1877,170 @@ def import_excel(request):
             messages.success(request, f"Successfully imported {count} items from Excel!")
         except Exception as e:
             messages.error(request, f"Failed to import Excel: {str(e)}")
+
+    return redirect('tracker:dashboard')
+
+
+@login_required
+def database_export_bundle(request):
+    """
+    Exports a complete zip bundle containing:
+    1. db.sqlite3 (Django Process Dashboard database)
+    2. main_app/app_database.db (Main App engine database)
+    3. backup_manifest.json (Metadata, timestamp, record counts)
+    """
+    profile = get_user_access_profile(request.user)
+    if not (profile.is_admin or request.user.is_superuser or profile.can_manage_settings):
+        messages.error(request, "Permission denied: Admin access required to export full database bundle.")
+        return redirect('tracker:dashboard')
+
+    import io, zipfile, json, os
+    from datetime import datetime
+    from django.conf import settings
+    from django.http import HttpResponse
+    from django.db import connections
+
+    # Close DB connections to flush writes
+    try:
+        connections.close_all()
+    except Exception:
+        pass
+
+    buf = io.BytesIO()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    manifest = {
+        'version': '1.0',
+        'exported_at': datetime.now().isoformat(),
+        'exported_by': request.user.username,
+        'client_count': ProcessItem.objects.count(),
+        'files': []
+    }
+
+    try:
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # 1. Django DB
+            db_sqlite = os.path.join(settings.BASE_DIR, 'db.sqlite3')
+            if os.path.exists(db_sqlite):
+                zf.write(db_sqlite, 'db.sqlite3')
+                manifest['files'].append({'name': 'db.sqlite3', 'size': os.path.getsize(db_sqlite)})
+
+            # 2. Main App DB
+            main_db = os.path.join(settings.BASE_DIR, 'main_app', 'app_database.db')
+            if os.path.exists(main_db):
+                zf.write(main_db, 'main_app/app_database.db')
+                manifest['files'].append({'name': 'main_app/app_database.db', 'size': os.path.getsize(main_db)})
+
+            # 3. Manifest
+            zf.writestr('backup_manifest.json', json.dumps(manifest, indent=2))
+
+        buf.seek(0)
+        filename = f"process_dashboard_complete_db_{timestamp}.zip"
+        response = HttpResponse(buf.getvalue(), content_type='application/zip')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+    except Exception as e:
+        messages.error(request, f"Failed to export database bundle: {e}")
+        return redirect('tracker:dashboard')
+
+
+@login_required
+def database_import_bundle(request):
+    """
+    Imports and restores database from an uploaded .zip bundle, .sqlite3 file, or .db file.
+    Creates an automatic safety backup of existing databases before applying.
+    """
+    profile = get_user_access_profile(request.user)
+    if not (profile.is_admin or request.user.is_superuser or profile.can_manage_settings):
+        messages.error(request, "Permission denied: Admin access required to import database.")
+        return redirect('tracker:dashboard')
+
+    if request.method != 'POST' or not request.FILES.get('db_file'):
+        messages.error(request, "Please choose a database bundle (.zip) or database (.db / .sqlite3) file to upload.")
+        return redirect('tracker:dashboard')
+
+    uploaded_file = request.FILES['db_file']
+    filename = uploaded_file.name.lower()
+
+    import os, io, zipfile, shutil
+    from datetime import datetime
+    from django.conf import settings
+    from django.db import connections
+
+    # Safety snapshot of current databases
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_dir = os.path.join(settings.BASE_DIR, 'backups')
+    os.makedirs(backup_dir, exist_ok=True)
+
+    db_sqlite = os.path.join(settings.BASE_DIR, 'db.sqlite3')
+    main_db = os.path.join(settings.BASE_DIR, 'main_app', 'app_database.db')
+
+    try:
+        connections.close_all()
+    except Exception:
+        pass
+
+    if os.path.exists(db_sqlite):
+        try:
+            shutil.copy2(db_sqlite, os.path.join(backup_dir, f'pre_import_db_{timestamp}.sqlite3'))
+        except Exception:
+            pass
+    if os.path.exists(main_db):
+        try:
+            shutil.copy2(main_db, os.path.join(backup_dir, f'pre_import_app_database_{timestamp}.db'))
+        except Exception:
+            pass
+
+    restored_items = []
+
+    try:
+        if filename.endswith('.zip'):
+            with zipfile.ZipFile(uploaded_file, 'r') as zf:
+                for member in zf.namelist():
+                    member_clean = member.lower().replace('\\', '/')
+                    if member_clean.endswith('db.sqlite3'):
+                        extracted_bytes = zf.read(member)
+                        connections.close_all()
+                        with open(db_sqlite, 'wb') as f:
+                            f.write(extracted_bytes)
+                        restored_items.append('Process Dashboard (db.sqlite3)')
+                    elif 'app_database.db' in member_clean or member_clean.endswith('.db'):
+                        extracted_bytes = zf.read(member)
+                        os.makedirs(os.path.dirname(main_db), exist_ok=True)
+                        with open(main_db, 'wb') as f:
+                            f.write(extracted_bytes)
+                        restored_items.append('Main App Engine (app_database.db)')
+
+        elif filename.endswith('.sqlite3'):
+            connections.close_all()
+            with open(db_sqlite, 'wb') as f:
+                for chunk in uploaded_file.chunks():
+                    f.write(chunk)
+            restored_items.append('Process Dashboard (db.sqlite3)')
+
+        elif filename.endswith('.db'):
+            with open(main_db, 'wb') as f:
+                for chunk in uploaded_file.chunks():
+                    f.write(chunk)
+            restored_items.append('Main App Engine (app_database.db)')
+
+        else:
+            messages.error(request, "Unsupported file format. Please upload a .zip database bundle or a .sqlite3 / .db file.")
+            return redirect('tracker:dashboard')
+
+        # Re-run schema migrations on main_app DB if restored
+        try:
+            from main_app import db_manager
+            db_manager.init_db()
+        except Exception:
+            pass
+
+        if restored_items:
+            messages.success(request, f"Database restored successfully! Components updated: {', '.join(restored_items)}. All live data is now loaded.")
+        else:
+            messages.warning(request, "Archive was uploaded, but no valid database files (db.sqlite3 or app_database.db) were detected inside.")
+
+    except Exception as e:
+        messages.error(request, f"Error restoring database: {str(e)}")
 
     return redirect('tracker:dashboard')
 

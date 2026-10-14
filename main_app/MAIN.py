@@ -1537,14 +1537,14 @@ def delete_placeholder(p_id):
     return db_manager.delete_placeholder(p_id)
 
 @eel.expose
-def get_all_categories():
+def get_all_categories(company_name=""):
     """डेटाबेस से सभी कैटेगरीज़ फेच करता है।"""
-    return db_manager.get_all_categories()
+    return db_manager.get_all_categories(company_name)
 
 @eel.expose
-def add_category(name):
+def add_category(name, company_name="All"):
     """नई कैटेगरी का नाम जोड़ता है।"""
-    return db_manager.add_category(name)
+    return db_manager.add_category(name, company_name)
 
 @eel.expose
 def update_category(c_id, new_name):
@@ -1611,14 +1611,14 @@ def restore_database(file_path=None, file_b64=None):
         return {"status": "error", "message": f"Restore failed: {str(e)}"}
 
 @eel.expose
-def get_all_subcategories(category_name=None):
+def get_all_subcategories(category_name=None, company_name=""):
     """सब-कैटेगरीज़ की लिस्ट फेच करता है।"""
-    return db_manager.get_all_subcategories(category_name)
+    return db_manager.get_all_subcategories(category_name, company_name)
 
 @eel.expose
-def add_subcategory(name, category_name):
+def add_subcategory(category_name, name=None, company_name="All"):
     """नई सब-कैटेगरी जोड़ता है।"""
-    return db_manager.add_subcategory(name, category_name)
+    return db_manager.add_subcategory(category_name, name, company_name)
 
 @eel.expose
 def update_subcategory(sub_id, new_name, category_name=None):

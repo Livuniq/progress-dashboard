@@ -89,10 +89,33 @@ if [ "$VENV_ACTIVATED" = false ]; then
     echo -e "${YELLOW}  Tip: You can create one via: mkvirtualenv --python=/usr/bin/python3.10 process_env${NC}"
 fi
 
-# 3. Pull latest code from GitHub
+# 3. Pull latest code from GitHub (Protecting Live Databases)
 echo -e "${BLUE}[3/5] Pulling latest code from GitHub...${NC}"
+
+# Safety Backup of live databases before any git pull
+if [ -f "main_app/app_database.db" ]; then
+    cp -p "main_app/app_database.db" "$HOME/app_database.db.live_backup"
+    echo -e "${GREEN}✓ Backed up live app_database.db${NC}"
+fi
+if [ -f "db.sqlite3" ]; then
+    cp -p "db.sqlite3" "$HOME/db.sqlite3.live_backup"
+    echo -e "${GREEN}✓ Backed up live db.sqlite3${NC}"
+fi
+
+# Ensure git skips local database modifications so live data is never overwritten
+git update-index --skip-worktree main_app/app_database.db 2>/dev/null || true
+
+# Pull latest code
 git pull origin main || git pull
-echo -e "${GREEN}✓ Code up to date.${NC}"
+
+# Restore live databases from backup to guarantee zero data loss
+if [ -f "$HOME/app_database.db.live_backup" ]; then
+    cp -p "$HOME/app_database.db.live_backup" "main_app/app_database.db"
+fi
+if [ -f "$HOME/db.sqlite3.live_backup" ]; then
+    cp -p "$HOME/db.sqlite3.live_backup" "db.sqlite3"
+fi
+echo -e "${GREEN}✓ Code up to date & live databases 100% preserved.${NC}"
 
 # 4. Install dependencies, run migrations & collect static files
 echo -e "${BLUE}[4/5] Applying updates (requirements, migrations, static files)...${NC}"
