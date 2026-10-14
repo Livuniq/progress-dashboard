@@ -665,10 +665,32 @@ def item_create(request):
                 changes=initial_changes,
             )
 
+            brand_name = request.POST.get('brand_name', '').strip()
+            location = request.POST.get('location', '').strip()
+            shipping_profile_name = request.POST.get('shipping_profile_name', '').strip()
+            return_profile_name = request.POST.get('return_profile_name', '').strip()
+            payment_profile_name = request.POST.get('payment_profile_name', '').strip()
+
+            if brand_name or location:
+                if not item.custom_fields:
+                    item.custom_fields = {}
+                if brand_name:
+                    item.custom_fields['brand_name'] = brand_name
+                if location:
+                    item.custom_fields['location'] = location
+                item.save(update_fields=['custom_fields'])
+
             # Automatically sync to Main App Company Policy
             try:
                 from main_app import db_manager
-                db_manager.sync_client_to_company_policy(item.client_name)
+                db_manager.sync_client_to_company_policy(
+                    item.client_name,
+                    brand_name=brand_name,
+                    location=location,
+                    shipping_profile_name=shipping_profile_name,
+                    return_profile_name=return_profile_name,
+                    payment_profile_name=payment_profile_name
+                )
             except Exception as e:
                 print(f"Error syncing client '{item.client_name}' to Main App: {e}")
 
@@ -706,6 +728,8 @@ def item_update(request, pk):
         form = ProcessItemForm(request.POST, instance=item)
         if form.is_valid():
             updated_item = form.save(commit=False)
+            # Party name is protected: strictly cannot be renamed from Dashboard
+            updated_item.client_name = item.client_name
             if updated_item.target_date != old_target_date:
                 # Target date changed: clear manual status lock so dynamic status recalculates!
                 updated_item.is_status_manual = False
@@ -748,18 +772,6 @@ def item_update(request, pk):
                     summary=summary,
                     changes=changes,
                 )
-
-            # If client_name was updated, sync to Main App
-            if old_values.get('client_name') and old_values['client_name'].strip().lower() != updated_item.client_name.strip().lower():
-                try:
-                    from main_app import db_manager
-                    conn = db_manager.get_db_connection()
-                    cur = conn.cursor()
-                    cur.execute("UPDATE business_policies SET company_name=? WHERE LOWER(company_name)=LOWER(?)", (updated_item.client_name.strip(), old_values['client_name'].strip()))
-                    conn.commit()
-                    conn.close()
-                except Exception as e:
-                    print(f"Error syncing renamed client to Main App: {e}")
 
             messages.success(request, f"Updated '{item.client_name}' successfully!")
         else:
@@ -1181,20 +1193,7 @@ def item_history_clear(request, pk):
 
 @login_required
 def item_delete(request, pk):
-    profile = get_user_access_profile(request.user)
-    if not profile or not profile.can_delete_party or not profile.is_party_allowed(pk):
-        messages.error(request, "Permission denied: You do not have permission to delete clients.")
-        return redirect('tracker:dashboard')
-
-    item = get_object_or_404(ProcessItem, pk=pk)
-    if request.method == 'POST':
-        password = request.POST.get('password', '').strip()
-        if password != '8264':
-            messages.error(request, "Incorrect deletion password! Client was not deleted.")
-            return redirect('tracker:dashboard')
-        name = item.client_name
-        item.delete()
-        messages.success(request, f"Deleted '{name}' successfully.")
+    messages.error(request, "Party delete karne ki anumati Dashboard se nahi hai. Kripya Main App > Company Policies se delete karein.")
     return redirect('tracker:dashboard')
 
 
@@ -1225,34 +1224,8 @@ def item_toggle_hide(request, pk):
 
 @login_required
 def items_bulk_delete(request):
-    """Bulk delete multiple clients protected by password 8264"""
-    profile = get_user_access_profile(request.user)
-    if not profile or not profile.can_delete_party:
-        messages.error(request, "Permission denied: You do not have permission to delete clients.")
-        return redirect('tracker:dashboard')
-
-    if request.method == 'POST':
-        password = request.POST.get('password', '').strip()
-        if password != '8264':
-            messages.error(request, "Incorrect deletion password! Bulk deletion cancelled.")
-            return redirect('tracker:dashboard')
-        
-        ids_str = request.POST.get('selected_ids', '').strip()
-        ids = []
-        if ids_str:
-            ids = [int(x) for x in ids_str.split(',') if x.strip().isdigit()]
-        if not ids:
-            ids = [int(x) for x in request.POST.getlist('selected_ids') if str(x).isdigit()]
-        
-        if ids:
-            # Also filter by allowed parties if not admin/all_parties
-            if not profile.is_admin and not profile.all_parties_access:
-                ids = [i for i in ids if profile.is_party_allowed(i)]
-            deleted_count, _ = ProcessItem.objects.filter(id__in=ids).delete()
-            messages.success(request, f"Successfully deleted {deleted_count} client(s).")
-        else:
-            messages.warning(request, "No clients selected for deletion.")
-            
+    """Parties cannot be deleted from Dashboard; must be deleted from Main App > Company Policies."""
+    messages.error(request, "Parties Dashboard se delete nahi ki ja sakti. Kripya Main App > Company Policies se delete karein.")
     return redirect('tracker:dashboard')
 
 

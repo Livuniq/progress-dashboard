@@ -276,13 +276,27 @@ def clear_multiXlsx(file_name="Multi_API.xlsx", destination_path=None, force=Fal
         os.makedirs(destination_path, exist_ok=True)
         source_file = file_name
         if selected_company:
-            comp_filename = f"{selected_company.strip()}.xlsx"
-            possible_src = os.path.join(destination_path, "main", comp_filename)
+            comp_clean = selected_company.strip()
+            safe_name = re.sub(r'[/\\:\*\?"<>\|]', '_', str(comp_clean)).strip()
+            
+            possible_src = os.path.join(destination_path, "main", f"{comp_clean}.xlsx")
+            if not os.path.exists(possible_src):
+                possible_src = os.path.join(destination_path, "main", f"{safe_name}.xlsx")
+            
+            if not os.path.exists(possible_src) and os.path.exists(os.path.join(destination_path, "main")):
+                main_folder = os.path.join(destination_path, "main")
+                for f in os.listdir(main_folder):
+                    if f.endswith(('.xlsx', '.xls')) and not f.startswith('~$') and f.lower() != 'multi_api.xlsx':
+                        stem = os.path.splitext(f)[0].strip().lower()
+                        if stem == comp_clean.lower() or stem == safe_name.lower():
+                            possible_src = os.path.join(main_folder, f)
+                            break
+
             if os.path.exists(possible_src):
-                source_file = comp_filename
-                print(f"कंपनी '{selected_company}' के लिए 'main/{comp_filename}' फ़ाइल पाई गई!")
+                source_file = os.path.basename(possible_src)
+                print(f"कंपनी '{selected_company}' के लिए 'main/{source_file}' फ़ाइल पाई गई!")
             else:
-                print(f"कंपनी '{selected_company}' की एक्सेल फ़ाइल 'main/{comp_filename}' नहीं मिली, डिफ़ॉल्ट 'main/Multi_API.xlsx' फ़ाइल का उपयोग किया जा रहा है।")
+                print(f"कंपनी '{selected_company}' की एक्सेल फ़ाइल 'main/{comp_clean}.xlsx' नहीं मिली, डिफ़ॉल्ट 'main/Multi_API.xlsx' फ़ाइल का उपयोग किया जा रहा है।")
 
         src = os.path.join(destination_path, "main", source_file)
         dest = os.path.join(destination_path, file_name)
@@ -1457,10 +1471,20 @@ def app1():
 # प्रत्येक फ़ंक्शन में `@eel.expose` डैकोरेटर लगा है ताकि JavaScript इसे `await callEel(...)` से कॉल कर सके।
 
 @eel.expose
-def get_company_list():
-    """डेटाबेस से सभी उपलब्ध कंपनियों की सूची (List) रिटर्न करता है।"""
+def get_company_list(include_hidden=False):
+    """डेटाबेस से सभी उपलब्ध कंपनियों की सूची (List) रिटर्न करता है।
+    अगर include_hidden=False है तो Process Dashboard में Hidden (is_hidden=True) कंपनियों को लिस्ट से हटा दिया जाता है।
+    """
     load_settings()
-    return list(company_settings.keys())
+    all_comps = list(company_settings.keys())
+    if include_hidden:
+        return all_comps
+    try:
+        hidden_comps = db_manager.get_hidden_company_names_set()
+        return [c for c in all_comps if c not in hidden_comps]
+    except Exception as e:
+        print(f"Error filtering hidden companies in get_company_list: {e}")
+        return all_comps
 
 @eel.expose
 def get_product_list():

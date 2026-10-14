@@ -105,8 +105,28 @@ fi
 # Ensure git skips local database modifications so live data is never overwritten
 git update-index --skip-worktree main_app/app_database.db 2>/dev/null || true
 
-# Pull latest code
-git pull origin main || git pull
+# Temporarily disable set -e to handle git conflicts gracefully
+set +e
+
+# Auto-resolve uncommitted local changes to avoid merge aborts
+git reset HEAD -- update.bash update.sh 2>/dev/null || true
+git checkout -- update.bash update.sh 2>/dev/null || true
+
+# Attempt git pull
+PULL_OUTPUT=$(git pull origin main 2>&1)
+PULL_STATUS=$?
+
+if [ $PULL_STATUS -ne 0 ]; then
+    echo -e "${YELLOW}[!] Git pull reported conflicts. Auto-resolving and retrying...${NC}"
+    git stash --include-untracked 2>/dev/null || git stash 2>/dev/null || true
+    git checkout -- . 2>/dev/null || true
+    git pull origin main || git pull
+else
+    echo -e "$PULL_OUTPUT"
+fi
+
+# Re-enable set -e for strict error checking
+set -e
 
 # Restore live databases from backup to guarantee zero data loss
 if [ -f "$HOME/app_database.db.live_backup" ]; then

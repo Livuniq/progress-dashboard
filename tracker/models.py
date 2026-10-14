@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 
 class ProcessItem(models.Model):
     STATUS_CHOICES = [
+        ('new', 'NEW'),
         ('working', 'Working'),
         ('no_data', 'No data'),
         ('finished', 'Finished'),
@@ -14,7 +15,7 @@ class ProcessItem(models.Model):
 
     client_name = models.CharField(max_length=255, verbose_name="Client / Account Name")
     is_red_client = models.BooleanField(default=False, verbose_name="Highlight Client Name in Red")
-    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='working', verbose_name="Status")
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='new', verbose_name="Status")
     
     lot_progress = models.CharField(max_length=50, blank=True, default='', verbose_name="LOT (e.g. 24|75 or Finished)")
     current_lot = models.IntegerField(null=True, blank=True, verbose_name="Current LOT")
@@ -81,7 +82,7 @@ class ProcessItem(models.Model):
         """
         if self.is_status_manual:
             return self.status
-        if self.status in ['hold', 'pending']:
+        if self.status in ['hold', 'pending', 'new']:
             return self.status
         if self.days_diff is not None and self.days_diff > 0:
             return 'finished'
@@ -92,6 +93,8 @@ class ProcessItem(models.Model):
         opt = StatusOption.objects.filter(key=self.dynamic_status).first()
         if opt:
             return opt.label
+        if self.dynamic_status == 'new':
+            return 'NEW'
         if self.dynamic_status == 'hold':
             return 'On Hold'
         if self.dynamic_status == 'pending':

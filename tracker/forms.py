@@ -44,3 +44,5 @@ class ProcessItemForm(forms.ModelForm):
         from .models import StatusOption
         choices = StatusOption.get_status_choices()
         self.fields['status'].choices = choices
+        if not self.instance or not self.instance.pk:
+            self.fields['status'].initial = 'new'

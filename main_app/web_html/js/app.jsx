@@ -1683,9 +1683,12 @@ function App() {
       const compList = await callEel('get_company_list');
       if (Array.isArray(compList)) {
         setCompanies(compList);
-        if (!selectedHtmlCompany && compList.length > 0) {
-          setSelectedHtmlCompany(compList[0]);
-        }
+        setSelectedCompany(prev => (prev && !compList.includes(prev) ? '' : prev));
+        setSelectedHtmlCompany(prev => {
+          if (!prev && compList.length > 0) return compList[0];
+          if (prev && !compList.includes(prev)) return compList[0] || '';
+          return prev;
+        });
       }
       
       const prodList = await callEel('get_product_list');
@@ -1775,6 +1778,22 @@ function App() {
     loadPlaceholders();
     loadCategoriesAndColumns();
     loadCompanyHtmlTemplates();
+
+    const handleWindowFocus = () => {
+      reloadCompaniesAndProducts();
+    };
+    const handleRemoteMessage = (e) => {
+      if (e.data && (e.data.type === 'REFRESH_COMPANIES' || e.data.type === 'DATA_UPDATED')) {
+        reloadCompaniesAndProducts();
+        loadDatabaseItems();
+      }
+    };
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('message', handleRemoteMessage);
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('message', handleRemoteMessage);
+    };
   }, []);
 
   // Sync active HTML template string when selected company, category, or subcategory changes (EXACT MATCH ONLY!)
@@ -2348,13 +2367,21 @@ function App() {
   };
 
   const handleDeletePolicy = async (id) => {
-    if (!isAdminMode) {
-      showToast('Admin Mode required to delete items! Double-click logo to unlock.', 'warning');
+    const pol = policies.find(p => p.id === id);
+    const compName = pol ? pol.company_name : 'this company';
+    if (!confirm(`Are you sure you want to permanently delete company "${compName}"?\n\nThis will remove its policies, custom categories/subcategories, master blueprint file, and remove it from the Process Dashboard.`)) {
       return;
     }
     try {
       await callEel('delete_company_policy', id);
-      showToast('Policy deleted from database', 'success');
+      showToast(`Company policy "${compName}" deleted from database and dashboard!`, 'success');
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'CLIENT_DELETED', clientName: compName }, '*');
+        }
+      } catch (postErr) {
+        console.warn('postMessage to parent failed:', postErr);
+      }
       await loadDatabaseItems();
       await reloadCompaniesAndProducts();
     } catch (err) {
@@ -3176,7 +3203,7 @@ function App() {
                       >
                         + Add
                       </button>
-                      {isAdminMode && selectedCompany && (
+                      {selectedCompany && (
                         <button
                           onClick={() => {
                             const polObj = policies.find(p => p.company_name.toLowerCase() === selectedCompany.toLowerCase());
@@ -3434,7 +3461,15 @@ function App() {
                       <div key={p.id} className="p-5 glass-card space-y-3 relative group">
                         <div className="flex justify-between items-start">
                           <div>
-                            <h4 className="font-bold text-indigo-300 text-base">{p.company_name}</h4>
+                            <div className="flex items-center space-x-2">
+                              <h4 className="font-bold text-indigo-300 text-base">{p.company_name}</h4>
+                              {p.is_hidden && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center space-x-1" title="Hidden in Process Dashboard">
+                                  <i className="fa-solid fa-eye-slash text-[9px]"></i>
+                                  <span>Hidden in Dashboard</span>
+                                </span>
+                              )}
+                            </div>
                             <div className="text-xs text-gray-400 mt-0.5">Brand: {p.brand_name || 'N/A'} | Location: {p.location || 'N/A'}</div>
                           </div>
                           <div className="flex space-x-2">
@@ -3445,15 +3480,13 @@ function App() {
                             >
                               <i className="fa-solid fa-pen"></i>
                             </button>
-                            {isAdminMode && (
-                              <button
-                                onClick={() => handleDeletePolicy(p.id)}
-                                className="p-2 text-xs rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
-                                title="Delete Policy"
-                              >
-                                <i className="fa-solid fa-trash"></i>
-                              </button>
-                            )}
+                            <button
+                              onClick={() => handleDeletePolicy(p.id)}
+                              className="p-2 text-xs rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
+                              title="Delete Party & Policy"
+                            >
+                              <i className="fa-solid fa-trash"></i>
+                            </button>
                           </div>
                         </div>
 
@@ -3632,20 +3665,39 @@ function App() {
                             </div>
                           </div>
 
-                          <div className="flex justify-end space-x-3 pt-4 border-t border-white/10">
-                            <button
-                              type="button"
-                              onClick={() => setEditingPolicy(null)}
-                              className="btn-secondary px-4 py-2 text-xs"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="submit"
-                              className="btn-primary px-5 py-2 text-xs font-semibold"
-                            >
-                              Save Policy to DB
-                            </button>
+                          <div className="flex justify-between items-center pt-4 border-t border-white/10">
+                            <div>
+                              {editingPolicy.id && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const id = editingPolicy.id;
+                                    setEditingPolicy(null);
+                                    handleDeletePolicy(id);
+                                  }}
+                                  className="px-3 py-2 text-xs rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 font-semibold flex items-center space-x-1.5 transition-colors"
+                                  title="Permanently remove this party"
+                                >
+                                  <i className="fa-solid fa-trash"></i>
+                                  <span>Delete Party</span>
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex space-x-3">
+                              <button
+                                type="button"
+                                onClick={() => setEditingPolicy(null)}
+                                className="btn-secondary px-4 py-2 text-xs"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="submit"
+                                className="btn-primary px-5 py-2 text-xs font-semibold"
+                              >
+                                Save Policy to DB
+                              </button>
+                            </div>
                           </div>
                         </form>
                       </div>

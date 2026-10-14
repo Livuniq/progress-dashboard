@@ -521,19 +521,176 @@ def get_title_templates_list(metal_type, sheet_name, setting_column="Default", c
     return [r["template_text"] for r in rows if r["template_text"]]
 
 # API CRUD Functions
+def get_hidden_company_names_set():
+    """
+    Returns a set of company names (from business_policies) that are currently
+    marked as hidden (is_hidden=True) in the Process Dashboard (tracker_processitem).
+    Uses robust multi-level matching:
+    1. Exact match (case-insensitive)
+    2. Substring match
+    3. Token overlap match (>= 3 chars, ignoring stop words)
+    """
+    items = []
+    try:
+        import os, django
+        if not os.environ.get('DJANGO_SETTINGS_MODULE'):
+            os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+            django.setup()
+        from tracker.models import ProcessItem
+        items = list(ProcessItem.objects.all().values('client_name', 'is_hidden'))
+    except Exception:
+        try:
+            import os, sqlite3
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            db_path = os.path.join(base_dir, 'db.sqlite3')
+            if not os.path.exists(db_path):
+                db_path = os.path.join(os.getcwd(), 'db.sqlite3')
+            if os.path.exists(db_path):
+                conn = sqlite3.connect(db_path)
+                c = conn.cursor()
+                c.execute('SELECT client_name, is_hidden FROM tracker_processitem')
+                items = [{'client_name': r[0], 'is_hidden': bool(r[1])} for r in c.fetchall()]
+                conn.close()
+        except Exception:
+            items = []
+
+    if not items:
+        return set()
+
+    stop_words = {
+        'jewels', 'jewel', 'jewelry', 'fine', 'inc', 'ltd', 'usa', 'diamond', 'diamonds',
+        'gold', 'silver', 'lab', 'true', 'shree', 'the', 'and', 'by', 'world', 'co'
+    }
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT company_name FROM business_policies")
+    comp_names = [r["company_name"] for r in cursor.fetchall() if r["company_name"]]
+    conn.close()
+
+    hidden_comps = set()
+    import re
+    for cname in comp_names:
+        cl = str(cname).strip().lower()
+
+        # 1. Exact match
+        exact = [it for it in items if it['client_name'].strip().lower() == cl]
+        if exact:
+            if all(it['is_hidden'] for it in exact):
+                hidden_comps.add(cname)
+            continue
+
+        # 2. Substring match
+        subs = [it for it in items if cl in it['client_name'].strip().lower() or it['client_name'].strip().lower() in cl]
+        if subs:
+            if all(it['is_hidden'] for it in subs):
+                hidden_comps.add(cname)
+            continue
+
+        # 3. Best word overlap
+        cw = set([w for w in re.findall(r'[a-zA-Z0-9]+', cl) if len(w) >= 3 and w not in stop_words])
+        best_score = 0
+        scored_items = []
+        if cw:
+            for it in items:
+                iw = set([w for w in re.findall(r'[a-zA-Z0-9]+', it['client_name'].strip().lower()) if len(w) >= 3 and w not in stop_words])
+                overlap = len(cw.intersection(iw))
+                if overlap > best_score:
+                    best_score = overlap
+                    scored_items = [it]
+                elif overlap == best_score and overlap > 0:
+                    scored_items.append(it)
+        if scored_items:
+            if all(it['is_hidden'] for it in scored_items):
+                hidden_comps.add(cname)
+
+    return hidden_comps
+
 def get_all_company_policies():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM business_policies ORDER BY company_name ASC")
     rows = [dict(r) for r in cursor.fetchall()]
     conn.close()
+    try:
+        hidden_comps = get_hidden_company_names_set()
+        for r in rows:
+            r["is_hidden"] = r.get("company_name") in hidden_comps
+    except Exception:
+        for r in rows:
+            r["is_hidden"] = False
     return rows
+
+def rename_company_blueprint(old_comp_name, new_comp_name):
+    """
+    Safely renames the company's master blueprint template in main/<Company>.xlsx
+    when the company policy name is changed.
+    """
+    if not old_comp_name or not new_comp_name:
+        return
+    try:
+        import os, shutil, re
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        main_dir = os.path.join(base_dir, 'main')
+        if not os.path.exists(main_dir):
+            return
+
+        old_clean = str(old_comp_name).strip()
+        new_clean = str(new_comp_name).strip()
+        old_safe = re.sub(r'[/\\:\*\?"<>\|]', '_', old_clean).strip()
+        new_safe = re.sub(r'[/\\:\*\?"<>\|]', '_', new_clean).strip()
+        new_filename = f"{new_safe}.xlsx"
+        new_path = os.path.join(main_dir, new_filename)
+
+        # Look for existing file matching old name
+        found_old_path = None
+        for f in os.listdir(main_dir):
+            if not f.endswith(('.xlsx', '.xls')) or f.startswith('~$') or f.lower() == 'multi_api.xlsx':
+                continue
+            stem = os.path.splitext(f)[0].strip().lower()
+            if stem == old_clean.lower() or stem == old_safe.lower():
+                found_old_path = os.path.join(main_dir, f)
+                break
+
+        if found_old_path and os.path.exists(found_old_path):
+            if os.path.abspath(found_old_path) != os.path.abspath(new_path):
+                shutil.move(found_old_path, new_path)
+                print(f"[Blueprint] Renamed master blueprint template '{os.path.basename(found_old_path)}' to '{new_filename}'")
+    except Exception as e:
+        print(f"Error renaming blueprint file for '{old_comp_name}' -> '{new_comp_name}': {e}")
+
+def delete_company_blueprint(comp_name):
+    """
+    Safely deletes the master blueprint template file for a deleted company.
+    """
+    if not comp_name:
+        return
+    try:
+        import os, re
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        main_dir = os.path.join(base_dir, 'main')
+        if not os.path.exists(main_dir):
+            return
+
+        c_clean = str(comp_name).strip().lower()
+        c_safe = re.sub(r'[/\\:\*\?"<>\|]', '_', str(comp_name)).strip().lower()
+        for f in os.listdir(main_dir):
+            if not f.endswith(('.xlsx', '.xls')) or f.startswith('~$') or f.lower() == 'multi_api.xlsx':
+                continue
+            stem = os.path.splitext(f)[0].strip().lower()
+            if stem == c_clean or stem == c_safe:
+                target_path = os.path.join(main_dir, f)
+                if os.path.exists(target_path):
+                    os.remove(target_path)
+                    print(f"[Blueprint] Removed master blueprint template '{f}' for deleted company '{comp_name}'")
+    except Exception as e:
+        print(f"Error deleting blueprint file for '{comp_name}': {e}")
 
 def sync_company_to_dashboard(company_name, old_name=None):
     """
     Syncs a company policy from Main App into the Process Dashboard (tracker_processitem).
     If a ProcessItem with this name does not exist, creates it.
-    If it was renamed, updates the existing ProcessItem.
+    If it was renamed, updates the existing ProcessItem and records an audit log.
     """
     if not company_name or not str(company_name).strip():
         return
@@ -549,6 +706,12 @@ def sync_company_to_dashboard(company_name, old_name=None):
         if old_name and str(old_name).strip() and str(old_name).strip().lower() != company_name.lower():
             old_clean = str(old_name).strip()
             old_item = ProcessItem.objects.filter(client_name__iexact=old_clean).first()
+            if not old_item:
+                try:
+                    from main_app import catalog_sync
+                    old_item = catalog_sync.find_or_create_party(old_clean)
+                except Exception:
+                    pass
             if old_item:
                 old_item.client_name = company_name
                 old_item.save(update_fields=['client_name'])
@@ -577,28 +740,46 @@ def sync_company_to_dashboard(company_name, old_name=None):
     except Exception as e:
         print(f"Error syncing company '{company_name}' to Dashboard: {e}")
 
-def sync_client_to_company_policy(client_name):
+def sync_client_to_company_policy(client_name, brand_name=None, location=None, shipping_profile_name=None, return_profile_name=None, payment_profile_name=None):
     """
-    Syncs a client from Process Dashboard (item_create) into Main App business_policies table.
+    Syncs a client from Process Dashboard (item_create) into Main App business_policies table
+    with custom brand_name, location, and profiles.
     """
     if not client_name or not str(client_name).strip():
         return
     client_name = str(client_name).strip()
+    b_name = str(brand_name).strip() if brand_name and str(brand_name).strip() else client_name
+    loc = str(location).strip() if location and str(location).strip() else "USA"
+    ship = str(shipping_profile_name).strip() if shipping_profile_name and str(shipping_profile_name).strip() else f"{client_name} - Shipping"
+    ret = str(return_profile_name).strip() if return_profile_name and str(return_profile_name).strip() else f"{client_name} - Return"
+    pay = str(payment_profile_name).strip() if payment_profile_name and str(payment_profile_name).strip() else f"{client_name} - Payment"
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM business_policies WHERE LOWER(company_name)=LOWER(?)", (client_name,))
-        if not cursor.fetchone():
+        row = cursor.fetchone()
+        if not row:
             cursor.execute("""
                 INSERT INTO business_policies 
                 (company_name, brand_name, location, shipping_profile_name, return_profile_name, payment_profile_name, shipping_html, payment_html, return_html, about_us_html)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                client_name, client_name, "USA",
-                f"{client_name} - Shipping", f"{client_name} - Return", f"{client_name} - Payment",
+                client_name, b_name, loc,
+                ship, ret, pay,
                 "", "", "", ""
             ))
-            conn.commit()
+        else:
+            cursor.execute("""
+                UPDATE business_policies SET
+                    brand_name = COALESCE(NULLIF(?, ''), brand_name),
+                    location = COALESCE(NULLIF(?, ''), location),
+                    shipping_profile_name = COALESCE(NULLIF(?, ''), shipping_profile_name),
+                    return_profile_name = COALESCE(NULLIF(?, ''), return_profile_name),
+                    payment_profile_name = COALESCE(NULLIF(?, ''), payment_profile_name)
+                WHERE id = ?
+            """, (b_name, loc, ship, ret, pay, row["id"]))
+        conn.commit()
         conn.close()
     except Exception as e:
         print(f"Error syncing client '{client_name}' to business_policies: {e}")
@@ -637,19 +818,90 @@ def save_company_policy(data):
             data.get("shipping_html"), data.get("payment_html"), data.get("return_html"), data.get("about_us_html")
         ))
     conn.commit()
+
+    # If company was renamed, safely update all linked tables & assets
+    is_renamed = bool(old_comp_name and str(old_comp_name).strip() and comp_name and old_comp_name.strip().lower() != comp_name.lower())
+    if is_renamed:
+        old_clean = str(old_comp_name).strip()
+        new_clean = str(comp_name).strip()
+
+        # 1. Update company_html_templates
+        cursor.execute("UPDATE company_html_templates SET company_name=? WHERE LOWER(company_name)=LOWER(?)", (new_clean, old_clean))
+        # 2. Update categories (party-specific scope)
+        cursor.execute("UPDATE categories SET company_name=? WHERE LOWER(company_name)=LOWER(?)", (new_clean, old_clean))
+        # 3. Update subcategories (party-specific scope)
+        cursor.execute("UPDATE subcategories SET company_name=? WHERE LOWER(company_name)=LOWER(?)", (new_clean, old_clean))
+        # 4. Update title_templates (party-specific scope)
+        cursor.execute("UPDATE title_templates SET company_name=? WHERE LOWER(company_name)=LOWER(?)", (new_clean, old_clean))
+        # 5. Update excel_mappings
+        cursor.execute("UPDATE excel_mappings SET company_name=? WHERE LOWER(company_name)=LOWER(?)", (new_clean, old_clean))
+        # 6. Update company_template_headers
+        cursor.execute("UPDATE company_template_headers SET company_name=? WHERE LOWER(company_name)=LOWER(?)", (new_clean, old_clean))
+        conn.commit()
+
+        # 7. Rename master blueprint file on disk
+        rename_company_blueprint(old_clean, new_clean)
+
     conn.close()
 
-    # Automatically sync new/updated company to Dashboard ProcessItem
+    # 8. Automatically sync new/updated company to Dashboard ProcessItem
     if comp_name:
         sync_company_to_dashboard(comp_name, old_name=old_comp_name)
 
     return True
 
-def delete_company_policy(policy_id):
+def delete_company_policy(policy_id_or_name):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM business_policies WHERE id=?", (policy_id,))
+    comp_name = None
+
+    # Handle either ID (int/str digit) or company name
+    if isinstance(policy_id_or_name, int) or (isinstance(policy_id_or_name, str) and str(policy_id_or_name).strip().isdigit()):
+        pid = int(str(policy_id_or_name).strip())
+        cursor.execute("SELECT company_name FROM business_policies WHERE id=?", (pid,))
+        row = cursor.fetchone()
+        if row:
+            comp_name = row["company_name"]
+        cursor.execute("DELETE FROM business_policies WHERE id=?", (pid,))
+    else:
+        comp_name = str(policy_id_or_name).strip()
+        cursor.execute("DELETE FROM business_policies WHERE LOWER(company_name)=LOWER(?)", (comp_name,))
+
     conn.commit()
+
+    if comp_name:
+        c_clean = str(comp_name).strip()
+        # 1. Clean up linked tables
+        cursor.execute("DELETE FROM company_html_templates WHERE LOWER(company_name)=LOWER(?)", (c_clean,))
+        cursor.execute("DELETE FROM categories WHERE LOWER(company_name)=LOWER(?)", (c_clean,))
+        cursor.execute("DELETE FROM subcategories WHERE LOWER(company_name)=LOWER(?)", (c_clean,))
+        cursor.execute("DELETE FROM title_templates WHERE LOWER(company_name)=LOWER(?)", (c_clean,))
+        cursor.execute("DELETE FROM excel_mappings WHERE LOWER(company_name)=LOWER(?)", (c_clean,))
+        cursor.execute("DELETE FROM company_template_headers WHERE LOWER(company_name)=LOWER(?)", (c_clean,))
+        conn.commit()
+
+        # 2. Clean up master blueprint file
+        delete_company_blueprint(c_clean)
+
+        # 3. Remove corresponding ProcessItem from Process Dashboard
+        try:
+            import os, django
+            if not os.environ.get('DJANGO_SETTINGS_MODULE'):
+                os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+                django.setup()
+            from tracker.models import ProcessItem
+            item = ProcessItem.objects.filter(client_name__iexact=c_clean).first()
+            if not item:
+                try:
+                    from main_app import catalog_sync
+                    item = catalog_sync.find_or_create_party(c_clean)
+                except Exception:
+                    pass
+            if item:
+                item.delete()
+        except Exception as e:
+            print(f"Error deleting ProcessItem for '{c_clean}': {e}")
+
     conn.close()
     return True
 

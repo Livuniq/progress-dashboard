@@ -759,6 +759,8 @@
                                         {% if item.dynamic_status == 'finished' %}
                                             <span class="badge-status-finished status-badge status-badge-sm">Finished</span>
                                             <span class="badge-status-nodata status-badge status-badge-sm">No data</span>
+                                        {% elif item.dynamic_status == 'new' %}
+                                            <span class="badge-status-new status-badge status-badge-sm" style="background:#d1fae5; color:#065f46; border:1px solid #a7f3d0; font-weight:700;">NEW</span>
                                         {% elif item.dynamic_status == 'working' %}
                                             <span class="badge-status-working status-badge status-badge-sm">Working</span>
                                         {% elif item.dynamic_status == 'pending' %}
@@ -778,6 +780,8 @@
                                 <span class="cell-view-content">
                                     {% if item.dynamic_status == 'working' %}
                                         <span class="badge-status-working status-badge">Working</span>
+                                    {% elif item.dynamic_status == 'new' %}
+                                        <span class="badge-status-new status-badge" style="background:#d1fae5; color:#065f46; border:1px solid #a7f3d0; font-weight:700;">NEW</span>
                                     {% elif item.dynamic_status == 'finished' %}
                                         <span class="badge-status-finished status-badge">Finished</span>
                                     {% elif item.dynamic_status == 'no_data' %}
@@ -1034,73 +1038,37 @@
                             <label class="form-label fw-medium">Status</label>
                             {{ form.status }}
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-medium">LOT Progress (e.g. 24|75)</label>
-                            {{ form.lot_progress }}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-medium">Done / Completed Count</label>
-                            {{ form.completed_count }}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-medium">Pending Count</label>
-                            {{ form.pending_count }}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-medium">Ready / Pipeline Count</label>
-                            {{ form.ready_count }}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-medium">Target Date</label>
-                            {{ form.target_date }}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-medium">History / Milestone</label>
-                            {{ form.history_milestone }}
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label fw-medium">Process Notes / Remarks (Supports English & Gujarati)</label>
-                            {{ form.notes }}
+                        <div class="col-md-6">
+                            <label class="form-label fw-medium"><i class="bi bi-tag text-primary me-1"></i>Brand Name</label>
+                            <input type="text" name="brand_name" id="add_brand_name" class="form-control" placeholder="Brand Name (leave blank to use Client Name)">
                         </div>
                         <div class="col-md-6">
-                            <div class="form-check mt-2">
-                                {{ form.is_red_client }}
-                                <label class="form-check-label text-danger fw-semibold" for="{{ form.is_red_client.id_for_label }}">
-                                    Highlight Client Name in Red
-                                </label>
-                            </div>
+                            <label class="form-label fw-medium"><i class="bi bi-geo-alt text-primary me-1"></i>Location</label>
+                            <input type="text" name="location" id="add_location" class="form-control" value="USA" placeholder="e.g. USA / India / New York">
                         </div>
-                        <div class="col-md-6">
-                            <div class="form-check mt-2">
-                                {{ form.notes_is_red }}
-                                <label class="form-check-label text-danger fw-semibold" for="{{ form.notes_is_red.id_for_label }}">
-                                    Highlight Notes in Red
-                                </label>
-                            </div>
-                        </div>
+
+                        <!-- Main App Business Policies Accordion/Box -->
                         <div class="col-12">
-                            <div class="form-check mt-1 p-2 rounded border bg-light">
-                                {{ form.is_priority }}
-                                <label class="form-check-label text-success fw-bold ms-1" for="{{ form.is_priority.id_for_label }}">
-                                    <i class="bi bi-circle-fill text-success me-1"></i> High Priority (Green Dot Indicator)
-                                </label>
+                            <div class="p-3 rounded-3 border bg-light-subtle shadow-sm">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="small fw-bold text-dark"><i class="bi bi-shield-check text-primary me-1"></i> Main App Business Policies</span>
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 10px;">Auto-syncs to Main App</span>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted mb-1">Shipping Profile</label>
+                                        <input type="text" name="shipping_profile_name" id="add_shipping_profile" class="form-control form-control-sm" placeholder="Auto: [Client Name] - Shipping">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted mb-1">Return Profile</label>
+                                        <input type="text" name="return_profile_name" id="add_return_profile" class="form-control form-control-sm" placeholder="Auto: [Client Name] - Return">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted mb-1">Payment Profile</label>
+                                        <input type="text" name="payment_profile_name" id="add_payment_profile" class="form-control form-control-sm" placeholder="Auto: [Client Name] - Payment">
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label fw-medium"><i class="bi bi-palette me-1 text-primary"></i> Row Highlight Color (Hex Code)</label>
-                            <div class="input-group">
-                                <input type="color" class="form-control form-control-color p-1" id="add_color_picker" value="#ffffff" title="Pick color" oninput="document.getElementById('id_row_highlight_color').value = this.value">
-                                {{ form.row_highlight_color }}
-                                <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('id_row_highlight_color').value=''; document.getElementById('add_color_picker').value='#ffffff';">Clear</button>
-                            </div>
-                            <div class="d-flex align-items-center gap-1 mt-1">
-                                <span class="text-muted small me-1">Presets:</span>
-                                <button type="button" class="btn btn-sm px-2 py-0 border rounded-pill" style="background-color: #f7fee7; font-size: 11px;" onclick="setAddColor('#f7fee7')">Lime (#f7fee7)</button>
-                                <button type="button" class="btn btn-sm px-2 py-0 border rounded-pill" style="background-color: #fff1f2; font-size: 11px;" onclick="setAddColor('#fff1f2')">Light Red (#fff1f2)</button>
-                                <button type="button" class="btn btn-sm px-2 py-0 border rounded-pill" style="background-color: #fef9c3; font-size: 11px;" onclick="setAddColor('#fef9c3')">Yellow (#fef9c3)</button>
-                                <button type="button" class="btn btn-sm px-2 py-0 border rounded-pill" style="background-color: #e0f2fe; font-size: 11px;" onclick="setAddColor('#e0f2fe')">Light Blue (#e0f2fe)</button>
-                            </div>
-                            <small class="text-muted">Optional: set a custom hex code like #f7fee7 to highlight this client row</small>
                         </div>
                     </div>
                 </div>
@@ -1126,8 +1094,16 @@
                 <div class="modal-body p-4">
                     <div class="row g-3">
                         <div class="col-md-8">
-                            <label class="form-label fw-medium">Client / Account Name <span class="text-danger">*</span></label>
-                            <input type="text" name="client_name" id="edit_client_name" class="form-control" required>
+                            <label class="form-label fw-medium d-flex justify-content-between align-items-center">
+                                <span>Client / Account Name</span>
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style="font-size: 10px;">
+                                    <i class="bi bi-lock-fill me-1"></i>Protected
+                                </span>
+                            </label>
+                            <input type="text" name="client_name" id="edit_client_name" class="form-control bg-light text-muted fw-semibold" readonly style="cursor: not-allowed;" title="Party name dashboard se rename nahi kiya ja sakta. Kripya Main App > Company Policies se rename karein.">
+                            <small class="text-muted d-block mt-1" style="font-size: 11px;">
+                                <i class="bi bi-info-circle me-1 text-primary"></i>Party name rename karne ke liye <strong>Main App &rarr; Company Policies</strong> ka upyog karein.
+                            </small>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-medium">Status</label>
@@ -1349,7 +1325,7 @@
                                 <h6 class="fw-bold mb-0 text-dark">Export Live Database</h6>
                             </div>
                             <p class="text-secondary small mb-3" style="font-size: 0.8rem; line-height: 1.4;">
-                                Download complete database bundle containing both <strong>Process Dashboard</strong> (clients, LOTs, tabs, tables) and <strong>Main App</strong> (policies, HTML templates, formulas).
+                                Download complete database bundle containing both <strong>Priyank's Dashboard App</strong> (clients, LOTs, tabs, tables) and <strong>Main App</strong> (policies, HTML templates, formulas).
                             </p>
                             <div class="mt-auto pt-2">
                                 <a href="{% url 'tracker:database_export_bundle' %}" class="btn btn-primary w-100 fw-semibold py-2 d-flex align-items-center justify-content-center gap-2 rounded-3 shadow-sm" style="background: #4f46e5; border-color: #4f46e5;">
@@ -2174,7 +2150,7 @@
 
     window.hasNewClientAdded = false;
     window.addEventListener('message', function(event) {
-        if (event.data && event.data.type === 'CLIENT_ADDED') {
+        if (event.data && (event.data.type === 'CLIENT_ADDED' || event.data.type === 'CLIENT_DELETED' || event.data.type === 'CLIENT_RENAMED')) {
             window.hasNewClientAdded = true;
         }
     });
@@ -2229,6 +2205,10 @@
         if (mainAppFrame && (mainAppFrame.src === 'about:blank' || !mainAppFrame.src.includes('/main-app/'))) {
             if (loader) loader.style.display = 'block';
             mainAppFrame.src = '/main-app/?embedded=1';
+        } else if (mainAppFrame && mainAppFrame.contentWindow) {
+            try {
+                mainAppFrame.contentWindow.postMessage({ type: 'REFRESH_COMPANIES' }, '*');
+            } catch(e) {}
         }
 
         try {
@@ -4148,6 +4128,14 @@
                     } else if (window.updateVisibleClientCount) {
                         window.updateVisibleClientCount();
                     }
+
+                    // Notify Main App iframe if loaded
+                    const mainAppFrame = document.getElementById('mainAppFrame');
+                    if (mainAppFrame && mainAppFrame.contentWindow) {
+                        try {
+                            mainAppFrame.contentWindow.postMessage({ type: 'REFRESH_COMPANIES' }, '*');
+                        } catch(e) {}
+                    }
                 }
             })
             .catch(err => {
@@ -4197,27 +4185,13 @@
     const deleteClientPromptText = document.getElementById('deleteClientPromptText');
     const deleteModalSubmitText = document.getElementById('deleteModalSubmitText');
 
-    // Single Delete click
+    // Single Delete click -> Party removal is strictly managed from Main App
     document.querySelectorAll('.btn-delete-client').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            const clientName = this.getAttribute('data-name') || 'this client';
-            const deleteUrl = this.getAttribute('data-url');
-            
-            if (deleteSelectedIds) deleteSelectedIds.value = '';
-            if (deleteClientTargetName) deleteClientTargetName.textContent = clientName;
-            if (deleteClientPromptText) deleteClientPromptText.textContent = 'Are you sure you want to permanently delete client:';
-            if (deleteModalLabel) deleteModalLabel.innerHTML = '<i class="bi bi-shield-lock-fill me-1"></i> Security: Confirm Client Delete';
-            if (deleteModalSubmitText) deleteModalSubmitText.textContent = 'Delete Client';
-            if (deleteClientForm) deleteClientForm.action = deleteUrl;
-            if (deletePasswordInput) {
-                deletePasswordInput.value = '';
-                deletePasswordInput.classList.remove('is-invalid');
-            }
-            if (deleteModal) {
-                deleteModal.show();
-            }
+            const clientName = this.getAttribute('data-name') || 'this party';
+            alert(`Party "${clientName}" dashboard se delete nahi ki ja sakti.\n\nParty ko permanently remove karne ke liye kripya "Main App" me jakar "Database Management > Company Policies" se delete karein.`);
         });
     });
 
@@ -4326,33 +4300,11 @@
         });
     }
 
-    // Bulk Delete Click -> Open Modal with Password Protection (8264)
+    // Bulk Delete Click -> Party removal is strictly managed from Main App
     if (bulkDeleteBtn) {
         bulkDeleteBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            const checkedBoxes = getSelectedCheckboxes();
-            if (checkedBoxes.length === 0) return;
-
-            const selectedIds = checkedBoxes.map(cb => cb.value);
-            const selectedNames = checkedBoxes.map(cb => cb.getAttribute('data-name') || 'Client');
-            const count = selectedIds.length;
-
-            if (deleteSelectedIds) deleteSelectedIds.value = selectedIds.join(',');
-            if (deleteClientForm) deleteClientForm.action = "{% url 'tracker:items_bulk_delete' %}";
-            if (deleteModalLabel) deleteModalLabel.innerHTML = `<i class="bi bi-shield-lock-fill me-1"></i> Security: Confirm Bulk Delete (${count} Clients)`;
-            if (deleteClientPromptText) deleteClientPromptText.textContent = `Are you sure you want to permanently delete all ${count} selected clients?`;
-            if (deleteClientTargetName) {
-                const preview = selectedNames.slice(0, 3).join(', ');
-                deleteClientTargetName.innerHTML = count > 3 ? `${preview} <span class="badge bg-danger rounded-pill">+${count - 3} more</span>` : preview;
-            }
-            if (deleteModalSubmitText) deleteModalSubmitText.textContent = `Delete ${count} Clients`;
-            if (deletePasswordInput) {
-                deletePasswordInput.value = '';
-                deletePasswordInput.classList.remove('is-invalid');
-            }
-            if (deleteModal) {
-                deleteModal.show();
-            }
+            alert("Parties Dashboard se bulk delete nahi ki ja sakti.\n\nParties ko permanently remove karne ke liye kripya Main App > Company Policies se delete karein.");
         });
     }
 
@@ -4657,5 +4609,21 @@
             }
         });
     });
+
+    // Auto-update placeholders in Add Process Item Modal as Client Name is typed
+    const addClientInput = document.querySelector('#addModal [name="client_name"]');
+    if (addClientInput) {
+        addClientInput.addEventListener('input', function() {
+            const val = this.value.trim();
+            const brandInput = document.getElementById('add_brand_name');
+            const shipInput = document.getElementById('add_shipping_profile');
+            const retInput = document.getElementById('add_return_profile');
+            const payInput = document.getElementById('add_payment_profile');
+            if (brandInput && !brandInput.value) brandInput.placeholder = val ? val : 'Brand Name (leave blank to use Client Name)';
+            if (shipInput && !shipInput.value) shipInput.placeholder = val ? `${val} - Shipping` : 'Auto: [Client Name] - Shipping';
+            if (retInput && !retInput.value) retInput.placeholder = val ? `${val} - Return` : 'Auto: [Client Name] - Return';
+            if (payInput && !payInput.value) payInput.placeholder = val ? `${val} - Payment` : 'Auto: [Client Name] - Payment';
+        });
+    }
 </script>
 {% endblock %}
