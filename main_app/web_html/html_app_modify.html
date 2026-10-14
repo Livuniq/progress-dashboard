@@ -567,23 +567,108 @@
             }
         }
 
-        function submitText() {
+        async function getClipboardText() {
+            // 1. Try reading directly from browser's clipboard API
+            if (navigator.clipboard && navigator.clipboard.readText) {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    if (text && text.trim()) {
+                        return text.trim();
+                    }
+                } catch (err) {
+                    console.warn('Browser clipboard readText access denied or not available:', err);
+                }
+            }
+
+            // 2. Check if text is currently inside the codeEditor textarea
+            const codeEditor = document.getElementById('codeEditor');
+            if (codeEditor && codeEditor.value && codeEditor.value.trim()) {
+                return codeEditor.value.trim();
+            }
+
+            return '';
+        }
+
+        async function submitText() {
             const replaceFrom = document.getElementById('replaceFrom')?.value || '';
             const replaceTo = document.getElementById('replaceTo')?.value || '';
 
+            let clipCode = await getClipboardText();
+
+            // If clipboard was empty or browser blocked auto-read (e.g. non-HTTPS or permission denied):
+            if (!clipCode) {
+                if (window.Swal) {
+                    const result = await Swal.fire({
+                        title: '📋 Paste HTML Template',
+                        input: 'textarea',
+                        inputLabel: 'Clipboard is empty or browser blocked automatic access. Please paste your HTML template code below:',
+                        inputPlaceholder: 'Paste your HTML code containing marker (|x| or zzz) here...',
+                        inputAttributes: {
+                            rows: '8',
+                            style: 'font-family: monospace; font-size: 12px; resize: vertical;'
+                        },
+                        showCancelButton: true,
+                        confirmButtonText: '🚀 Modify & Preview',
+                        confirmButtonColor: '#10b981',
+                        cancelButtonColor: '#64748b',
+                        background: '#1e293b',
+                        color: '#f8fafc'
+                    });
+                    if (result.isConfirmed && result.value && result.value.trim()) {
+                        clipCode = result.value.trim();
+                    }
+                }
+            }
+
+            if (!clipCode) {
+                handleResponse('EMPTY_INPUT', 'Modify');
+                return;
+            }
+
             if (window.eel && window.eel.modify) {
-                eel.modify('', replaceFrom, replaceTo, removeVideoChecked)(function (response) {
+                eel.modify(clipCode, replaceFrom, replaceTo, removeVideoChecked)(function (response) {
                     handleResponse(response, 'Modify');
                 });
             }
         }
 
-        function submitReplaceOnly() {
+        async function submitReplaceOnly() {
             const replaceFrom = document.getElementById('replaceFrom')?.value || '';
             const replaceTo = document.getElementById('replaceTo')?.value || '';
 
+            let clipCode = await getClipboardText();
+
+            if (!clipCode) {
+                if (window.Swal) {
+                    const result = await Swal.fire({
+                        title: '📋 Paste HTML to Replace',
+                        input: 'textarea',
+                        inputLabel: 'Clipboard is empty or browser blocked automatic access. Please paste your HTML code below:',
+                        inputPlaceholder: 'Paste your HTML code here...',
+                        inputAttributes: {
+                            rows: '8',
+                            style: 'font-family: monospace; font-size: 12px; resize: vertical;'
+                        },
+                        showCancelButton: true,
+                        confirmButtonText: '🔀 Replace & Preview',
+                        confirmButtonColor: '#8b5cf6',
+                        cancelButtonColor: '#64748b',
+                        background: '#1e293b',
+                        color: '#f8fafc'
+                    });
+                    if (result.isConfirmed && result.value && result.value.trim()) {
+                        clipCode = result.value.trim();
+                    }
+                }
+            }
+
+            if (!clipCode) {
+                handleResponse('EMPTY_INPUT', 'Replace');
+                return;
+            }
+
             if (window.eel && window.eel.replace_only) {
-                eel.replace_only('', replaceFrom, replaceTo, removeVideoChecked)(function (response) {
+                eel.replace_only(clipCode, replaceFrom, replaceTo, removeVideoChecked)(function (response) {
                     handleResponse(response, 'Replace');
                 });
             }
@@ -640,6 +725,13 @@
                 const codeEditor = document.getElementById('codeEditor');
                 if (codeEditor) codeEditor.value = currentModifiedHTML;
                 
+                // Auto copy modified result directly to user's local Windows/device clipboard!
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(currentModifiedHTML).catch(function(err) {
+                        console.warn('Auto clipboard write failed:', err);
+                    });
+                }
+
                 popConfetti(type === 'Modify' ? document.querySelector('.btn-primary') : document.querySelector('.btn-purple'));
 
                 if (window.Swal) {

@@ -4128,6 +4128,7 @@ function App() {
                       <iframe
                         src="html_app_modify.html"
                         className="w-full h-full border-0"
+                        allow="clipboard-read; clipboard-write"
                         title="Standalone eBay HTML App"
                       />
                     </div>
