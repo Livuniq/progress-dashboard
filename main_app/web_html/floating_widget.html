@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Action Widget</title>
+    <script src="/eel.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0f172a;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+            justify-content: center;
+        }
+
+        .btn {
+            appearance: none;
+            border: none;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            outline: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.5);
+            filter: brightness(1.1);
+        }
+
+        .btn-purple {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+        }
+
+        .btn-purple:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
+            filter: brightness(1.1);
+        }
+
+        /* Toggle Option Card */
+        .toggle-option-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            padding: 6px 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-option-card:hover {
+            border-color: rgba(16, 185, 129, 0.4);
+            background: rgba(30, 41, 59, 0.9);
+        }
+
+        .toggle-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #f1f5f9;
+        }
+
+        .toggle-option-card input[type="checkbox"] {
+            display: none;
+        }
+
+        .toggle-switch-slider {
+            position: relative;
+            width: 30px;
+            height: 16px;
+            background: #334155;
+            border-radius: 20px;
+            transition: background 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .toggle-switch-slider::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 12px;
+            height: 12px;
+            background: #ffffff;
+            border-radius: 50%;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .toggle-option-card input[type="checkbox"]:checked + .toggle-switch-slider {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .toggle-option-card input[type="checkbox"]:checked + .toggle-switch-slider::after {
+            transform: translateX(14px);
+        }
+    </style>
+</head>
+<body>
+    <div class="btn-group">
+        <button class="btn btn-primary" onclick="triggerModify(this)">
+            <span>🚀</span> Modify from Clipboard
+        </button>
+        <button class="btn btn-purple" onclick="triggerReplaceOnly(this)">
+            <span>🔀</span> Only Replace (From → To)
+        </button>
+        <label class="toggle-option-card">
+            <span class="toggle-label">📹 Strip Video Tag</span>
+            <input type="checkbox" id="removeVideoToggle" checked onchange="toggleRemoveVideo(this.checked)">
+            <span class="toggle-switch-slider"></span>
+        </label>
+    </div>
+
+    <script>
+        function sync_video_toggle_ui(isOn) {
+            const toggleEl = document.getElementById('removeVideoToggle');
+            if (toggleEl && toggleEl.checked !== isOn) {
+                toggleEl.checked = isOn;
+            }
+            localStorage.setItem('ebay_remove_video', isOn ? 'true' : 'false');
+        }
+        if (window.eel) {
+            eel.expose(sync_video_toggle_ui);
+        }
+
+        function toggleRemoveVideo(isRemove) {
+            localStorage.setItem('ebay_remove_video', isRemove ? 'true' : 'false');
+            if (window.eel && window.eel.update_video_rule) {
+                window.eel.update_video_rule(isRemove)();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedVideoToggle = localStorage.getItem('ebay_remove_video');
+            const toggleEl = document.getElementById('removeVideoToggle');
+            if (savedVideoToggle !== null && toggleEl) {
+                const isChecked = savedVideoToggle === 'true';
+                toggleEl.checked = isChecked;
+                if (window.eel && window.eel.update_video_rule) {
+                    window.eel.update_video_rule(isChecked)();
+                }
+            }
+        });
+
+        window.addEventListener('storage', (event) => {
+            if (event.key === 'ebay_remove_video') {
+                const isChecked = event.newValue === 'true';
+                const toggleEl = document.getElementById('removeVideoToggle');
+                if (toggleEl && toggleEl.checked !== isChecked) {
+                    toggleEl.checked = isChecked;
+                }
+            }
+        });
+
+        function triggerModify(btn) {
+            const originalHTML = btn ? btn.innerHTML : '';
+            if (btn) btn.innerHTML = '<span>✨</span> Modified! Copied ✓';
+            if (window.eel && window.eel.modify_from_widget) {
+                window.eel.modify_from_widget()();
+            }
+            if (btn) {
+                setTimeout(() => { btn.innerHTML = originalHTML; }, 1400);
+            }
+        }
+
+        function triggerReplaceOnly(btn) {
+            const originalHTML = btn ? btn.innerHTML : '';
+            if (btn) btn.innerHTML = '<span>✨</span> Replaced! Copied ✓';
+            if (window.eel && window.eel.replace_only_from_widget) {
+                window.eel.replace_only_from_widget()();
+            }
+            if (btn) {
+                setTimeout(() => { btn.innerHTML = originalHTML; }, 1400);
+            }
+        }
+
+        let resizeTimer;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function() {
+                if (window.eel && window.eel.save_widget_size) {
+                    const width = window.outerWidth || window.innerWidth;
+                    const height = window.outerHeight || window.innerHeight;
+                    window.eel.save_widget_size(width, height)();
+                }
+            }, 300);
+        });
+    </script>
+</body>
+</html>

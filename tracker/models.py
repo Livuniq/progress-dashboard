@@ -679,6 +679,7 @@ class UserAccessProfile(models.Model):
     allowed_tab_titles = models.JSONField(default=list, blank=True, verbose_name="Allowed Party Tab Titles")
     can_view_problem_badge = models.BooleanField(default=True, verbose_name="Can View Problem Alert Red Badge")
     can_view_party_data = models.BooleanField(default=False, verbose_name="Can View Party Catalog / Data")
+    can_access_main_app = models.BooleanField(default=True, verbose_name="Can Access Main App (Jewelry Engine)")
 
     # Action / Edit Permissions
     can_import_party_data = models.BooleanField(default=True, verbose_name="Can Import Party Catalog Data")

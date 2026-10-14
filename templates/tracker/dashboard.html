@@ -402,7 +402,18 @@
                 <span class="badge bg-white text-dark rounded-pill px-2 py-0" style="font-size: 10px;">{{ total_clients }}</span>
             </button>
 
-            <!-- 2. Admin Panel (STRICTLY GATED BY ADMIN PERMISSION) -->
+            <!-- 2. Main App (Jewelry Data & API Engine) -->
+            {% if can_access_main_app or is_admin %}
+            <button type="button" class="sidebar-nav-tab w-100 border-0 bg-transparent text-start mb-1" id="sidebarMainAppNavBtn" onclick="showMainAppView()">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="nav-tab-icon" style="background: #e0e7ff; color: #4338ca;"><i class="bi bi-cpu-fill"></i></div>
+                    <span class="small">Main App</span>
+                </div>
+                <span class="badge rounded-pill px-2 py-0" style="background-color: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; font-size: 9.5px;">Engine</span>
+            </button>
+            {% endif %}
+
+            <!-- 3. Admin Panel (STRICTLY GATED BY ADMIN PERMISSION) -->
             {% if is_admin %}
             <a href="{% url 'tracker:admin_panel' %}" class="sidebar-nav-tab">
                 <div class="d-flex align-items-center gap-2">
@@ -932,6 +943,66 @@
                 <iframe id="catalogFrame" src="" style="width: 100%; height: 100%; border: none; display: block; position: relative; z-index: 10;" onload="const l=document.getElementById('catalogFrameLoader'); if(l) l.style.display='none';" allow="clipboard-write"></iframe>
             </div>
         </div> <!-- /#catalogDataView -->
+
+        <!-- View 3: Main App View (Jewelry Data & API Engine - Same-Page Display) -->
+        <div id="mainAppView" class="d-none">
+            <!-- Main App View Header Bar -->
+            <div class="d-flex align-items-center justify-content-between mb-2 px-3 py-2 bg-white rounded-3 border shadow-sm flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 py-1 fw-semibold d-inline-flex align-items-center gap-1 shadow-sm" onclick="showProcessTableView()" title="Back to Process Table">
+                        <i class="bi bi-arrow-left"></i>
+                        <span>Back to Dashboard</span>
+                    </button>
+                    <span class="text-muted small d-none d-sm-inline">|</span>
+                    <span class="fw-bold text-dark fs-6 d-flex align-items-center gap-1.5">
+                        <i class="bi bi-cpu-fill" style="color: #6366f1;"></i>
+                        <span>Main App</span>
+                    </span>
+                    <span class="badge rounded-pill px-2 py-0 small" style="background-color: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe;">Jewelry Data & API Engine</span>
+                </div>
+                
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <!-- Quick Upload data.xlsx -->
+                    <button type="button" class="btn btn-sm btn-white border rounded-pill px-3 py-1 fw-semibold bg-white shadow-sm text-success" onclick="triggerMainAppUpload()" title="Upload new data.xlsx file">
+                        <i class="bi bi-cloud-arrow-up-fill me-1"></i>
+                        <span>Upload data.xlsx</span>
+                    </button>
+                    <input type="file" id="mainAppFileInput" accept=".xlsx,.xls" style="display: none;" onchange="handleMainAppUpload(this)">
+
+                    <!-- Quick Download Multi_API.xlsx -->
+                    <a href="/main-app/download-output/?type=multi" class="btn btn-sm btn-white border rounded-pill px-3 py-1 fw-semibold bg-white shadow-sm text-primary text-decoration-none" title="Download master Multi_API.xlsx">
+                        <i class="bi bi-download me-1"></i>
+                        <span>Multi_API.xlsx</span>
+                    </a>
+
+                    <!-- Quick Download Latest Export -->
+                    <a href="/main-app/download-output/?type=latest" class="btn btn-sm btn-white border rounded-pill px-3 py-1 fw-semibold bg-white shadow-sm text-purple text-decoration-none" style="color: #7c3aed;" title="Download latest generated API-*.xlsx export">
+                        <i class="bi bi-file-earmark-arrow-down-fill me-1"></i>
+                        <span>Latest API Export</span>
+                    </a>
+
+                    <div class="vr mx-1 d-none d-md-block"></div>
+
+                    <!-- Refresh Engine Frame -->
+                    <button type="button" class="btn btn-sm btn-white border rounded-pill px-2.5 py-1 fw-semibold bg-white shadow-sm" onclick="refreshMainAppFrame()" title="Reload Engine Frame">
+                        <i class="bi bi-arrow-clockwise text-primary"></i>
+                    </button>
+                    <!-- Open in New Tab -->
+                    <button type="button" class="btn btn-sm btn-white border rounded-pill px-2.5 py-1 fw-semibold bg-white shadow-sm" onclick="popOutMainAppFrame()" title="Open Main App in full new tab">
+                        <i class="bi bi-box-arrow-up-right text-secondary"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Embedded Main App Frame Container (Full Screen Responsive) -->
+            <div class="rounded-3 overflow-hidden border shadow-sm position-relative" style="height: calc(100vh - 142px); background: #0b0f19;">
+                <div id="mainAppFrameLoader" class="position-absolute top-50 start-50 translate-middle text-center" style="z-index: 5;">
+                    <div class="spinner-border text-primary mb-2" role="status" style="width: 2.2rem; height: 2.2rem;"></div>
+                    <div class="text-light small fw-semibold">Loading Jewelry Data & API Engine...</div>
+                </div>
+                <iframe id="mainAppFrame" src="about:blank" style="width: 100%; height: 100%; border: none; display: block; position: relative; z-index: 10;" onload="const l=document.getElementById('mainAppFrameLoader'); if(l) l.style.display='none';" allow="clipboard-write"></iframe>
+            </div>
+        </div> <!-- /#mainAppView -->
     </main>
 </div>
 
@@ -1982,12 +2053,15 @@
             catalogFrame.src = `/party/${itemId}/data/?embedded=1`;
         }
 
+        const mainAppView = document.getElementById('mainAppView');
         if (processView) processView.classList.add('d-none');
         if (catalogView) catalogView.classList.remove('d-none');
+        if (mainAppView) mainAppView.classList.add('d-none');
 
         // Update URL query string without reloading
         try {
             const url = new URL(window.location.href);
+            url.searchParams.delete('view');
             url.searchParams.set('catalog', itemId);
             window.history.pushState({ view: 'catalog', itemId: itemId, clientName: clientName }, '', url.toString());
         } catch (e) {
@@ -2006,9 +2080,11 @@
     window.showProcessTableView = function() {
         const processView = document.getElementById('processTableView');
         const catalogView = document.getElementById('catalogDataView');
+        const mainAppView = document.getElementById('mainAppView');
 
         if (processView) processView.classList.remove('d-none');
         if (catalogView) catalogView.classList.add('d-none');
+        if (mainAppView) mainAppView.classList.add('d-none');
 
         currentCatalogPartyId = null;
 
@@ -2016,6 +2092,7 @@
         try {
             const url = new URL(window.location.href);
             url.searchParams.delete('catalog');
+            url.searchParams.delete('view');
             window.history.pushState({ view: 'dashboard' }, '', url.toString());
         } catch (e) {
             console.warn(e);
@@ -2029,6 +2106,121 @@
         if (typeof updateDynamicDashboard === 'function') {
             updateDynamicDashboard();
         }
+    };
+
+    window.showMainAppView = function() {
+        const processView = document.getElementById('processTableView');
+        const catalogView = document.getElementById('catalogDataView');
+        const mainAppView = document.getElementById('mainAppView');
+        const mainAppFrame = document.getElementById('mainAppFrame');
+        const loader = document.getElementById('mainAppFrameLoader');
+
+        if (processView) processView.classList.add('d-none');
+        if (catalogView) catalogView.classList.add('d-none');
+        if (mainAppView) mainAppView.classList.remove('d-none');
+
+        if (mainAppFrame && (mainAppFrame.src === 'about:blank' || !mainAppFrame.src.includes('/main-app/'))) {
+            if (loader) loader.style.display = 'block';
+            mainAppFrame.src = '/main-app/?embedded=1';
+        }
+
+        try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('catalog');
+            url.searchParams.set('view', 'main-app');
+            window.history.pushState({ view: 'main-app' }, '', url.toString());
+        } catch (e) {
+            console.warn(e);
+        }
+
+        document.querySelectorAll('.sidebar-nav-tab').forEach(tab => tab.classList.remove('active'));
+        const mainAppNavBtn = document.getElementById('sidebarMainAppNavBtn');
+        if (mainAppNavBtn) mainAppNavBtn.classList.add('active');
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.refreshMainAppFrame = function() {
+        const mainAppFrame = document.getElementById('mainAppFrame');
+        const loader = document.getElementById('mainAppFrameLoader');
+        if (mainAppFrame) {
+            if (loader) loader.style.display = 'block';
+            mainAppFrame.src = '/main-app/?embedded=1&t=' + new Date().getTime();
+        }
+    };
+
+    window.popOutMainAppFrame = function() {
+        window.open('/main-app/', '_blank');
+    };
+
+    window.triggerMainAppUpload = function() {
+        const fileInput = document.getElementById('mainAppFileInput');
+        if (fileInput) fileInput.click();
+    };
+
+    window.handleMainAppUpload = function(input) {
+        if (!input.files || input.files.length === 0) return;
+        const file = input.files[0];
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const csrf = (typeof getCsrfToken === 'function' ? getCsrfToken() : '') || '{{ csrf_token }}';
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Uploading data.xlsx...',
+                text: 'Synchronizing sheets and column mappings',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+        }
+
+        fetch('/main-app/upload-data/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrf },
+            body: formData
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.status === 'success') {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Uploaded!',
+                        text: res.message,
+                        timer: 2500,
+                        showConfirmButton: false
+                    });
+                } else {
+                    alert(res.message);
+                }
+                refreshMainAppFrame();
+            } else {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Upload Failed',
+                        text: res.error || 'Unknown error'
+                    });
+                } else {
+                    alert('Upload Failed: ' + (res.error || 'Unknown error'));
+                }
+            }
+        })
+        .catch(err => {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: err.message || 'Upload error'
+                });
+            } else {
+                alert('Error: ' + err.message);
+            }
+        })
+        .finally(() => {
+            input.value = '';
+        });
     };
 
     window.refreshCatalogFrame = function() {
@@ -2048,8 +2240,11 @@
     window.addEventListener('popstate', function(e) {
         try {
             const url = new URL(window.location.href);
+            const viewParam = url.searchParams.get('view');
             const catalogId = url.searchParams.get('catalog');
-            if (catalogId) {
+            if (viewParam === 'main-app') {
+                showMainAppView();
+            } else if (catalogId) {
                 openPartyCatalogSamePage(catalogId);
             } else {
                 showProcessTableView();
@@ -2057,12 +2252,15 @@
         } catch (err) {}
     });
 
-    // Auto-open catalog if URL has ?catalog=<id> on load
+    // Auto-open catalog or main app if URL has ?view=main-app or ?catalog=<id> on load
     document.addEventListener('DOMContentLoaded', function() {
         try {
             const url = new URL(window.location.href);
+            const viewParam = url.searchParams.get('view');
             const catalogId = url.searchParams.get('catalog');
-            if (catalogId) {
+            if (viewParam === 'main-app') {
+                showMainAppView();
+            } else if (catalogId) {
                 openPartyCatalogSamePage(catalogId);
             }
         } catch (err) {}

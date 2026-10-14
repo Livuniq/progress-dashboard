@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eBay HTML Modifier Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #090d16;
+            color: #f8fafc;
+            padding: 8px;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .app-layout {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* LEFT SIDE: Preview Area */
+        .preview-workspace {
+            flex: 1;
+            height: 100%;
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(12px);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .tab-pane {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            display: none;
+            position: relative;
+            flex-direction: column;
+        }
+
+        .tab-pane.active {
+            display: flex;
+        }
+
+        .pane-hidden {
+            display: none !important;
+        }
+
+        .iframe-viewport {
+            width: 100%;
+            height: 100%;
+            flex: 1;
+            background: #0f172a;
+            display: flex;
+            justify-content: center;
+            align-items: stretch;
+            overflow: auto;
+            padding: 0;
+        }
+
+        #previewFrame {
+            width: 100%;
+            height: 100%;
+            min-height: 100%;
+            border: none;
+            background: #ffffff;
+            border-radius: 0;
+            transition: width 0.3s ease;
+        }
+
+        #codeEditor {
+            width: 100%;
+            height: 100%;
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            border: none;
+            outline: none;
+            background: #090d16;
+            color: #34d399;
+            resize: none;
+            white-space: pre-wrap;
+            overflow: auto;
+        }
+
+        .empty-state {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: #64748b;
+            background: #0f172a;
+            z-index: 10;
+        }
+
+        .empty-state svg {
+            width: 56px;
+            height: 56px;
+            stroke: #475569;
+        }
+
+        .empty-state h3 {
+            font-size: 16px;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+        .empty-state p {
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        .hidden-preview-banner {
+            display: none;
+            padding: 40px;
+            text-align: center;
+            color: #64748b;
+            font-size: 13px;
+            background: #0f172a;
+            height: 100%;
+        }
+
+        /* Resizer Divider */
+        .resizer-divider {
+            width: 8px;
+            height: 100%;
+            cursor: col-resize;
+            background: transparent;
+            transition: background 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            z-index: 30;
+            margin: 0 -2px;
+        }
+
+        .resizer-divider::after {
+            content: '';
+            width: 2px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 2px;
+            transition: background 0.2s, width 0.2s, box-shadow 0.2s;
+        }
+
+        .resizer-divider:hover::after, .resizer-divider.dragging::after {
+            background: #10b981;
+            width: 4px;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.7);
+        }
+
+        /* RIGHT SIDE: Control Panel Sidebar */
+        .control-sidebar {
+            width: 270px;
+            min-width: 210px;
+            max-width: 500px;
+            height: 100%;
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(14px);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            overflow-y: auto;
+        }
+
+        .brand-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .brand-header .icon {
+            font-size: 22px;
+        }
+
+        .brand-header h2 {
+            font-size: 15px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffffff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-header .badge {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 20px;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .section-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 6px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .btn {
+            appearance: none;
+            border: none;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 11px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            outline: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(16, 185, 129, 0.5);
+            filter: brightness(1.1);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(245, 158, 11, 0.45);
+            filter: brightness(1.1);
+        }
+
+        .btn-purple {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+        }
+
+        .btn-purple:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(99, 102, 241, 0.5);
+            filter: brightness(1.1);
+        }
+
+        .side-pill {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #94a3b8;
+            padding: 9px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .side-pill:hover {
+            background: rgba(51, 65, 85, 0.8);
+            color: #ffffff;
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .side-pill.active {
+            background: #10b981;
+            color: #ffffff;
+            font-weight: 700;
+            border-color: #10b981;
+            box-shadow: 0 3px 10px rgba(16, 185, 129, 0.4);
+        }
+
+        .side-pill.active-toggle {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.4);
+        }
+
+        .input-field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .field-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #94a3b8;
+        }
+
+        .custom-textarea {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #f8fafc;
+            resize: vertical;
+            min-height: 52px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .custom-textarea:focus {
+            border-color: #10b981;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+        }
+
+        .custom-textarea::placeholder {
+            color: #475569;
+        }
+
+        /* Toggle Option Card */
+        .toggle-option-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 4px;
+        }
+
+        .toggle-option-card:hover {
+            border-color: rgba(16, 185, 129, 0.4);
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        .toggle-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .toggle-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #f1f5f9;
+        }
+
+        .toggle-sub {
+            font-size: 10px;
+            color: #64748b;
+        }
+
+        .toggle-option-card input[type="checkbox"] {
+            display: none;
+        }
+
+        .toggle-switch-slider {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            background: #334155;
+            border-radius: 20px;
+            transition: background 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .toggle-switch-slider::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background: #ffffff;
+            border-radius: 50%;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .toggle-option-card input[type="checkbox"]:checked + .toggle-switch-slider {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .toggle-option-card input[type="checkbox"]:checked + .toggle-switch-slider::after {
+            transform: translateX(16px);
+        }
+    </style>
+    <script src="/eel.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+</head>
+
+<body>
+    <div class="app-layout">
+        <!-- LEFT SIDE: Full Preview Workspace -->
+        <div class="preview-workspace">
+            <!-- Collapsed Banner -->
+            <div id="hiddenBanner" class="hidden-preview-banner">
+                <p>Preview panel is currently hidden. Click <strong>"👁️ Show Preview"</strong> in the sidebar on the right to expand.</p>
+            </div>
+
+            <!-- Visual Preview Tab -->
+            <div id="visualPane" class="tab-pane active">
+                <div id="emptyState" class="empty-state">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                    </svg>
+                    <h3>No HTML Template Loaded</h3>
+                    <p>Click <strong>"🚀 Modify from Clipboard"</strong> in the control panel to process & preview.</p>
+                </div>
+                <div class="iframe-viewport">
+                    <iframe id="previewFrame"></iframe>
+                </div>
+            </div>
+
+            <!-- Raw Code Tab -->
+            <div id="codePane" class="tab-pane">
+                <textarea id="codeEditor" readonly placeholder="Modified raw HTML code will appear here..."></textarea>
+            </div>
+        </div>
+
+        <!-- Resizer Divider Handle -->
+        <div class="resizer-divider" id="sidebarResizer" title="Drag to resize sidebar"></div>
+
+        <!-- RIGHT SIDE: Control Panel Sidebar -->
+        <div class="control-sidebar" id="controlSidebar">
+
+            <div class="brand-header">
+                <span class="icon">⚡</span>
+                <h2>eBay Modifier</h2>
+                <span class="badge">STUDIO</span>
+            </div>
+
+            <!-- Main Actions -->
+            <div class="control-group">
+                <div class="section-title">⚡ Quick Actions</div>
+                <button class="btn btn-primary" onclick="submitText();">
+                    <span>🚀</span> Modify from Clipboard
+                </button>
+                <button class="btn btn-purple" onclick="submitReplaceOnly();">
+                    <span>🔀</span> Only Replace (From → To)
+                </button>
+                <button class="btn btn-secondary" onclick="copyResponse(); popConfetti(this);">
+                    <span>📋</span> Copy Result Code
+                </button>
+            </div>
+
+            <!-- Processing Options -->
+            <div class="control-group">
+                <div class="section-title">⚙️ PROCESSING OPTIONS</div>
+                <label class="toggle-option-card">
+                    <div class="toggle-info">
+                        <span class="toggle-label">📹 Strip eBay Video Tag</span>
+                        <span class="toggle-sub">Remove video button tag before modifying</span>
+                    </div>
+                    <input type="checkbox" id="removeVideoToggle" checked onchange="toggleRemoveVideo(this.checked)">
+                    <span class="toggle-switch-slider"></span>
+                </label>
+            </div>
+
+            <!-- Text Replacement -->
+            <div class="control-group">
+                <div class="section-title">🔄 Text Replacement (Use || for multiple)</div>
+                <div class="input-field-group">
+                    <label class="field-label">Find (From)</label>
+                    <textarea id="replaceFrom" class="custom-textarea" rows="2" placeholder="e.g. apple||banana||orange"></textarea>
+                </div>
+                <div class="input-field-group">
+                    <label class="field-label">Replace With (To)</label>
+                    <textarea id="replaceTo" class="custom-textarea" rows="2" placeholder="e.g. car||bike||cycle"></textarea>
+                </div>
+            </div>
+
+            <!-- View Modes -->
+            <div class="control-group">
+                <div class="section-title">👁️ View Mode</div>
+                <button class="side-pill active" id="viewModeToggleBtn" onclick="toggleViewMode()">
+                    <span>👁️</span> Mode: Live Visual Preview
+                </button>
+            </div>
+
+            <!-- Viewport & Device Controls -->
+            <div class="control-group">
+                <div class="section-title">📱 Viewport Controls</div>
+                <button class="side-pill" id="viewportToggleBtn" onclick="toggleViewport()">
+                    <span>🖥️</span> Viewport: Desktop (100%)
+                </button>
+            </div>
+
+            <!-- Display Toggle -->
+            <div class="control-group" style="margin-top: auto;">
+                <div class="section-title">⚙️ Workspace Settings</div>
+                <button class="side-pill" id="togglePreviewBtn" onclick="togglePreview()">
+                    <span>👁️</span> Hide Preview Pane
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentModifiedHTML = "";
+        let isPreviewVisible = true;
+        let removeVideoChecked = true;
+
+        function toggleRemoveVideo(checked) {
+            removeVideoChecked = checked;
+            if (window.eel && window.eel.update_video_rule) {
+                eel.update_video_rule(checked)();
+            }
+        }
+
+        if (window.eel) {
+            eel.expose(sync_video_toggle_ui);
+            function sync_video_toggle_ui(state) {
+                removeVideoChecked = Boolean(state);
+                const toggleInput = document.getElementById('removeVideoToggle');
+                if (toggleInput) toggleInput.checked = removeVideoChecked;
+            }
+        }
+
+        function submitText() {
+            const replaceFrom = document.getElementById('replaceFrom')?.value || '';
+            const replaceTo = document.getElementById('replaceTo')?.value || '';
+
+            if (window.eel && window.eel.modify) {
+                eel.modify('', replaceFrom, replaceTo, removeVideoChecked)(function (response) {
+                    handleResponse(response, 'Modify');
+                });
+            }
+        }
+
+        function submitReplaceOnly() {
+            const replaceFrom = document.getElementById('replaceFrom')?.value || '';
+            const replaceTo = document.getElementById('replaceTo')?.value || '';
+
+            if (window.eel && window.eel.replace_only) {
+                eel.replace_only('', replaceFrom, replaceTo, removeVideoChecked)(function (response) {
+                    handleResponse(response, 'Replace');
+                });
+            }
+        }
+
+        function handleResponse(response, type) {
+            if (response === "EMPTY_INPUT") {
+                if (window.Swal) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Clipboard is Empty',
+                        text: 'Please copy your HTML template code to your clipboard first!',
+                        confirmButtonColor: '#10b981',
+                        background: '#1e293b',
+                        color: '#f8fafc'
+                    });
+                } else {
+                    alert('Clipboard is Empty! Copy HTML template first.');
+                }
+            } else if (response === "NO_MARKER") {
+                if (window.Swal) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'No Marker Found',
+                        text: 'No valid marker (|x| or zzz) found in your clipboard code!',
+                        confirmButtonColor: '#10b981',
+                        background: '#1e293b',
+                        color: '#f8fafc'
+                    });
+                } else {
+                    alert('No valid marker (|x| or zzz) found in clipboard code!');
+                }
+            } else if (response === "ERROR") {
+                if (window.Swal) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Processing Error',
+                        text: 'An error occurred while modifying HTML code.',
+                        confirmButtonColor: '#ef4444',
+                        background: '#1e293b',
+                        color: '#f8fafc'
+                    });
+                } else {
+                    alert('Processing error occurred.');
+                }
+            } else if (response) {
+                currentModifiedHTML = response;
+                const emptyState = document.getElementById('emptyState');
+                if (emptyState) emptyState.style.display = 'none';
+
+                const iframe = document.getElementById('previewFrame');
+                if (iframe) iframe.srcdoc = currentModifiedHTML;
+
+                const codeEditor = document.getElementById('codeEditor');
+                if (codeEditor) codeEditor.value = currentModifiedHTML;
+                
+                popConfetti(type === 'Modify' ? document.querySelector('.btn-primary') : document.querySelector('.btn-purple'));
+
+                if (window.Swal) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: type === 'Modify' ? 'Modified Code Copied to Clipboard!' : 'Replaced Code Copied to Clipboard!',
+                        text: 'Live preview rendered on left.',
+                        timer: 1600,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                        background: '#1e293b',
+                        color: '#f8fafc'
+                    });
+                }
+            }
+        }
+
+        let isCodeView = false;
+        function toggleViewMode() {
+            isCodeView = !isCodeView;
+            const visualPane = document.getElementById('visualPane');
+            const codePane = document.getElementById('codePane');
+            const toggleBtn = document.getElementById('viewModeToggleBtn');
+
+            if (isCodeView) {
+                if (visualPane) visualPane.classList.remove('active');
+                if (codePane) codePane.classList.add('active');
+                if (toggleBtn) toggleBtn.innerHTML = '<span>💻</span> Mode: Raw HTML Code';
+            } else {
+                if (codePane) codePane.classList.remove('active');
+                if (visualPane) visualPane.classList.add('active');
+                if (toggleBtn) toggleBtn.innerHTML = '<span>👁️</span> Mode: Live Visual Preview';
+            }
+        }
+
+        let isMobileViewport = false;
+        function toggleViewport() {
+            isMobileViewport = !isMobileViewport;
+            const iframe = document.getElementById('previewFrame');
+            const toggleBtn = document.getElementById('viewportToggleBtn');
+
+            if (isMobileViewport) {
+                if (iframe) iframe.style.width = '375px';
+                if (toggleBtn) {
+                    toggleBtn.innerHTML = '<span>📱</span> Viewport: Mobile (375px)';
+                    toggleBtn.classList.add('active');
+                }
+            } else {
+                if (iframe) iframe.style.width = '100%';
+                if (toggleBtn) {
+                    toggleBtn.innerHTML = '<span>🖥️</span> Viewport: Desktop (100%)';
+                    toggleBtn.classList.remove('active');
+                }
+            }
+        }
+
+        function togglePreview() {
+            isPreviewVisible = !isPreviewVisible;
+            const visualPane = document.getElementById('visualPane');
+            const codePane = document.getElementById('codePane');
+            const hiddenBanner = document.getElementById('hiddenBanner');
+            const toggleBtn = document.getElementById('togglePreviewBtn');
+
+            if (isPreviewVisible) {
+                if (visualPane) visualPane.classList.remove('pane-hidden');
+                if (codePane) codePane.classList.remove('pane-hidden');
+                if (hiddenBanner) hiddenBanner.style.display = 'none';
+                if (toggleBtn) {
+                    toggleBtn.innerHTML = '<span>👁️</span> Hide Preview Pane';
+                    toggleBtn.classList.remove('active-toggle');
+                }
+            } else {
+                if (visualPane) visualPane.classList.add('pane-hidden');
+                if (codePane) codePane.classList.add('pane-hidden');
+                if (hiddenBanner) hiddenBanner.style.display = 'block';
+                if (toggleBtn) {
+                    toggleBtn.innerHTML = '<span>🙈</span> Show Preview Pane';
+                    toggleBtn.classList.add('active-toggle');
+                }
+            }
+        }
+
+        function popConfetti(btn) {
+            if (!btn) return;
+            btn.style.transform = 'scale(0.96)';
+            setTimeout(() => { btn.style.transform = 'scale(1)'; }, 150);
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 120,
+                    spread: 80,
+                    origin: { y: 0.55 },
+                    colors: ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6']
+                });
+            }
+        }
+
+        function copyResponse() {
+            if (currentModifiedHTML) {
+                navigator.clipboard.writeText(currentModifiedHTML);
+                if (window.Swal) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Copied to Clipboard!',
+                        timer: 1200,
+                        showConfirmButton: false,
+                        background: '#1e293b',
+                        color: '#f8fafc'
+                    });
+                } else {
+                    alert('Copied to Clipboard!');
+                }
+            } else {
+                if (window.Swal) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Nothing to Copy',
+                        text: 'Process an HTML template first before copying.',
+                        confirmButtonColor: '#10b981',
+                        background: '#1e293b',
+                        color: '#f8fafc'
+                    });
+                }
+            }
+        }
+
+        // Sidebar Resizing Logic
+        const resizer = document.getElementById('sidebarResizer');
+        const sidebar = document.getElementById('controlSidebar');
+        let isResizing = false;
+
+        if (resizer && sidebar) {
+            resizer.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                resizer.classList.add('dragging');
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                const containerWidth = document.body.clientWidth;
+                let newWidth = containerWidth - e.clientX;
+                if (newWidth < 200) newWidth = 200;
+                if (newWidth > 550) newWidth = 550;
+                sidebar.style.width = newWidth + 'px';
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    resizer.classList.remove('dragging');
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                }
+            });
+        }
+    </script>
+</body>
+</html>

@@ -16,9 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+import main_app.views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('eel.js', main_app.views.eel_js, name='root_eel_js'),
+    path('main-app/', include('main_app.urls')),
     path('', include('tracker.urls')),
 ]
 

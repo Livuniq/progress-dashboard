@@ -1054,11 +1054,20 @@
             <div class="collapse navbar-collapse" id="topNav">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3 gap-1">
                     <li class="nav-item">
-                        <a class="nav-pill-custom {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'tracker:dashboard' %}">
+                        <a class="nav-pill-custom {% if request.resolver_match.url_name == 'dashboard' and not request.GET.view %}active{% endif %}" href="{% url 'tracker:dashboard' %}">
                             <i class="bi bi-grid-fill"></i>
                             <span>Dashboard</span>
                         </a>
                     </li>
+                    {% if can_access_main_app or is_admin %}
+                    <li class="nav-item">
+                        <a class="nav-pill-custom {% if request.resolver_match.app_name == 'main_app' or request.GET.view == 'main-app' %}active{% endif %}" href="{% url 'tracker:dashboard' %}?view=main-app" title="Jewelry Data & API Engine">
+                            <i class="bi bi-cpu-fill" style="color: #6366f1 !important;"></i>
+                            <span>Main App</span>
+                            <span class="badge rounded-pill ms-1" style="background-color: rgba(99, 102, 241, 0.12); color: #4f46e5; font-size: 0.65rem; border: 1px solid rgba(99, 102, 241, 0.25);">Engine</span>
+                        </a>
+                    </li>
+                    {% endif %}
                     {% if is_admin %}
                     <li class="nav-item">
                         <a class="nav-pill-custom {% if request.resolver_match.url_name == 'admin_panel' %}active-admin{% endif %}" href="{% url 'tracker:admin_panel' %}">
@@ -1070,6 +1079,93 @@
                 </ul>
 
                 <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                    <!-- Schedule Time (PDT) Quick Action Widget (Replaces legacy Schedule time.py) -->
+                    <div class="dropdown" id="scheduleTimeNavWidget">
+                        <div class="btn-group shadow-sm" role="group">
+                            <button type="button" class="btn btn-sm btn-white bg-white border d-inline-flex align-items-center gap-1.5 px-2.5 py-1 text-dark" id="btnQuickScheduleCopy" onclick="window.copyCurrentScheduleTime(event)" title="1-Click Copy PDT Schedule Time (+7h 15m) to Clipboard" style="border-radius: 9999px 0 0 9999px; font-size: 0.8rem; border-color: #cbd5e1 !important;">
+                                <i class="bi bi-clock-history" style="color: #6366f1;"></i>
+                                <span class="d-none d-xl-inline text-muted fw-semibold" style="font-size: 0.7rem; text-transform: uppercase;">PDT:</span>
+                                <span id="navScheduleTimeText" class="font-monospace fw-bold text-primary" style="font-size: 0.78rem;">--:--:--</span>
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-1.5 py-0.5 rounded-pill ms-1" style="font-size: 0.65rem;" title="1-Click Copy"><i class="bi bi-copy"></i> Copy</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-white bg-white border border-start-0 px-2 py-1 text-secondary" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Customize Time Offset (Days/Hours/Minutes)" style="border-radius: 0 9999px 9999px 0; border-color: #cbd5e1 !important;">
+                                <i class="bi bi-chevron-down" style="font-size: 0.7rem;"></i>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end shadow-lg p-3 border-0 rounded-4" style="min-width: 320px; z-index: 1055;">
+                                <div class="d-flex align-items-center justify-content-between pb-2 mb-2 border-bottom">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; background: rgba(99, 102, 241, 0.12); color: #6366f1;">
+                                            <i class="bi bi-clock-history"></i>
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold text-dark" style="font-size: 0.85rem;">Schedule Time (PDT)</div>
+                                            <div class="text-muted" style="font-size: 0.68rem;">US/Pacific &bull; Marketplace Listing Time</div>
+                                        </div>
+                                    </div>
+                                    <span class="badge bg-light text-secondary border" style="font-size: 0.68rem;">eBay Format</span>
+                                </div>
+
+                                <!-- Current PDT Live Clock -->
+                                <div class="p-2 mb-2.5 rounded-3 bg-light border d-flex align-items-center justify-content-between" style="font-size: 0.75rem;">
+                                    <span class="text-muted"><i class="bi bi-geo-alt me-1"></i>Current Pacific Time:</span>
+                                    <span id="popupCurrentPdtTime" class="fw-semibold text-dark font-monospace">--:--:--</span>
+                                </div>
+
+                                <!-- Offset Controls -->
+                                <div class="mb-2">
+                                    <label class="form-label text-muted fw-semibold mb-1" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px;">Schedule Offset</label>
+                                    <div class="row g-1">
+                                        <div class="col-4">
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" id="schedOffsetDays" class="form-control text-center font-monospace fw-bold" value="0" min="0" max="365" oninput="window.updateScheduleCalculation()">
+                                                <span class="input-group-text px-1 text-muted" style="font-size: 0.7rem;">Days</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" id="schedOffsetHours" class="form-control text-center font-monospace fw-bold" value="7" min="0" max="23" oninput="window.updateScheduleCalculation()">
+                                                <span class="input-group-text px-1 text-muted" style="font-size: 0.7rem;">Hrs</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" id="schedOffsetMinutes" class="form-control text-center font-monospace fw-bold" value="15" min="0" max="59" oninput="window.updateScheduleCalculation()">
+                                                <span class="input-group-text px-1 text-muted" style="font-size: 0.7rem;">Min</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Quick Presets -->
+                                <div class="d-flex align-items-center gap-1 mb-3 flex-wrap">
+                                    <span class="text-muted small me-1" style="font-size: 0.68rem;">Presets:</span>
+                                    <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1.5 rounded" style="font-size: 0.7rem;" onclick="window.setScheduleOffset(0, 7, 15)">+7h 15m (Default)</button>
+                                    <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1.5 rounded" style="font-size: 0.7rem;" onclick="window.setScheduleOffset(0, 1, 0)">+1h</button>
+                                    <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1.5 rounded" style="font-size: 0.7rem;" onclick="window.setScheduleOffset(1, 0, 0)">+1 Day</button>
+                                    <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1.5 rounded" style="font-size: 0.7rem;" onclick="window.setScheduleOffset(0, 0, 0)">Now (PDT)</button>
+                                </div>
+
+                                <!-- Output Box & Big Copy Button -->
+                                <div class="p-2.5 rounded-3 border bg-white shadow-sm mb-2">
+                                    <div class="d-flex align-items-center justify-content-between mb-1" style="font-size: 0.7rem;">
+                                        <span class="text-muted fw-semibold">Target Timestamp:</span>
+                                        <span id="popupTargetHuman" class="text-secondary">--</span>
+                                    </div>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="popupFormattedOutput" class="form-control font-monospace fw-bold bg-light text-primary" readonly value="" style="font-size: 0.82rem; letter-spacing: 0.3px;">
+                                        <button class="btn btn-primary px-3 fw-semibold d-flex align-items-center gap-1" type="button" id="btnPopupCopySched" onclick="window.copyCustomScheduleTime()">
+                                            <i class="bi bi-clipboard-check"></i> Copy
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="text-center" style="font-size: 0.68rem; color: #94a3b8;">
+                                    <i class="bi bi-info-circle me-1"></i> Formatted as <code>YYYY-MM-DDTHH:MM:SS</code> for direct Excel paste.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <span class="date-pill d-none d-md-inline-flex align-items-center gap-1">
                         <i class="bi bi-calendar3 text-primary me-1"></i> {{ today|date:"d M Y" }}
                     </span>
@@ -1252,6 +1348,145 @@
             }, true);
         })();
     </script>
+
+    <!-- Schedule Time (PDT) Quick Helper Script (Replaces legacy Schedule time.py) -->
+    <script>
+        (function() {
+            var schedDays = 0, schedHours = 7, schedMinutes = 15;
+
+            function getPacificNow() {
+                try {
+                    var now = new Date();
+                    var parts = new Intl.DateTimeFormat('en-US', {
+                        timeZone: 'America/Los_Angeles',
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit', second: '2-digit',
+                        hour12: false
+                    }).formatToParts(now);
+                    var map = {};
+                    parts.forEach(function(p) { map[p.type] = p.value; });
+                    return new Date(Date.UTC(+map.year, +map.month - 1, +map.day, +map.hour, +map.minute, +map.second));
+                } catch(e) {
+                    return new Date();
+                }
+            }
+
+            function calculateTimestamp(days, hours, minutes) {
+                var pdt = getPacificNow();
+                pdt.setUTCDate(pdt.getUTCDate() + parseInt(days || 0, 10));
+                pdt.setUTCHours(pdt.getUTCHours() + parseInt(hours || 0, 10));
+                pdt.setUTCMinutes(pdt.getUTCMinutes() + parseInt(minutes || 0, 10));
+                pdt.setUTCSeconds(0);
+                return pdt.toISOString().slice(0, 19);
+            }
+
+            window.updateScheduleCalculation = function() {
+                var dInput = document.getElementById('schedOffsetDays');
+                var hInput = document.getElementById('schedOffsetHours');
+                var mInput = document.getElementById('schedOffsetMinutes');
+                
+                var d = parseInt(dInput ? dInput.value : schedDays, 10) || 0;
+                var h = parseInt(hInput ? hInput.value : schedHours, 10) || 0;
+                var m = parseInt(mInput ? mInput.value : schedMinutes, 10) || 0;
+                schedDays = d; schedHours = h; schedMinutes = m;
+
+                var ts = calculateTimestamp(d, h, m);
+                var out = document.getElementById('popupFormattedOutput');
+                if (out) out.value = ts;
+
+                var navText = document.getElementById('navScheduleTimeText');
+                if (navText) navText.textContent = ts;
+
+                var livePdt = getPacificNow().toISOString().slice(0, 19).replace('T', ' ');
+                var currPdtEl = document.getElementById('popupCurrentPdtTime');
+                if (currPdtEl) currPdtEl.textContent = livePdt + ' PDT';
+
+                var humanEl = document.getElementById('popupTargetHuman');
+                if (humanEl) {
+                    try {
+                        var dt = new Date(ts + 'Z');
+                        humanEl.textContent = dt.toUTCString().replace('GMT', 'PDT');
+                    } catch(e) {
+                        humanEl.textContent = ts;
+                    }
+                }
+            };
+
+            window.setScheduleOffset = function(d, h, m) {
+                var dEl = document.getElementById('schedOffsetDays');
+                var hEl = document.getElementById('schedOffsetHours');
+                var mEl = document.getElementById('schedOffsetMinutes');
+                if (dEl) dEl.value = d;
+                if (hEl) hEl.value = h;
+                if (mEl) mEl.value = m;
+                window.updateScheduleCalculation();
+            };
+
+            window.showScheduleToast = function(text) {
+                var toast = document.getElementById('schedCopiedToast');
+                if (!toast) {
+                    toast = document.createElement('div');
+                    toast.id = 'schedCopiedToast';
+                    toast.style.cssText = 'position: fixed; bottom: 24px; right: 24px; z-index: 999999; background: #0f172a; color: #fff; padding: 10px 18px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; box-shadow: 0 10px 25px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 8px; transition: all 0.2s; transform: translateY(20px); opacity: 0; pointer-events: none;';
+                    document.body.appendChild(toast);
+                }
+                toast.innerHTML = '<i class="bi bi-check-circle-fill text-success fs-6"></i> <span>Copied Schedule Time: <span class="font-monospace text-warning">' + text + '</span></span>';
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+                setTimeout(function() {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(20px)';
+                }, 2800);
+            };
+
+            window.copyCurrentScheduleTime = function(e) {
+                if (e) e.stopPropagation();
+                var ts = calculateTimestamp(schedDays, schedHours, schedMinutes);
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(ts).then(function() {
+                        window.showScheduleToast(ts);
+                        var btn = document.getElementById('btnQuickScheduleCopy');
+                        if (btn) {
+                            btn.classList.add('bg-success-subtle');
+                            setTimeout(function() { btn.classList.remove('bg-success-subtle'); }, 800);
+                        }
+                    }).catch(function() {
+                        prompt("Copy Schedule Time:", ts);
+                    });
+                } else {
+                    prompt("Copy Schedule Time:", ts);
+                }
+            };
+
+            window.copyCustomScheduleTime = function() {
+                var out = document.getElementById('popupFormattedOutput');
+                var val = out ? out.value : calculateTimestamp(schedDays, schedHours, schedMinutes);
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(val).then(function() {
+                        window.showScheduleToast(val);
+                        var btn = document.getElementById('btnPopupCopySched');
+                        if (btn) {
+                            btn.innerHTML = '<i class="bi bi-check-lg"></i> Copied!';
+                            btn.classList.replace('btn-primary', 'btn-success');
+                            setTimeout(function() {
+                                btn.innerHTML = '<i class="bi bi-clipboard-check"></i> Copy';
+                                btn.classList.replace('btn-success', 'btn-primary');
+                            }, 1500);
+                        }
+                    });
+                } else {
+                    prompt("Copy Schedule Time:", val);
+                }
+            };
+
+            setInterval(window.updateScheduleCalculation, 10000);
+            document.addEventListener('DOMContentLoaded', window.updateScheduleCalculation);
+            if (document.readyState !== 'loading') {
+                window.updateScheduleCalculation();
+            }
+        })();
+    </script>
+
 
 
     {% block extra_js %}{% endblock %}

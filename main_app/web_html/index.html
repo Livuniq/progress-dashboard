@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jewelry Data & API Engine</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Font Awesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- Eel Python Bridge -->
+  <script src="/eel.js"></script>
+
+  <!-- React 18 & ReactDOM UMD (Local Vendor with CDN Fallback) -->
+  <script src="vendor/react.production.min.js"></script>
+  <script>window.React || document.write('<script src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>')</script>
+
+  <script src="vendor/react-dom.production.min.js"></script>
+  <script>window.ReactDOM || document.write('<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>')</script>
+
+  <!-- Babel Standalone for JSX runtime (Local Vendor with CDN Fallback) -->
+  <script src="vendor/babel.min.js"></script>
+  <script>window.Babel || document.write('<script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>')</script>
+
+  <!-- Custom Design System Styles -->
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body class="bg-[#0b0f19]">
+  <div id="root"></div>
+
+  <!-- Main React App Script -->
+  <script type="text/babel" src="js/app.jsx"></script>
+</body>
+</html>

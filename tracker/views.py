@@ -257,6 +257,7 @@ def admin_user_save(request):
         can_import_excel = bool(data.get('can_import_excel', False))
         can_view_party_data = bool(data.get('can_view_party_data', False))
         can_clear_party_data = bool(data.get('can_clear_party_data', False))
+        can_access_main_app = bool(data.get('can_access_main_app', True))
         can_manage_settings = bool(data.get('can_manage_settings', False))
         is_admin = bool(data.get('is_admin', False)) or (role == 'admin')
 
@@ -271,6 +272,7 @@ def admin_user_save(request):
             can_import_excel = True
             can_view_party_data = True
             can_clear_party_data = True
+            can_access_main_app = True
             can_manage_settings = True
         elif role == 'viewer':
             is_admin = False
@@ -285,6 +287,7 @@ def admin_user_save(request):
             can_import_excel = False
             can_view_party_data = False
             can_clear_party_data = False
+            can_access_main_app = False
             can_manage_settings = False
 
         # Auto-derive or fallback username if empty
@@ -365,6 +368,7 @@ def admin_user_save(request):
         user_prof.can_import_excel = can_import_excel
         user_prof.can_view_party_data = can_view_party_data
         user_prof.can_clear_party_data = can_clear_party_data
+        user_prof.can_access_main_app = can_access_main_app
         user_prof.can_manage_settings = can_manage_settings
         user_prof.save()
 
@@ -433,6 +437,7 @@ def admin_user_get_json(request, user_id):
             'can_import_excel': u_prof.can_import_excel,
             'can_view_party_data': u_prof.can_view_party_data,
             'can_clear_party_data': u_prof.can_clear_party_data,
+            'can_access_main_app': u_prof.can_access_main_app,
             'can_manage_settings': u_prof.can_manage_settings,
         }
     })
@@ -611,6 +616,7 @@ def dashboard(request):
         'can_view_history': profile.can_view_history or profile.is_admin or request.user.is_superuser,
         'can_view_problem_badge': profile.can_view_problem_badge or profile.is_admin or request.user.is_superuser,
         'can_view_party_data': profile.can_view_party_data or profile.is_admin or request.user.is_superuser,
+        'can_access_main_app': profile.can_access_main_app or profile.is_admin or request.user.is_superuser,
         'is_admin': profile.is_admin or request.user.is_superuser,
     }
     return render(request, 'tracker/dashboard.html', context)
