@@ -59,5 +59,11 @@ urlpatterns = [
     path('admin-panel/users/<int:user_id>/json/', views.admin_user_get_json, name='admin_user_get_json'),
     path('admin-panel/users/<int:user_id>/delete/', views.admin_user_delete, name='admin_user_delete'),
     path('admin-panel/users/<int:user_id>/toggle-status/', views.admin_user_toggle_status, name='admin_user_toggle_status'),
+    # Party Reminders System
+    path('party/<int:item_id>/reminders/', views.party_reminders_api, name='party_reminders_api'),
+    path('reminder/<int:reminder_id>/toggle/', views.toggle_party_reminder_api, name='toggle_party_reminder_api'),
+    path('reminder/<int:reminder_id>/update/', views.update_party_reminder_api, name='update_party_reminder_api'),
+    path('reminder/<int:reminder_id>/snooze/', views.snooze_party_reminder_api, name='snooze_party_reminder_api'),
+    path('reminder/<int:reminder_id>/delete/', views.delete_party_reminder_api, name='delete_party_reminder_api'),
 ]
 

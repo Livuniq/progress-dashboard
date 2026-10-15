@@ -345,7 +345,7 @@ function App() {
   // Schedule Time States (Replaces legacy Schedule time.py)
   const [scheduleTime, setScheduleTime] = useState('');
   const [scheduleDays, setScheduleDays] = useState(0);
-  const [scheduleHours, setScheduleHours] = useState(7);
+  const [scheduleHours, setScheduleHours] = useState(0);
   const [scheduleMinutes, setScheduleMinutes] = useState(15);
   const [scheduleCopied, setScheduleCopied] = useState(false);
   const [showScheduleSettings, setShowScheduleSettings] = useState(false);
@@ -353,19 +353,15 @@ function App() {
   const calculateScheduleTimestamp = (d, h, m) => {
     try {
       const now = new Date();
-      const parts = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/Los_Angeles',
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', second: '2-digit',
-        hour12: false
-      }).formatToParts(now);
-      const map = Object.fromEntries(parts.map(p => [p.type, p.value]));
-      const pdt = new Date(Date.UTC(+map.year, +map.month - 1, +map.day, +map.hour, +map.minute, +map.second));
-      pdt.setUTCDate(pdt.getUTCDate() + parseInt(d || 0, 10));
-      pdt.setUTCHours(pdt.getUTCHours() + parseInt(h || 0, 10));
-      pdt.setUTCMinutes(pdt.getUTCMinutes() + parseInt(m || 0, 10));
-      pdt.setUTCSeconds(0);
-      return pdt.toISOString().slice(0, 19);
+      const utc = new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + parseInt(d || 0, 10),
+        now.getUTCHours() + parseInt(h || 0, 10),
+        now.getUTCMinutes() + parseInt(m || 0, 10),
+        0
+      ));
+      return utc.toISOString().slice(0, 19);
     } catch (err) {
       console.error('Error calculating schedule timestamp:', err);
       return '';
@@ -3093,12 +3089,12 @@ function App() {
                   </p>
                 </div>
 
-                {/* Schedule Time (PDT) Quick Helper (Replaces legacy Schedule time.py) */}
+                {/* Schedule Time (UTC) Quick Helper (Replaces legacy Schedule time.py) */}
                 <div className="glass-card bg-indigo-950/40 border-indigo-500/30 p-2.5 rounded-xl shadow-lg flex flex-col space-y-1.5 self-start sm:self-auto min-w-[270px]">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-300 flex items-center space-x-1.5">
                       <i className="fa-regular fa-clock text-indigo-400"></i>
-                      <span>Schedule Time (PDT)</span>
+                      <span>Schedule Time (UTC)</span>
                     </span>
                     <button
                       type="button"

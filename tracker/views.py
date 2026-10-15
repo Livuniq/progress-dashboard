@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.clickjacking import xframe_options_exempt, xframe_options_sameorigin
 from django.conf import settings
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import os
 import json
 import csv
@@ -21,7 +21,7 @@ from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from .models import (
     ProcessItem, ProcessItemHistory, TableColumnConfig, StatusColorConfig,
     StatusOption, PartyCustomTab, PartyCustomTable, UserAccessProfile,
-    PartyDataRecord
+    PartyDataRecord, PartyReminder
 )
 from .forms import ProcessItemForm
 
@@ -596,6 +596,7 @@ def dashboard(request):
         'cols': columns_map,
         'all_columns': all_columns,
         'ordered_columns': ordered_columns,
+        'reminder_colspan': max(1, sum(1 for c in ordered_columns if getattr(c, 'key', '') not in ['col_counter', 'client_name', 'status', 'dynamic_status', 'actions'])),
         'status_colors': status_colors,
         'all_statuses': all_statuses,
         'status_counts': status_counts,
@@ -618,6 +619,16 @@ def dashboard(request):
         'can_view_party_data': profile.can_view_party_data or profile.is_admin or request.user.is_superuser,
         'can_access_main_app': profile.can_access_main_app or profile.is_admin or request.user.is_superuser,
         'is_admin': profile.is_admin or request.user.is_superuser,
+        'active_reminders_json': json.dumps([{
+            'id': r.id,
+            'item_id': r.item_id,
+            'client_name': r.item.client_name,
+            'title': r.title or f"Reminder for {r.item.client_name}",
+            'remind_at_iso': r.local_remind_at.isoformat(),
+            'remind_at_formatted': r.formatted_local_time,
+            'is_active': r.is_active,
+            'is_due': r.is_due,
+        } for r in PartyReminder.objects.filter(is_active=True).select_related('item')]),
     }
     return render(request, 'tracker/dashboard.html', context)
 
@@ -3269,6 +3280,343 @@ def party_data_delete_record(request, record_id):
 
     record.delete()
     return JsonResponse({'success': True})
+
+
+@login_required
+@csrf_exempt
+def party_reminders_api(request, item_id):
+    """
+    GET: List all reminders for a specific party
+    POST: Create a new reminder for this party
+    """
+    item = get_object_or_404(ProcessItem, pk=item_id)
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not profile.is_party_allowed(item.id):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    if request.method == 'GET':
+        reminders = item.reminders.all().order_by('-is_active', 'remind_at')
+        now = timezone.now()
+        data = []
+        for r in reminders:
+            local_dt = r.local_remind_at
+            data.append({
+                'id': r.id,
+                'title': r.title or f"Reminder for {item.client_name}",
+                'remind_at_iso': local_dt.isoformat(),
+                'remind_at_formatted': r.formatted_local_time,
+                'remind_date': local_dt.strftime('%Y-%m-%d'),
+                'remind_time': local_dt.strftime('%H:%M'),
+                'is_active': r.is_active,
+                'is_due': r.is_due,
+                'dismissed_at': r.local_dismissed_at.strftime('%d %b %Y, %I:%M %p') if r.local_dismissed_at else None
+            })
+        return JsonResponse({
+            'success': True,
+            'item_id': item.id,
+            'client_name': item.client_name,
+            'reminders': data
+        })
+
+    elif request.method == 'POST':
+        try:
+            payload = json.loads(request.body) if request.body else request.POST
+        except Exception:
+            payload = request.POST
+
+        remind_at_str = str(payload.get('remind_at', '')).strip()
+        title = str(payload.get('title', '')).strip()
+        if not remind_at_str:
+            return JsonResponse({'success': False, 'error': 'Date and Time are required'}, status=400)
+
+        remind_at = None
+        for fmt in ('%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'):
+            try:
+                remind_at = datetime.strptime(remind_at_str, fmt)
+                break
+            except ValueError:
+                pass
+
+        if not remind_at:
+            return JsonResponse({'success': False, 'error': 'Invalid date or time format'}, status=400)
+
+        current_tz = timezone.get_current_timezone()
+        if timezone.is_naive(remind_at):
+            remind_at = timezone.make_aware(remind_at, current_tz)
+
+        reminder = PartyReminder.objects.create(
+            item=item,
+            title=title or f"Reminder for {item.client_name}",
+            remind_at=remind_at,
+            is_active=True
+        )
+
+        local_dt = reminder.local_remind_at
+        return JsonResponse({
+            'success': True,
+            'reminder': {
+                'id': reminder.id,
+                'item_id': item.id,
+                'client_name': item.client_name,
+                'title': reminder.title,
+                'remind_at_iso': local_dt.isoformat(),
+                'remind_at_formatted': reminder.formatted_local_time,
+                'remind_date': local_dt.strftime('%Y-%m-%d'),
+                'remind_time': local_dt.strftime('%H:%M'),
+                'is_active': reminder.is_active,
+                'is_due': reminder.is_due
+            }
+        })
+
+    return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+
+
+@login_required
+@csrf_exempt
+def toggle_party_reminder_api(request, reminder_id):
+    """
+    Toggle a reminder on/off. When turned off, it dismisses the active alert from the dashboard row
+    and records the date and time in History (ProcessItemHistory & history_milestone).
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
+    reminder = get_object_or_404(PartyReminder, pk=reminder_id)
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not profile.is_party_allowed(reminder.item_id):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    try:
+        payload = json.loads(request.body) if request.body else {}
+    except Exception:
+        payload = {}
+
+    was_active = reminder.is_active
+    if 'is_active' in payload:
+        new_active = bool(payload['is_active'])
+    else:
+        new_active = not was_active
+
+    reminder.is_active = new_active
+    now_val = timezone.now()
+
+    if not new_active:
+        reminder.dismissed_at = now_val
+    else:
+        reminder.dismissed_at = None
+
+    reminder.save()
+
+    # When reminder is turned OFF, save date and time in History!
+    if was_active and not new_active:
+        local_now = timezone.localtime(now_val)
+        local_now_str = local_now.strftime('%d/%m/%Y %I:%M %p')
+        remind_time_str = reminder.formatted_local_time
+        msg_title = reminder.title or f"Reminder #{reminder.id}"
+
+        item = reminder.item
+        # 1. Update party history milestone text
+        item.history_milestone = f"Reminder off: {local_now_str}"
+        item.save(update_fields=['history_milestone'])
+
+        # 2. Record full audit revision log in ProcessItemHistory
+        ProcessItemHistory.objects.create(
+            item=item,
+            action_type='reminder_off',
+            summary=f"Reminder Turned OFF: \"{msg_title}\" at {local_now_str}",
+            changes=[{
+                'field': 'reminder',
+                'label': 'Reminder Off',
+                'old': f"Active (Scheduled: {remind_time_str})",
+                'new': f"Turned OFF at {local_now_str} (Message: {msg_title})"
+            }]
+        )
+
+    local_dt = reminder.local_remind_at
+    return JsonResponse({
+        'success': True,
+        'id': reminder.id,
+        'item_id': reminder.item_id,
+        'client_name': reminder.item.client_name,
+        'title': reminder.title,
+        'remind_at_iso': local_dt.isoformat(),
+        'remind_at_formatted': reminder.formatted_local_time,
+        'is_active': reminder.is_active,
+        'is_due': reminder.is_due,
+        'dismissed_at': reminder.local_dismissed_at.strftime('%d %b %Y, %I:%M %p') if reminder.local_dismissed_at else None,
+        'history_milestone': reminder.item.history_milestone
+    })
+
+
+@login_required
+@csrf_exempt
+def delete_party_reminder_api(request, reminder_id):
+    """
+    Delete a specific reminder
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
+    reminder = get_object_or_404(PartyReminder, pk=reminder_id)
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not profile.is_party_allowed(reminder.item_id):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    item_id = reminder.item_id
+    reminder.delete()
+    return JsonResponse({'success': True, 'item_id': item_id})
+
+
+@login_required
+@csrf_exempt
+def update_party_reminder_api(request, reminder_id):
+    """
+    Update a specific reminder (date, time, title, and/or active status)
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
+    reminder = get_object_or_404(PartyReminder, pk=reminder_id)
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not profile.is_party_allowed(reminder.item_id):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    try:
+        payload = json.loads(request.body) if request.body else request.POST
+    except Exception:
+        payload = request.POST
+
+    remind_at_str = str(payload.get('remind_at', '')).strip()
+    title = str(payload.get('title', '')).strip()
+
+    if remind_at_str:
+        remind_at = None
+        for fmt in ('%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'):
+            try:
+                remind_at = datetime.strptime(remind_at_str, fmt)
+                break
+            except ValueError:
+                pass
+
+        if not remind_at:
+            return JsonResponse({'success': False, 'error': 'Invalid date or time format'}, status=400)
+
+        current_tz = timezone.get_current_timezone()
+        if timezone.is_naive(remind_at):
+            remind_at = timezone.make_aware(remind_at, current_tz)
+
+        reminder.remind_at = remind_at
+
+    if 'title' in payload:
+        reminder.title = title or f"Reminder for {reminder.item.client_name}"
+
+    was_active = reminder.is_active
+    if 'is_active' in payload:
+        new_active = bool(payload['is_active'])
+        reminder.is_active = new_active
+        now_val = timezone.now()
+        if not new_active:
+            reminder.dismissed_at = now_val
+            if was_active:
+                local_now = timezone.localtime(now_val)
+                local_now_str = local_now.strftime('%d/%m/%Y %I:%M %p')
+                remind_time_str = reminder.formatted_local_time
+                msg_title = reminder.title or f"Reminder #{reminder.id}"
+
+                item = reminder.item
+                item.history_milestone = f"Reminder off: {local_now_str}"
+                item.save(update_fields=['history_milestone'])
+
+                ProcessItemHistory.objects.create(
+                    item=item,
+                    action_type='reminder_off',
+                    summary=f"Reminder Turned OFF: \"{msg_title}\" at {local_now_str}",
+                    changes=[{
+                        'field': 'reminder',
+                        'label': 'Reminder Off',
+                        'old': f"Active (Scheduled: {remind_time_str})",
+                        'new': f"Turned OFF at {local_now_str} (Message: {msg_title})"
+                    }]
+                )
+        else:
+            reminder.dismissed_at = None
+
+    reminder.save()
+
+    local_dt = reminder.local_remind_at
+    return JsonResponse({
+        'success': True,
+        'reminder': {
+            'id': reminder.id,
+            'item_id': reminder.item_id,
+            'client_name': reminder.item.client_name,
+            'title': reminder.title,
+            'remind_at_iso': local_dt.isoformat(),
+            'remind_at_formatted': reminder.formatted_local_time,
+            'remind_date': local_dt.strftime('%Y-%m-%d'),
+            'remind_time': local_dt.strftime('%H:%M'),
+            'is_active': reminder.is_active,
+            'is_due': reminder.is_due,
+            'dismissed_at': reminder.local_dismissed_at.strftime('%d %b %Y, %I:%M %p') if reminder.local_dismissed_at else None
+        }
+    })
+
+
+@login_required
+@csrf_exempt
+def snooze_party_reminder_api(request, reminder_id):
+    """
+    Snooze a reminder by X minutes (e.g. 5, 10, 15, 30, 60 min, or 1440 min for tomorrow).
+    Sets new remind_at = now + minutes, turns is_active = True.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
+    reminder = get_object_or_404(PartyReminder, pk=reminder_id)
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not profile.is_party_allowed(reminder.item_id):
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    try:
+        payload = json.loads(request.body) if request.body else request.POST
+    except Exception:
+        payload = request.POST
+
+    try:
+        minutes = int(payload.get('minutes', 10))
+    except (ValueError, TypeError):
+        minutes = 10
+
+    if minutes <= 0:
+        minutes = 10
+
+    now = timezone.now()
+    base_time = max(now, reminder.remind_at)
+    new_remind_at = base_time + timedelta(minutes=minutes)
+
+    reminder.remind_at = new_remind_at
+    reminder.is_active = True
+    reminder.dismissed_at = None
+    reminder.save()
+
+    local_dt = reminder.local_remind_at
+    return JsonResponse({
+        'success': True,
+        'message': f'Snoozed for {minutes} min',
+        'reminder': {
+            'id': reminder.id,
+            'item_id': reminder.item_id,
+            'client_name': reminder.item.client_name,
+            'title': reminder.title,
+            'remind_at_iso': local_dt.isoformat(),
+            'remind_at_formatted': reminder.formatted_local_time,
+            'remind_date': local_dt.strftime('%Y-%m-%d'),
+            'remind_time': local_dt.strftime('%H:%M'),
+            'is_active': reminder.is_active,
+            'is_due': reminder.is_due
+        }
+    })
+
 
 
 

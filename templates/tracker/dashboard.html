@@ -342,10 +342,270 @@
         transition: transform 0.15s ease !important;
         text-decoration: none !important;
     }
-    .badge-problem-count:hover {
-        transform: scale(1.15) !important;
-        background-color: #b91c1c !important;
-        color: #ffffff !important;
+    /* ========================================================
+       MODERN CONTEXT MENU (PROFESSIONAL SAAS DESIGN - SCREENSHOT 3)
+       ======================================================== */
+    .modern-context-menu {
+        position: fixed;
+        z-index: 10000;
+        display: none;
+        width: 260px;
+        background: #ffffff !important;
+        border-radius: 14px !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: 0 20px 35px -8px rgba(15, 23, 42, 0.16), 0 10px 15px -5px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.03) !important;
+        padding: 6px !important;
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        user-select: none;
+        animation: contextMenuPopIn 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes contextMenuPopIn {
+        from {
+            opacity: 0;
+            transform: scale(0.96) translateY(-4px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    .modern-context-header {
+        padding: 9px 11px 8px 11px;
+        background: #f8fafc;
+        border-radius: 9px;
+        margin-bottom: 4px;
+        border: 1px solid #f1f5f9;
+    }
+
+    .modern-context-header .context-avatar {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        background: #eef2ff;
+        color: #4f46e5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        flex-shrink: 0;
+    }
+
+    .modern-context-header .party-name {
+        font-size: 12.5px;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.25;
+        letter-spacing: -0.2px;
+    }
+
+    .modern-context-header .party-sub {
+        font-size: 10px;
+        color: #64748b;
+        font-weight: 500;
+        margin-top: 1px;
+    }
+
+    .modern-context-header .party-status-pill {
+        font-size: 9.5px;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 9999px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        line-height: 1.2;
+    }
+
+    .modern-context-divider {
+        height: 1px;
+        background: #f1f5f9;
+        margin: 4px 6px;
+    }
+
+    .modern-context-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: none;
+        background: transparent;
+        color: #334155;
+        font-size: 12.5px;
+        font-weight: 500;
+        cursor: pointer;
+        text-align: left;
+        transition: all 0.12s ease;
+        text-decoration: none;
+    }
+
+    .modern-context-item .item-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .modern-context-item .item-icon {
+        width: 18px;
+        font-size: 14px;
+        color: #64748b;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.12s ease;
+        flex-shrink: 0;
+    }
+
+    .modern-context-item .item-text {
+        color: #334155;
+        font-weight: 500;
+        transition: color 0.12s ease;
+    }
+
+    .modern-context-item .item-trailing {
+        font-size: 11px;
+        color: #94a3b8;
+    }
+
+    .modern-context-item:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+    }
+
+    .modern-context-item:hover .item-icon {
+        color: #0f172a;
+    }
+
+    .modern-context-item:hover .item-text {
+        color: #0f172a;
+        font-weight: 600;
+    }
+
+    .modern-context-item:active {
+        background: #e2e8f0;
+        transform: scale(0.99);
+    }
+
+    /* ========================================================
+       PARTY ROW REMINDER HIGHLIGHT & BANNER STYLING
+       ======================================================== */
+    @keyframes reminder-pulse-glow {
+        0% {
+            box-shadow: inset 0 0 0 2px #f59e0b, 0 2px 10px rgba(245, 158, 11, 0.25);
+        }
+        50% {
+            box-shadow: inset 0 0 0 3px #d97706, 0 4px 18px rgba(217, 119, 6, 0.45);
+        }
+        100% {
+            box-shadow: inset 0 0 0 2px #f59e0b, 0 2px 10px rgba(245, 158, 11, 0.25);
+        }
+    }
+
+    @keyframes bell-ring {
+        0%, 100% { transform: rotate(0deg); }
+        10%, 30%, 50%, 70% { transform: rotate(-14deg); }
+        20%, 40%, 60% { transform: rotate(14deg); }
+        80% { transform: rotate(-4deg); }
+        90% { transform: rotate(4deg); }
+    }
+
+    .animate-bell-ring {
+        display: inline-block;
+        animation: bell-ring 2.2s infinite ease-in-out;
+        transform-origin: top center;
+    }
+
+    /* When row has an active due reminder */
+    tr.process-row.has-active-reminder {
+        background: #fffbeb !important;
+        animation: reminder-pulse-glow 2.5s infinite ease-in-out;
+        border-left: 5px solid #d97706 !important;
+        position: relative;
+    }
+
+    tr.process-row.has-active-reminder td.reminder-replaceable-cell {
+        display: none !important;
+    }
+
+    tr.process-row:not(.has-active-reminder) td.reminder-banner-cell {
+        display: none !important;
+    }
+
+    tr.process-row.has-active-reminder td.reminder-banner-cell {
+        display: table-cell !important;
+        background: linear-gradient(90deg, #fffbeb 0%, #fef3c7 45%, #fef9c3 100%) !important;
+        padding: 7px 16px !important;
+        vertical-align: middle !important;
+        border-top: 1px solid #fde68a !important;
+        border-bottom: 1px solid #fde68a !important;
+    }
+
+    .reminder-banner-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 38px;
+    }
+
+    .reminder-pill-badge {
+        background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 0.72rem;
+        letter-spacing: 0.5px;
+        padding: 4px 9px;
+        border-radius: 6px;
+        box-shadow: 0 2px 4px rgba(180, 83, 9, 0.25);
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        flex-shrink: 0;
+    }
+
+    .reminder-msg-text {
+        font-weight: 700;
+        color: #78350f;
+        font-size: 0.96rem;
+        letter-spacing: 0.2px;
+        padding-left: 2px;
+        line-height: 1.4;
+    }
+
+    .reminder-time-tag {
+        background: #ffffff;
+        border: 1px solid #fde68a;
+        color: #92400e;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        flex-shrink: 0;
+    }
+
+    .reminder-switch-wrap {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #ffffff;
+        padding: 4px 10px;
+        border-radius: 20px;
+        border: 1px solid #fde68a;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        flex-shrink: 0;
+    }
+
+    .reminder-bell-btn {
+        transition: transform 0.15s ease;
+    }
+    .reminder-bell-btn:hover {
+        transform: scale(1.15);
     }
 </style>
 {% endblock %}
@@ -595,15 +855,15 @@
                         <span class="text-danger" style="font-size: 8.5px;">Late</span>
                     </div>
                 </div>
-                <!-- Pending Units -->
+                <!-- Hidden Parties Card -->
                 <div class="col-6">
-                    <div class="stat-card p-2 text-start" data-metric-filter="pending_units" title="Click to filter by Pending clients">
+                    <div class="stat-card p-2 text-start" data-metric-filter="hidden" title="Click to filter by Hidden parties">
                         <div class="d-flex align-items-center justify-content-between mb-1">
-                            <span class="text-secondary small fw-bold" style="font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.3px;">Pending</span>
-                            <div class="stat-icon stat-icon-xs" style="background: #fffbeb; color: #d97706;"><i class="bi bi-hourglass-split"></i></div>
+                            <span class="text-secondary small fw-bold" style="font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.3px;">Hidden</span>
+                            <div class="stat-icon stat-icon-xs" style="background: #f1f5f9; color: #64748b;"><i class="bi bi-eye-slash-fill"></i></div>
                         </div>
-                        <div class="h3 fw-bold mb-0 text-dark" id="statPendingCount">{{ total_pending }}</div>
-                        <span class="text-muted" style="font-size: 8.5px;">Ready: <span id="statReadyCount">{{ total_ready }}</span></span>
+                        <div class="h3 fw-bold mb-0 text-secondary" id="statHiddenCount">{{ hidden_count }}</div>
+                        <span class="text-muted" style="font-size: 8.5px;">Parties</span>
                     </div>
                 </div>
             </div>
@@ -696,7 +956,8 @@
             </thead>
             <tbody>
                 {% for item in items %}
-                <tr class="process-row {% if item.is_hidden %}is-hidden-row{% endif %} {% if item.is_priority %}row-priority{% endif %} {% if item.row_highlight_color %}row-has-custom-color{% else %}row-status-{{ item.dynamic_status }}{% endif %}"
+                <tr class="process-row {% if item.is_hidden %}is-hidden-row{% endif %} {% if item.is_priority %}row-priority{% endif %} {% if item.row_highlight_color %}row-has-custom-color{% else %}row-status-{{ item.dynamic_status }}{% endif %} {% if item.active_due_reminder %}has-active-reminder{% endif %}"
+                    id="row_party_{{ item.id }}"
                     {% if item.row_highlight_color %}style="background-color: {{ item.row_highlight_color }} !important; border-left: 4px solid {{ item.row_highlight_color }} !important;"{% endif %}
                     data-id="{{ item.id }}"
                     data-client-name="{{ item.client_name }}"
@@ -750,6 +1011,15 @@
                                     </span>
                                     {% endif %}
                                     <span class="priority-green-dot priority-badge" id="priority_badge_{{ item.id }}" {% if not item.is_priority %}style="display:none;"{% endif %} title="High Priority"></span>
+                                    
+                                    <!-- Party Reminder Bell Icon / Badge -->
+                                    <button type="button" class="btn btn-link p-0 text-decoration-none reminder-bell-btn ms-1"
+                                            id="reminder_bell_{{ item.id }}"
+                                            onclick="openReminderModal({{ item.id }}, '{{ item.client_name|escapejs }}')"
+                                            title="Manage Reminders{% if item.active_reminders_count > 0 %} ({{ item.active_reminders_count }} active){% endif %}">
+                                        <i class="bi bi-bell{% if item.active_reminders_count > 0 %}-fill text-warning animate-bell-ring{% else %} text-muted opacity-50{% endif %}" id="reminder_bell_icon_{{ item.id }}" style="font-size: 13px;"></i>
+                                        <span class="badge bg-warning text-dark rounded-pill reminder-count-badge" id="reminder_count_badge_{{ item.id }}" style="font-size: 9px; padding: 1px 4px; {% if item.active_reminders_count == 0 %}display:none;{% endif %}">{{ item.active_reminders_count }}</span>
+                                    </button>
                                 </div>
                             </td>
                         {% elif col.key == 'status' %}
@@ -796,7 +1066,55 @@
                                 </span>
                             </td>
                         {% elif col.key == 'lot_progress' %}
-                            <td class="text-center text-nowrap {% if can_edit_lot %}editable-cell editable-lot{% endif %}" data-id="{{ item.id }}" data-raw="{{ item.lot_progress }}" {% if can_edit_lot %}title="Double click to edit LOT / ITEM"{% endif %}>
+                            <!-- REMINDER BANNER CELL (Replaces LOT, completed, pending, ready, notes, date, days diff when active) -->
+                            <td class="reminder-banner-cell" id="reminder_banner_{{ item.id }}" colspan="{{ reminder_colspan|default:8 }}">
+                                <div class="reminder-banner-content">
+                                    <div class="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+                                        <span class="reminder-msg-text text-truncate" id="reminder_title_{{ item.id }}" title="{{ item.active_due_reminder.title }}">
+                                            {{ item.active_due_reminder.title|default:"Reminder Alert" }}
+                                        </span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                                        <!-- Snooze Dropdown -->
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-white border border-warning shadow-sm dropdown-toggle py-1 px-2 fw-semibold text-dark reminder-snooze-btn"
+                                                    type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                                                    id="reminder_snooze_btn_{{ item.id }}"
+                                                    data-reminder-id="{{ item.active_due_reminder.id|default:0 }}"
+                                                    data-item-id="{{ item.id }}"
+                                                    title="Snooze reminder for 5m, 10m, 15m, 30m, 1h...">
+                                                <i class="bi bi-alarm text-warning me-1"></i> Snooze
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 py-1" style="font-size: 13px; min-width: 155px; z-index: 1050;">
+                                                <li><h6 class="dropdown-header text-uppercase" style="font-size: 10px; letter-spacing: 0.5px;">Snooze For:</h6></li>
+                                                <li><button class="dropdown-item py-1" type="button" onclick="snoozePartyReminderFromRow({{ item.id }}, 5)"><i class="bi bi-clock me-2 text-warning"></i> +5 Minutes</button></li>
+                                                <li><button class="dropdown-item py-1" type="button" onclick="snoozePartyReminderFromRow({{ item.id }}, 10)"><i class="bi bi-clock me-2 text-warning"></i> +10 Minutes</button></li>
+                                                <li><button class="dropdown-item py-1" type="button" onclick="snoozePartyReminderFromRow({{ item.id }}, 15)"><i class="bi bi-clock me-2 text-warning"></i> +15 Minutes</button></li>
+                                                <li><button class="dropdown-item py-1" type="button" onclick="snoozePartyReminderFromRow({{ item.id }}, 30)"><i class="bi bi-clock me-2 text-warning"></i> +30 Minutes</button></li>
+                                                <li><button class="dropdown-item py-1" type="button" onclick="snoozePartyReminderFromRow({{ item.id }}, 60)"><i class="bi bi-clock me-2 text-warning"></i> +1 Hour</button></li>
+                                                <li><hr class="dropdown-divider my-1"></li>
+                                                <li><button class="dropdown-item py-1 text-primary fw-medium" type="button" onclick="snoozePartyReminderFromRow({{ item.id }}, 1440)"><i class="bi bi-calendar-event me-2"></i> Tomorrow (24h)</button></li>
+                                            </ul>
+                                        </div>
+
+                                        <!-- Active Toggle Switch -->
+                                        <div class="reminder-switch-wrap">
+                                            <span class="small fw-bold text-secondary" style="font-size: 11px;">Active</span>
+                                            <div class="form-check form-switch m-0 d-inline-block">
+                                                <input class="form-check-input reminder-toggle-switch" type="checkbox" checked role="switch"
+                                                       id="reminder_switch_{{ item.id }}"
+                                                       data-reminder-id="{{ item.active_due_reminder.id|default:0 }}"
+                                                       data-item-id="{{ item.id }}"
+                                                       onchange="onReminderRowToggleSwitch(this, {{ item.active_due_reminder.id|default:0 }}, {{ item.id }})"
+                                                       title="Click to turn off reminder and restore normal columns"
+                                                       style="cursor: pointer; width: 2.5em; height: 1.3em;">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <td class="text-center text-nowrap reminder-replaceable-cell {% if can_edit_lot %}editable-cell editable-lot{% endif %}" data-id="{{ item.id }}" data-raw="{{ item.lot_progress }}" {% if can_edit_lot %}title="Double click to edit LOT / ITEM"{% endif %}>
                                 <span class="cell-view-content">
                                     {% if item.lot_progress|lower == 'finished' %}
                                         <span class="badge-lot-finished">Finished</span>
@@ -808,19 +1126,19 @@
                                 </span>
                             </td>
                         {% elif col.key == 'completed_count' %}
-                            <td class="text-center fw-medium">
+                            <td class="text-center fw-medium reminder-replaceable-cell">
                                 {{ item.completed_count|default:"-" }}
                             </td>
                         {% elif col.key == 'pending_count' %}
-                            <td class="text-center {% if item.pending_count == 0 %}cell-pink{% else %}fw-medium{% endif %}">
+                            <td class="text-center reminder-replaceable-cell {% if item.pending_count == 0 %}cell-pink{% else %}fw-medium{% endif %}">
                                 {{ item.pending_count }}
                             </td>
                         {% elif col.key == 'ready_count' %}
-                            <td class="text-center fw-medium">
+                            <td class="text-center fw-medium reminder-replaceable-cell">
                                 {{ item.ready_count|default:"-" }}
                             </td>
                         {% elif col.key == 'notes' %}
-                            <td class="{% if can_edit_notes %}editable-cell editable-notes{% endif %}" data-id="{{ item.id }}" data-raw="{{ item.notes }}" {% if can_edit_notes %}title="Double click to edit Notes / Remarks"{% endif %}>
+                            <td class="reminder-replaceable-cell {% if can_edit_notes %}editable-cell editable-notes{% endif %}" data-id="{{ item.id }}" data-raw="{{ item.notes }}" {% if can_edit_notes %}title="Double click to edit Notes / Remarks"{% endif %}>
                                 <span class="cell-view-content">
                                     {% if item.notes %}
                                         <span class="{% if item.notes_is_red %}notes-red{% else %}text-secondary{% endif %}">
@@ -832,7 +1150,7 @@
                                 </span>
                             </td>
                         {% elif col.key == 'target_date' %}
-                            <td class="text-center text-nowrap {% if can_edit_target_date %}editable-cell editable-date{% endif %}" data-id="{{ item.id }}" data-raw="{{ item.target_date|date:'Y-m-d' }}" {% if can_edit_target_date %}title="Double click to edit Target Date"{% endif %}>
+                            <td class="text-center text-nowrap reminder-replaceable-cell {% if can_edit_target_date %}editable-cell editable-date{% endif %}" data-id="{{ item.id }}" data-raw="{{ item.target_date|date:'Y-m-d' }}" {% if can_edit_target_date %}title="Double click to edit Target Date"{% endif %}>
                                 <span class="cell-view-content">
                                     {% if item.target_date %}
                                         <span class="fw-medium text-dark">{{ item.target_date|date:"d/m/Y" }}</span>
@@ -842,7 +1160,7 @@
                                 </span>
                             </td>
                         {% elif col.key == 'days_diff' %}
-                            <td class="text-center days-diff-cell">
+                            <td class="text-center days-diff-cell reminder-replaceable-cell">
                                 {% if item.days_diff is not None %}
                                     {% if item.status == 'finished' or item.status == 'hold' or item.status == 'pending' %}
                                         <span class="badge bg-light text-secondary border">{% if item.days_diff > 0 and item.status != 'finished' %}+{% endif %}{{ item.days_diff }}</span>
@@ -862,7 +1180,7 @@
                                 {% endif %}
                             </td>
                         {% elif col.key == 'history_milestone' %}
-                            <td class="small text-muted text-nowrap {% if can_edit_notes %}editable-cell editable-history{% endif %}" data-id="{{ item.id }}" data-raw="{{ item.history_milestone }}" {% if can_edit_notes %}title="Double click to edit History / Milestone"{% endif %}>
+                            <td class="small text-muted text-nowrap reminder-replaceable-cell {% if can_edit_notes %}editable-cell editable-history{% endif %}" data-id="{{ item.id }}" data-raw="{{ item.history_milestone }}" {% if can_edit_notes %}title="Double click to edit History / Milestone"{% endif %}>
                                 <span class="cell-view-content">
                                     {{ item.history_milestone|default:"-" }}
                                 </span>
@@ -893,11 +1211,6 @@
                                     {% if can_hide_party %}
                                     <button type="button" class="btn btn-light text-secondary py-0 px-2 btn-toggle-hide" data-id="{{ item.id }}" data-name="{{ item.client_name }}" title="{% if item.is_hidden %}Restore / Unhide Client{% else %}Hide Client Row{% endif %}">
                                         <i class="bi {% if item.is_hidden %}bi-eye text-primary{% else %}bi-eye-slash{% endif %}"></i>
-                                    </button>
-                                    {% endif %}
-                                    {% if can_delete_party %}
-                                    <button type="button" class="btn btn-light text-danger py-0 px-2 btn-delete-client" data-id="{{ item.id }}" data-name="{{ item.client_name }}" data-url="{% url 'tracker:item_delete' item.id %}" title="Delete Client">
-                                        <i class="bi bi-trash3"></i>
                                     </button>
                                     {% endif %}
                                 </div>
@@ -1915,56 +2228,195 @@
     </div>
 </div>
 
-<!-- Floating Long-Click / Context Menu for Row Priority & Quick Actions -->
-<div id="rowContextMenu" class="dropdown-menu shadow-lg border p-1" style="display:none; position:fixed; z-index:9999; min-width: 250px; border-radius: 12px; background: #ffffff; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.15) !important;">
-    <div class="px-3 py-2 border-bottom bg-light rounded-top d-flex align-items-center justify-content-between">
-        <div class="d-flex align-items-center gap-2 text-truncate" style="max-width: 175px;">
-            <i class="bi bi-person-fill text-primary"></i>
-            <span class="fw-bold text-dark small text-truncate" id="contextMenuClientName">Client Name</span>
+<!-- Floating Long-Click / Right-Click Row Context Menu (Modern Professional SaaS Look - Screenshot 3) -->
+<div id="rowContextMenu" class="modern-context-menu" style="display:none;">
+    <div class="modern-context-header">
+        <div class="d-flex align-items-center justify-content-between gap-2">
+            <div class="d-flex align-items-center gap-2 min-w-0" style="max-width: 170px;">
+                <div class="context-avatar">
+                    <i class="bi bi-building"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="party-name text-truncate" id="contextMenuClientName">Client Name</div>
+                    <div class="party-sub text-truncate">Quick Actions</div>
+                </div>
+            </div>
+            <span class="party-status-pill badge" id="contextMenuStatusBadge">WORKING</span>
         </div>
-        <span class="badge bg-secondary-subtle text-secondary small" id="contextMenuStatusBadge" style="font-size: 10px;">STATUS</span>
     </div>
-    <div class="p-1">
+
+    <div class="d-flex flex-column">
         {% if can_edit_status or can_manage_settings %}
-        <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2" id="contextMenuPriorityBtn">
-            <i class="bi bi-circle-fill text-success fs-6"></i>
-            <span class="fw-bold" id="contextMenuPriorityText">Set Priority (Green Dot)</span>
+        <button type="button" class="modern-context-item" id="contextMenuPriorityBtn">
+            <div class="item-left">
+                <i class="bi bi-flag item-icon" id="contextMenuPriorityIcon"></i>
+                <span class="item-text" id="contextMenuPriorityText">Set Priority (Green Dot)</span>
+            </div>
+            <span class="item-trailing"><i class="bi bi-circle-fill text-success" style="font-size: 7px;"></i></span>
         </button>
         {% endif %}
+
         {% if can_view_party_details %}
-        <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-primary fw-semibold" id="contextMenuPartyDetailBtn">
-            <i class="bi bi-folder2-open"></i>
-            <span>Open Custom Tabs & Tables</span>
+        <button type="button" class="modern-context-item" id="contextMenuPartyDetailBtn">
+            <div class="item-left">
+                <i class="bi bi-folder2-open item-icon"></i>
+                <span class="item-text">Custom Tabs &amp; Tables</span>
+            </div>
+            <span class="item-trailing"><i class="bi bi-chevron-right" style="font-size: 10px;"></i></span>
         </button>
         {% endif %}
+
         {% if can_view_party_data %}
-        <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-info fw-semibold" id="contextMenuDataBtn">
-            <i class="bi bi-file-earmark-spreadsheet-fill text-info fs-6"></i>
-            <span>DATA (Product & SKU Catalog)</span>
+        <button type="button" class="modern-context-item" id="contextMenuDataBtn">
+            <div class="item-left">
+                <i class="bi bi-file-earmark-spreadsheet item-icon"></i>
+                <span class="item-text">DATA (SKU Catalog)</span>
+            </div>
+            <span class="item-trailing"><i class="bi bi-chevron-right" style="font-size: 10px;"></i></span>
         </button>
         {% endif %}
+
+        <div class="modern-context-divider"></div>
+
         {% if can_edit_status or can_edit_lot or can_edit_target_date or can_edit_notes %}
-        <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-primary" id="contextMenuEditBtn">
-            <i class="bi bi-pencil-square"></i>
-            <span>Edit Process Item</span>
+        <button type="button" class="modern-context-item" id="contextMenuEditBtn">
+            <div class="item-left">
+                <i class="bi bi-pencil item-icon"></i>
+                <span class="item-text">Edit Process Item</span>
+            </div>
         </button>
         {% endif %}
-        <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-secondary" id="contextMenuHistoryBtn">
-            <i class="bi bi-clock-history"></i>
-            <span>View Edit History</span>
+
+        <button type="button" class="modern-context-item" id="contextMenuHistoryBtn">
+            <div class="item-left">
+                <i class="bi bi-clock-history item-icon"></i>
+                <span class="item-text">View Edit History</span>
+            </div>
         </button>
+
+        <button type="button" class="modern-context-item" id="contextMenuReminderBtn">
+            <div class="item-left">
+                <i class="bi bi-bell-fill item-icon text-warning"></i>
+                <span class="item-text">Reminders &amp; Alerts</span>
+            </div>
+            <span class="item-trailing badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-1" id="contextMenuReminderCountBadge" style="font-size: 9px;">Set</span>
+        </button>
+
+        <div class="modern-context-divider"></div>
+
         {% if can_hide_party %}
-        <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-secondary" id="contextMenuHideBtn">
-            <i class="bi bi-eye-slash" id="contextMenuHideIcon"></i>
-            <span id="contextMenuHideText">Hide Client Row</span>
+        <button type="button" class="modern-context-item" id="contextMenuHideBtn">
+            <div class="item-left">
+                <i class="bi bi-eye-slash item-icon" id="contextMenuHideIcon"></i>
+                <span class="item-text" id="contextMenuHideText">Hide Client Row</span>
+            </div>
         </button>
         {% endif %}
-        {% if can_delete_party %}
-        <button type="button" class="dropdown-item d-flex align-items-center gap-2 rounded py-2 text-danger" id="contextMenuDeleteBtn">
-            <i class="bi bi-trash3"></i>
-            <span>Delete Client (PIN Required)</span>
-        </button>
-        {% endif %}
+    </div>
+</div>
+
+<!-- PARTY REMINDER MANAGEMENT MODAL -->
+<div class="modal fade" id="partyReminderModal" tabindex="-1" aria-labelledby="partyReminderModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+            <div class="modal-header py-3 text-dark bg-warning-subtle border-bottom border-warning-subtle">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center shadow-sm" style="width: 36px; height: 36px;">
+                        <i class="bi bi-bell-fill fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="partyReminderModalLabel">
+                            Reminders: <span id="reminderModalPartyName" class="text-primary">Client</span>
+                        </h5>
+                        <p class="text-muted small mb-0" style="font-size: 11px;">
+                            Set single or multiple scheduled reminders. When time arrives, the row highlights with an active reminder banner.
+                        </p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <!-- Add New Reminder Card -->
+                <div class="card border border-warning-subtle shadow-sm rounded-3 mb-4 bg-white">
+                    <div class="card-header bg-white py-2 px-3 border-bottom d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-plus-circle-fill text-warning" id="reminderFormIcon"></i>
+                            <span class="fw-bold small text-dark" id="reminderFormHeading">Add New Reminder for this Client</span>
+                        </div>
+                        <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-2" id="cancelEditReminderBtn" style="display:none;" onclick="cancelEditingReminder()">
+                            <i class="bi bi-x-circle me-1"></i> Cancel Edit
+                        </button>
+                    </div>
+                    <div class="card-body p-3">
+                        <form id="addNewReminderForm" onsubmit="handleAddNewReminder(event)">
+                            <input type="hidden" id="reminderModalPartyId" value="">
+                            <input type="hidden" id="editingReminderId" value="">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-secondary mb-1">
+                                        <i class="bi bi-calendar3 me-1 text-primary"></i> Date <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="date" class="form-control form-control-sm" id="newReminderDate" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-secondary mb-1">
+                                        <i class="bi bi-clock me-1 text-primary"></i> Time <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="time" class="form-control form-control-sm" id="newReminderTime" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-secondary mb-1">
+                                        <i class="bi bi-chat-left-text me-1 text-primary"></i> Reminder Message / Note
+                                    </label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control" id="newReminderTitle" placeholder="e.g. Solitaire LOT 24 ready for dispatch">
+                                        <button type="submit" class="btn btn-warning fw-bold px-3" id="saveReminderBtn">
+                                            <i class="bi bi-plus-lg me-1" id="saveReminderBtnIcon"></i> <span id="saveReminderBtnText">Add Reminder</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Existing Reminders List -->
+                <div class="card border-0 shadow-sm rounded-3 bg-white">
+                    <div class="card-header bg-white py-2 px-3 border-bottom d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-list-check text-primary"></i>
+                            <span class="fw-bold small text-dark">Client Reminders</span>
+                        </div>
+                        <span class="badge bg-light text-secondary border rounded-pill" id="reminderListCountBadge">0 Reminders</span>
+                    </div>
+                    <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+                        <table class="table table-hover align-middle mb-0" id="partyRemindersTable">
+                            <thead class="table-light small text-secondary">
+                                <tr>
+                                    <th style="width: 70px;" class="text-center">Status</th>
+                                    <th style="min-width: 150px;">Scheduled Time</th>
+                                    <th>Message / Title</th>
+                                    <th class="text-center" style="width: 100px;">Active Toggle</th>
+                                    <th class="text-center" style="width: 90px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="partyRemindersTableBody">
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted small">
+                                        <i class="bi bi-bell-slash fs-4 d-block mb-1 text-secondary opacity-50"></i>
+                                        No reminders set for this client yet. Use the form above to add one!
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2 px-3 justify-content-between">
+                <small class="text-muted"><i class="bi bi-info-circle me-1"></i> When reminder time arrives, row highlights & shows toggle switch to turn off.</small>
+                <button type="button" class="btn btn-sm btn-secondary px-3" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -2353,28 +2805,31 @@
         } catch (err) {}
     });
 
-    // Active Status Filter State (supports: 'all', 'working', 'no_data', 'finished', 'overdue', 'pending_units')
+    // Active Status Filter State (supports: 'all', 'working', 'no_data', 'finished', 'overdue', 'hidden')
     let activeMetricFilter = '{{ status_filter|default:"all" }}';
 
     // Filter rows based on search query, active metric filter, and hidden mode
     window.filterRows = function() {
         const query = (liveSearchInput ? liveSearchInput.value : '').toLowerCase().trim();
         const allRows = document.querySelectorAll('.process-row');
+        const isHiddenFilter = (activeMetricFilter === 'hidden');
+        const tableContainer = document.getElementById('tableCustomContainer');
+        const isShowHiddenMode = tableContainer && tableContainer.classList.contains('show-hidden-mode');
 
         allRows.forEach(row => {
+            const isHiddenRow = row.classList.contains('is-hidden-row') || row.getAttribute('data-hidden') === 'true';
             const searchData = (row.getAttribute('data-search') || '').toLowerCase();
             const matchesSearch = !query || searchData.includes(query);
 
             const dynamicStatus = (row.getAttribute('data-dynamic') || row.getAttribute('data-status') || '').toLowerCase();
             const isOverdue = row.getAttribute('data-is-overdue') === 'true';
-            const pendingUnits = parseInt(row.getAttribute('data-pending-count') || '0', 10) || 0;
 
             let matchesMetric = true;
             if (activeMetricFilter && activeMetricFilter !== 'all') {
                 if (activeMetricFilter === 'overdue') {
                     matchesMetric = isOverdue;
-                } else if (activeMetricFilter === 'pending_units') {
-                    matchesMetric = (dynamicStatus === 'pending') || (pendingUnits > 0);
+                } else if (activeMetricFilter === 'hidden') {
+                    matchesMetric = isHiddenRow;
                 } else if (activeMetricFilter === 'finished' || activeMetricFilter === 'no_data') {
                     // Finished and No Data are synonymous: show clients with finished or no_data
                     matchesMetric = (dynamicStatus === 'finished' || dynamicStatus === 'no_data');
@@ -2383,10 +2838,22 @@
                 }
             }
 
-            if (matchesSearch && matchesMetric) {
-                row.style.display = '';
+            // Normal visibility constraint: if NOT filtering by 'hidden', hidden rows are only shown if isShowHiddenMode is true
+            let allowedByHiddenState = true;
+            if (isHiddenFilter) {
+                allowedByHiddenState = isHiddenRow;
+            } else if (!isShowHiddenMode && isHiddenRow) {
+                allowedByHiddenState = false;
+            }
+
+            if (matchesSearch && matchesMetric && allowedByHiddenState) {
+                if (isHiddenFilter && isHiddenRow) {
+                    row.style.setProperty('display', 'table-row', 'important');
+                } else {
+                    row.style.setProperty('display', '', '');
+                }
             } else {
-                row.style.display = 'none';
+                row.style.setProperty('display', 'none', 'important');
             }
         });
 
@@ -2398,7 +2865,7 @@
                 badge.classList.remove('d-none');
                 let displayLabel = activeMetricFilter;
                 if (activeMetricFilter === 'no_data' || activeMetricFilter === 'finished') displayLabel = 'No Data / Finished';
-                else if (activeMetricFilter === 'pending_units') displayLabel = 'Pending';
+                else if (activeMetricFilter === 'hidden') displayLabel = 'Hidden Parties';
                 else displayLabel = activeMetricFilter.charAt(0).toUpperCase() + activeMetricFilter.slice(1);
                 label.textContent = displayLabel;
             } else {
@@ -2427,17 +2894,19 @@
     // Visible Client Count and Sequential Row Counter updater
     window.updateVisibleClientCount = function() {
         const tableContainer = document.getElementById('tableCustomContainer');
-        const isShowHiddenMode = tableContainer && tableContainer.classList.contains('show-hidden-mode');
+        const isShowHiddenMode = (tableContainer && tableContainer.classList.contains('show-hidden-mode')) || (activeMetricFilter === 'hidden');
         const allRows = document.querySelectorAll('.process-row');
         let visibleCount = 0;
 
         allRows.forEach(row => {
-            const isHiddenRow = row.classList.contains('is-hidden-row');
-            const isFilteredOut = row.style.display === 'none';
+            const isHiddenRow = row.classList.contains('is-hidden-row') || row.getAttribute('data-hidden') === 'true';
+            const isFilteredOut = (row.style.display === 'none');
 
             let isRowVisible = false;
             if (!isFilteredOut) {
-                if (!isHiddenRow || isShowHiddenMode) {
+                if (activeMetricFilter === 'hidden') {
+                    if (isHiddenRow) isRowVisible = true;
+                } else if (!isHiddenRow || isShowHiddenMode) {
                     isRowVisible = true;
                 }
             }
@@ -2654,11 +3123,13 @@
                     const btn = document.createElement('div');
                     btn.className = `list-group-item list-group-item-action py-2 px-3 position-relative ${idx === 0 ? 'active' : ''}`;
                     btn.style.cursor = 'pointer';
+                    const actionLabel = entry.action_type === 'reminder_off' ? 'REMINDER OFF' : entry.action_type.toUpperCase();
+                    const actionBadgeClass = entry.action_type === 'created' ? 'bg-info text-dark' : (entry.action_type === 'reminder_off' ? 'bg-warning text-dark' : 'bg-primary');
                     btn.innerHTML = `
                         <div class="d-flex w-100 justify-content-between align-items-center mb-1">
                             <span class="fw-bold">${entry.datetime_str}</span>
                             <div class="d-flex align-items-center gap-1">
-                                <span class="badge ${entry.action_type === 'created' ? 'bg-info text-dark' : 'bg-primary'} rounded-pill">${entry.action_type.toUpperCase()}</span>
+                                <span class="badge ${actionBadgeClass} rounded-pill">${actionLabel}</span>
                                 <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1 btn-delete-history-entry" data-entry-id="${entry.id}" title="Delete this revision" style="line-height: 1; text-decoration: none;">
                                     <i class="bi bi-trash3"></i>
                                 </button>
@@ -2989,12 +3460,16 @@
         let dynamicPendingCount = 0;
         let dynamicPendingUnits = 0;
         let dynamicReadyUnits = 0;
+        let dynamicHiddenCount = 0;
 
         const tableContainer = document.getElementById('tableCustomContainer');
-        const isShowHiddenMode = tableContainer && tableContainer.classList.contains('show-hidden-mode');
+        const isShowHiddenMode = (tableContainer && tableContainer.classList.contains('show-hidden-mode')) || (activeMetricFilter === 'hidden');
 
         document.querySelectorAll('.process-row').forEach(row => {
-            const isHiddenRow = row.classList.contains('is-hidden-row');
+            const isHiddenRow = row.classList.contains('is-hidden-row') || row.getAttribute('data-hidden') === 'true';
+            if (isHiddenRow) {
+                dynamicHiddenCount++;
+            }
             const isRowVisibleInTable = !isHiddenRow || isShowHiddenMode;
 
             const targetDateStr = row.getAttribute('data-target-date');
@@ -3049,14 +3524,16 @@
                 dynamicPendingUnits += pendingUnitsVal;
                 dynamicReadyUnits += readyUnitsVal;
 
+                // Overdue is counted independently based on target date
+                if (isPassed && !isExempted) {
+                    dynamicOverdueCount++;
+                }
+
+                // Status counts based on dynamic/manual status
                 if (dynamicStatus === 'hold') {
                     dynamicHoldCount++;
                 } else if (dynamicStatus === 'pending') {
                     dynamicPendingCount++;
-                } else if (isPassed && !isExempted) {
-                    dynamicOverdueCount++;
-                    dynamicFinishedCount++;
-                    dynamicNoDataCount++;
                 } else if (dynamicStatus === 'working') {
                     dynamicWorkingCount++;
                 } else if (dynamicStatus === 'no_data' || dynamicStatus === 'finished') {
@@ -3176,6 +3653,9 @@
 
         const readyStat = document.getElementById('statReadyCount');
         if (readyStat) readyStat.textContent = dynamicReadyUnits;
+
+        const hiddenStat = document.getElementById('statHiddenCount');
+        if (hiddenStat) hiddenStat.textContent = dynamicHiddenCount;
     }
 
     // Reorder Header Columns (Move Up / Move Down)
@@ -3894,23 +4374,27 @@
         if (clientNameEl) clientNameEl.textContent = clientName;
         if (statusBadgeEl) {
             statusBadgeEl.textContent = status.replace('_', ' ').toUpperCase();
-            if (status === 'working') statusBadgeEl.className = 'badge bg-success-subtle text-success small';
-            else if (status === 'no_data') statusBadgeEl.className = 'badge bg-danger-subtle text-danger small';
-            else if (status === 'pending') statusBadgeEl.className = 'badge bg-warning-subtle text-dark small';
-            else if (status === 'hold') statusBadgeEl.className = 'badge bg-success-subtle text-success border border-success-subtle small';
-            else statusBadgeEl.className = 'badge bg-secondary-subtle text-secondary small';
+            if (status === 'working') statusBadgeEl.className = 'party-status-pill badge bg-success-subtle text-success';
+            else if (status === 'new') statusBadgeEl.className = 'party-status-pill badge bg-emerald-subtle text-success border border-success-subtle';
+            else if (status === 'no_data') statusBadgeEl.className = 'party-status-pill badge bg-danger-subtle text-danger';
+            else if (status === 'pending') statusBadgeEl.className = 'party-status-pill badge bg-warning-subtle text-dark';
+            else if (status === 'hold') statusBadgeEl.className = 'party-status-pill badge bg-success-subtle text-success border border-success-subtle';
+            else statusBadgeEl.className = 'party-status-pill badge bg-secondary-subtle text-secondary';
         }
 
         // Toggle button presentation
         const priorityBtn = document.getElementById('contextMenuPriorityBtn');
         const priorityText = document.getElementById('contextMenuPriorityText');
+        const priorityIcon = document.getElementById('contextMenuPriorityIcon');
         if (priorityBtn && priorityText) {
             if (isPriority) {
-                priorityBtn.className = 'dropdown-item d-flex align-items-center gap-2 rounded py-2 text-danger';
-                priorityText.innerHTML = '<i class="bi bi-x-circle me-1"></i> Remove Priority';
+                if (priorityIcon) priorityIcon.className = 'bi bi-x-circle item-icon text-danger';
+                priorityText.textContent = 'Remove Priority';
+                priorityText.classList.add('text-danger');
             } else {
-                priorityBtn.className = 'dropdown-item d-flex align-items-center gap-2 rounded py-2 text-success';
-                priorityText.innerHTML = '<i class="bi bi-circle-fill text-success me-1"></i> Set Priority (Green Dot)';
+                if (priorityIcon) priorityIcon.className = 'bi bi-flag item-icon text-success';
+                priorityText.textContent = 'Set Priority (Green Dot)';
+                priorityText.classList.remove('text-danger');
             }
         }
 
@@ -3919,11 +4403,20 @@
         const hideTextEl = document.getElementById('contextMenuHideText');
         const hideIconEl = document.getElementById('contextMenuHideIcon');
         if (hideTextEl) hideTextEl.textContent = isHidden ? 'Restore / Unhide Client' : 'Hide Client Row';
-        if (hideIconEl) hideIconEl.className = isHidden ? 'bi bi-eye text-primary me-1' : 'bi bi-eye-slash text-secondary me-1';
+        if (hideIconEl) hideIconEl.className = isHidden ? 'bi bi-eye item-icon text-primary' : 'bi bi-eye-slash item-icon';
+
+        // Reminder presentation in context menu
+        const reminderBadgeEl = row.querySelector('.reminder-count-badge');
+        const contextReminderBadge = document.getElementById('contextMenuReminderCountBadge');
+        if (contextReminderBadge) {
+            const count = reminderBadgeEl && reminderBadgeEl.style.display !== 'none' ? parseInt(reminderBadgeEl.textContent.trim() || '0', 10) : 0;
+            contextReminderBadge.textContent = count > 0 ? `${count} Active` : 'Set';
+            contextReminderBadge.className = count > 0 ? 'item-trailing badge bg-warning text-dark rounded-pill px-2' : 'item-trailing badge bg-light text-secondary border rounded-pill px-1';
+        }
 
         // Position menu properly without viewport cutoff
-        const menuWidth = 250;
-        const menuHeight = 180;
+        const menuWidth = 265;
+        const menuHeight = 290;
         let posX = x;
         let posY = y;
         if (posX + menuWidth > window.innerWidth) posX = window.innerWidth - menuWidth - 12;
@@ -4018,6 +4511,19 @@
         });
     }
 
+    const reminderBtnEl = document.getElementById('contextMenuReminderBtn');
+    if (reminderBtnEl) {
+        reminderBtnEl.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (currentTargetRow) {
+                const itemId = currentTargetRow.getAttribute('data-id');
+                const clientName = currentTargetRow.getAttribute('data-client-name') || currentTargetRow.querySelector('.client-name-text')?.textContent.trim() || 'Client';
+                closeRowContextMenu();
+                openReminderModal(itemId, clientName);
+            }
+        });
+    }
+
     const editBtnEl = document.getElementById('contextMenuEditBtn');
     if (editBtnEl) {
         editBtnEl.addEventListener('click', function(e) {
@@ -4054,17 +4560,6 @@
         });
     }
 
-    const deleteBtnEl = document.getElementById('contextMenuDeleteBtn');
-    if (deleteBtnEl) {
-        deleteBtnEl.addEventListener('click', function(e) {
-            e.stopPropagation();
-            if (currentTargetRow) {
-                const btnDelete = currentTargetRow.querySelector('.btn-delete-client');
-                closeRowContextMenu();
-                if (btnDelete) btnDelete.click();
-            }
-        });
-    }
 
     // Toggle Single Client Hide / Unhide
     document.querySelectorAll('.btn-toggle-hide').forEach(btn => {
@@ -4625,5 +5120,544 @@
             if (payInput && !payInput.value) payInput.placeholder = val ? `${val} - Payment` : 'Auto: [Client Name] - Payment';
         });
     }
+
+    // ==========================================
+    // PARTY SCHEDULED REMINDERS ENGINE
+    // ==========================================
+    window.allActiveReminders = {{ active_reminders_json|default:'[]'|safe }};
+
+    window.openReminderModal = function(itemId, clientName) {
+        if (!itemId) return;
+        const modalEl = document.getElementById('partyReminderModal');
+        if (!modalEl) return;
+
+        document.getElementById('reminderModalPartyId').value = itemId;
+        const nameEl = document.getElementById('reminderModalPartyName');
+        if (nameEl) nameEl.textContent = clientName || 'Client';
+
+        // Pre-fill date with today and time with current time rounded to next 5 minutes
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(Math.min(59, now.getMinutes() + 5)).padStart(2, '0');
+
+        const dateInput = document.getElementById('newReminderDate');
+        const timeInput = document.getElementById('newReminderTime');
+        const titleInput = document.getElementById('newReminderTitle');
+
+        if (dateInput) dateInput.value = `${year}-${month}-${day}`;
+        if (timeInput) timeInput.value = `${hours}:${minutes}`;
+        if (titleInput) {
+            titleInput.value = '';
+            titleInput.placeholder = `e.g. ${clientName || 'Client'} - Urgent LOT inspection`;
+        }
+
+        cancelEditingReminder();
+        loadPartyReminders(itemId);
+
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        bsModal.show();
+    };
+
+    window.currentPartyReminders = [];
+
+    window.startEditReminder = function(reminderId) {
+        if (!window.currentPartyReminders) return;
+        const r = window.currentPartyReminders.find(item => item.id === reminderId);
+        if (!r) return;
+
+        const dateInput = document.getElementById('newReminderDate');
+        const timeInput = document.getElementById('newReminderTime');
+        const titleInput = document.getElementById('newReminderTitle');
+        const editingIdInput = document.getElementById('editingReminderId');
+        const headingEl = document.getElementById('reminderFormHeading');
+        const iconEl = document.getElementById('reminderFormIcon');
+        const btnText = document.getElementById('saveReminderBtnText');
+        const btnIcon = document.getElementById('saveReminderBtnIcon');
+        const saveBtn = document.getElementById('saveReminderBtn');
+        const cancelBtn = document.getElementById('cancelEditReminderBtn');
+
+        if (editingIdInput) editingIdInput.value = reminderId;
+        if (dateInput && r.remind_date) dateInput.value = r.remind_date;
+        if (timeInput && r.remind_time) timeInput.value = r.remind_time;
+        if (titleInput) {
+            titleInput.value = r.title || '';
+            titleInput.focus();
+        }
+
+        if (headingEl) headingEl.textContent = `Update Reminder (ID #${reminderId})`;
+        if (iconEl) iconEl.className = 'bi bi-pencil-fill text-primary';
+        if (btnText) btnText.textContent = 'Update Reminder';
+        if (btnIcon) btnIcon.className = 'bi bi-check2-circle me-1';
+        if (saveBtn) {
+            saveBtn.className = 'btn btn-primary fw-bold px-3';
+        }
+        if (cancelBtn) cancelBtn.style.display = 'inline-block';
+
+        // Highlight table row being edited
+        document.querySelectorAll('#partyRemindersTableBody tr').forEach(tr => tr.classList.remove('table-primary'));
+        const currentTr = document.getElementById(`reminder_tr_${reminderId}`);
+        if (currentTr) currentTr.classList.add('table-primary');
+    };
+
+    window.cancelEditingReminder = function() {
+        const editingIdInput = document.getElementById('editingReminderId');
+        const headingEl = document.getElementById('reminderFormHeading');
+        const iconEl = document.getElementById('reminderFormIcon');
+        const btnText = document.getElementById('saveReminderBtnText');
+        const btnIcon = document.getElementById('saveReminderBtnIcon');
+        const saveBtn = document.getElementById('saveReminderBtn');
+        const cancelBtn = document.getElementById('cancelEditReminderBtn');
+        const titleInput = document.getElementById('newReminderTitle');
+
+        if (editingIdInput) editingIdInput.value = '';
+        if (headingEl) headingEl.textContent = 'Add New Reminder for this Client';
+        if (iconEl) iconEl.className = 'bi bi-plus-circle-fill text-warning';
+        if (btnText) btnText.textContent = 'Add Reminder';
+        if (btnIcon) btnIcon.className = 'bi bi-plus-lg me-1';
+        if (saveBtn) {
+            saveBtn.className = 'btn btn-warning fw-bold px-3';
+        }
+        if (cancelBtn) cancelBtn.style.display = 'none';
+        if (titleInput) titleInput.value = '';
+
+        document.querySelectorAll('#partyRemindersTableBody tr').forEach(tr => tr.classList.remove('table-primary'));
+    };
+
+    window.loadPartyReminders = function(itemId) {
+        const tbody = document.getElementById('partyRemindersTableBody');
+        const countBadge = document.getElementById('reminderListCountBadge');
+        if (!tbody) return;
+
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted small"><span class="spinner-border spinner-border-sm me-2"></span>Loading reminders...</td></tr>`;
+
+        fetch(`/party/${itemId}/reminders/`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-danger small">${escapeHtml(data.error || 'Failed to load reminders')}</td></tr>`;
+                    return;
+                }
+
+                const reminders = data.reminders || [];
+                window.currentPartyReminders = reminders;
+                const activeCount = reminders.filter(r => r.is_active).length;
+                if (countBadge) countBadge.textContent = `${reminders.length} Reminder${reminders.length === 1 ? '' : 's'}`;
+
+                // Sync window.allActiveReminders
+                window.allActiveReminders = window.allActiveReminders.filter(r => r.item_id !== parseInt(itemId, 10));
+                reminders.filter(r => r.is_active).forEach(r => {
+                    window.allActiveReminders.push({
+                        id: r.id,
+                        item_id: parseInt(itemId, 10),
+                        client_name: data.client_name,
+                        title: r.title,
+                        remind_at_iso: r.remind_at_iso,
+                        remind_at_formatted: r.remind_at_formatted,
+                        is_active: r.is_active,
+                        is_due: r.is_due
+                    });
+                });
+
+                // Update bell icon & badge on dashboard row
+                updateRowBellBadge(itemId, activeCount);
+
+                // Update row reminder banner state
+                updateRowBannerState(itemId);
+
+                if (reminders.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted small"><i class="bi bi-bell-slash fs-4 d-block mb-1 text-secondary opacity-50"></i>No reminders set for this client yet. Use the form above to add one!</td></tr>`;
+                    return;
+                }
+
+                let html = '';
+                reminders.forEach(r => {
+                    html += `
+                        <tr id="reminder_tr_${r.id}">
+                            <td class="text-center">
+                                ${r.is_due
+                                    ? '<span class="badge bg-danger shadow-sm"><i class="bi bi-exclamation-circle-fill me-1"></i>Due Now</span>'
+                                    : (r.is_active
+                                        ? '<span class="badge bg-success-subtle text-success border border-success-subtle">Active</span>'
+                                        : '<span class="badge bg-secondary-subtle text-secondary border">Off</span>'
+                                      )
+                                }
+                            </td>
+                            <td>
+                                <div class="fw-semibold text-dark small">${escapeHtml(r.remind_at_formatted)}</div>
+                                ${r.dismissed_at ? `<div class="text-danger small mt-0.5" style="font-size: 11px;"><i class="bi bi-clock-history me-1"></i>Off: <strong>${escapeHtml(r.dismissed_at)}</strong></div>` : ''}
+                            </td>
+                            <td>
+                                <div class="text-dark small fw-medium">${escapeHtml(r.title)}</div>
+                            </td>
+                            <td class="text-center">
+                                <div class="form-check form-switch d-inline-block m-0">
+                                    <input class="form-check-input" type="checkbox" role="switch"
+                                           ${r.is_active ? 'checked' : ''}
+                                           onchange="togglePartyReminder(${r.id}, this, ${itemId})"
+                                           style="cursor: pointer; width: 2.2em; height: 1.15em;"
+                                           title="Toggle Reminder ON/OFF">
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-primary py-0 px-2"
+                                            onclick="startEditReminder(${r.id})"
+                                            title="Edit / Update this reminder">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-warning py-0 px-2 dropdown-toggle dropdown-toggle-split"
+                                            data-bs-toggle="dropdown" aria-expanded="false" title="Snooze reminder">
+                                        <i class="bi bi-alarm"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-1" style="font-size: 12px; min-width: 140px; z-index: 1060;">
+                                        <li><h6 class="dropdown-header text-uppercase" style="font-size: 9px; letter-spacing: 0.5px;">Snooze For:</h6></li>
+                                        <li><button class="dropdown-item py-1" type="button" onclick="snoozePartyReminder(${r.id}, ${itemId}, 5)"><i class="bi bi-clock me-1 text-warning"></i> +5 Min</button></li>
+                                        <li><button class="dropdown-item py-1" type="button" onclick="snoozePartyReminder(${r.id}, ${itemId}, 10)"><i class="bi bi-clock me-1 text-warning"></i> +10 Min</button></li>
+                                        <li><button class="dropdown-item py-1" type="button" onclick="snoozePartyReminder(${r.id}, ${itemId}, 15)"><i class="bi bi-clock me-1 text-warning"></i> +15 Min</button></li>
+                                        <li><button class="dropdown-item py-1" type="button" onclick="snoozePartyReminder(${r.id}, ${itemId}, 30)"><i class="bi bi-clock me-1 text-warning"></i> +30 Min</button></li>
+                                        <li><button class="dropdown-item py-1" type="button" onclick="snoozePartyReminder(${r.id}, ${itemId}, 60)"><i class="bi bi-clock me-1 text-warning"></i> +1 Hour</button></li>
+                                        <li><hr class="dropdown-divider my-1"></li>
+                                        <li><button class="dropdown-item py-1 text-primary fw-medium" type="button" onclick="snoozePartyReminder(${r.id}, ${itemId}, 1440)"><i class="bi bi-calendar-event me-1"></i> Tomorrow</button></li>
+                                    </ul>
+                                    <button type="button" class="btn btn-outline-danger py-0 px-2"
+                                            onclick="deletePartyReminder(${r.id}, ${itemId})"
+                                            title="Delete this reminder">
+                                        <i class="bi bi-trash3"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+            })
+            .catch(err => {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-danger small">Network error: ${escapeHtml(err.message)}</td></tr>`;
+            });
+    };
+
+    window.handleAddNewReminder = function(event) {
+        event.preventDefault();
+        const itemId = document.getElementById('reminderModalPartyId').value;
+        const editingReminderId = document.getElementById('editingReminderId')?.value;
+        const isEditing = !!editingReminderId;
+
+        const dateVal = document.getElementById('newReminderDate').value;
+        const timeVal = document.getElementById('newReminderTime').value;
+        const titleVal = document.getElementById('newReminderTitle').value.trim();
+        const saveBtn = document.getElementById('saveReminderBtn');
+
+        if (!itemId || !dateVal || !timeVal) {
+            alert('Please select both Date and Time for the reminder.');
+            return;
+        }
+
+        const remindAtStr = `${dateVal}T${timeVal}`;
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>${isEditing ? 'Updating...' : 'Saving...'}`;
+        }
+
+        const url = isEditing ? `/reminder/${editingReminderId}/update/` : `/party/${itemId}/reminders/`;
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                remind_at: remindAtStr,
+                title: titleVal
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = isEditing ? '<i class="bi bi-check2-circle me-1"></i> Update Reminder' : '<i class="bi bi-plus-lg me-1"></i> Add Reminder';
+            }
+
+            if (data.success) {
+                cancelEditingReminder();
+                loadPartyReminders(itemId);
+                checkDueReminders();
+            } else {
+                alert('Could not save reminder: ' + (data.error || 'Server error'));
+            }
+        })
+        .catch(err => {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = isEditing ? '<i class="bi bi-check2-circle me-1"></i> Update Reminder' : '<i class="bi bi-plus-lg me-1"></i> Add Reminder';
+            }
+            alert('Network error: ' + err.message);
+        });
+    };
+
+    window.togglePartyReminder = function(reminderId, switchEl, itemId) {
+        const nextActive = switchEl.checked;
+        fetch(`/reminder/${reminderId}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ is_active: nextActive })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const idx = window.allActiveReminders.findIndex(r => r.id === reminderId);
+                if (data.is_active) {
+                    if (idx === -1) {
+                        window.allActiveReminders.push(data);
+                    } else {
+                        window.allActiveReminders[idx].is_active = true;
+                    }
+                } else {
+                    if (idx !== -1) {
+                        window.allActiveReminders.splice(idx, 1);
+                    }
+                }
+
+                if (itemId) {
+                    loadPartyReminders(itemId);
+                } else {
+                    checkDueReminders();
+                }
+
+                if (data.history_milestone && itemId) {
+                    const historyCell = document.querySelector(`#row_party_${itemId} td.editable-history`);
+                    if (historyCell) {
+                        const viewSpan = historyCell.querySelector('.cell-view-content');
+                        if (viewSpan) viewSpan.textContent = data.history_milestone;
+                        historyCell.setAttribute('data-raw', data.history_milestone);
+                    }
+                }
+            } else {
+                switchEl.checked = !nextActive;
+                alert('Failed to toggle reminder: ' + (data.error || 'Server error'));
+            }
+        })
+        .catch(err => {
+            switchEl.checked = !nextActive;
+            alert('Network error: ' + err.message);
+        });
+    };
+
+    window.onReminderRowToggleSwitch = function(switchEl, reminderId, itemId) {
+        const row = document.getElementById(`row_party_${itemId}`);
+
+        // OPTIMISTIC RESTORE: Immediately turn off row highlight and restore LOT / Target date / Notes!
+        if (row) {
+            row.classList.remove('has-active-reminder');
+        }
+
+        // Remove from local active list
+        window.allActiveReminders = window.allActiveReminders.filter(r => r.id !== reminderId);
+        updateRowBellBadge(itemId, window.allActiveReminders.filter(r => r.item_id === itemId).length);
+
+        fetch(`/reminder/${reminderId}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ is_active: false })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                if (row) row.classList.add('has-active-reminder');
+                switchEl.checked = true;
+                alert('Could not turn off reminder: ' + (data.error || 'Error'));
+            } else {
+                updateRowBannerState(itemId);
+                if (data.history_milestone) {
+                    const historyCell = document.querySelector(`#row_party_${itemId} td.editable-history`);
+                    if (historyCell) {
+                        const viewSpan = historyCell.querySelector('.cell-view-content');
+                        if (viewSpan) viewSpan.textContent = data.history_milestone;
+                        historyCell.setAttribute('data-raw', data.history_milestone);
+                    }
+                }
+            }
+        })
+        .catch(err => {
+            if (row) row.classList.add('has-active-reminder');
+            switchEl.checked = true;
+            alert('Network error: ' + err.message);
+        });
+    };
+
+    window.deletePartyReminder = function(reminderId, itemId) {
+        if (!confirm('Are you sure you want to delete this reminder?')) return;
+
+        fetch(`/reminder/${reminderId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                window.allActiveReminders = window.allActiveReminders.filter(r => r.id !== reminderId);
+                loadPartyReminders(itemId);
+            } else {
+                alert('Failed to delete reminder: ' + (data.error || 'Error'));
+            }
+        })
+        .catch(err => {
+            alert('Network error: ' + err.message);
+        });
+    };
+
+    function updateRowBellBadge(itemId, activeCount) {
+        const bellIcon = document.getElementById(`reminder_bell_icon_${itemId}`);
+        const countBadge = document.getElementById(`reminder_count_badge_${itemId}`);
+        const bellBtn = document.getElementById(`reminder_bell_${itemId}`);
+
+        if (bellIcon) {
+            if (activeCount > 0) {
+                bellIcon.className = 'bi bi-bell-fill text-warning animate-bell-ring';
+            } else {
+                bellIcon.className = 'bi bi-bell text-muted opacity-50';
+            }
+        }
+        if (countBadge) {
+            if (activeCount > 0) {
+                countBadge.textContent = activeCount;
+                countBadge.style.display = 'inline-block';
+            } else {
+                countBadge.style.display = 'none';
+            }
+        }
+        if (bellBtn) {
+            bellBtn.title = activeCount > 0 ? `Manage Reminders (${activeCount} active)` : 'Manage Reminders';
+        }
+    }
+
+    function updateRowBannerState(itemId) {
+        const row = document.getElementById(`row_party_${itemId}`);
+        if (!row) return;
+
+        const now = new Date();
+        const dueReminders = window.allActiveReminders
+            .filter(r => r.item_id === parseInt(itemId, 10) && r.is_active && new Date(r.remind_at_iso) <= now)
+            .sort((a, b) => new Date(a.remind_at_iso) - new Date(b.remind_at_iso));
+
+        if (dueReminders.length > 0) {
+            const activeReminder = dueReminders[0];
+            row.classList.add('has-active-reminder');
+
+            const titleEl = document.getElementById(`reminder_title_${itemId}`);
+            const switchEl = document.getElementById(`reminder_switch_${itemId}`);
+            const snoozeBtn = document.getElementById(`reminder_snooze_btn_${itemId}`);
+
+            if (titleEl) {
+                titleEl.textContent = activeReminder.title || '';
+                titleEl.title = activeReminder.title || '';
+            }
+            if (switchEl) {
+                switchEl.checked = true;
+                switchEl.setAttribute('data-reminder-id', activeReminder.id);
+                switchEl.setAttribute('onchange', `onReminderRowToggleSwitch(this, ${activeReminder.id}, ${itemId})`);
+            }
+            if (snoozeBtn) {
+                snoozeBtn.setAttribute('data-reminder-id', activeReminder.id);
+            }
+        } else {
+            row.classList.remove('has-active-reminder');
+        }
+    }
+
+    window.snoozePartyReminderFromRow = function(itemId, minutes) {
+        const row = document.getElementById(`row_party_${itemId}`);
+        const snoozeBtn = document.getElementById(`reminder_snooze_btn_${itemId}`);
+        const switchEl = document.getElementById(`reminder_switch_${itemId}`);
+        const reminderId = snoozeBtn?.getAttribute('data-reminder-id') || switchEl?.getAttribute('data-reminder-id');
+
+        if (!reminderId) return;
+
+        // Optimistic UI restore: immediately remove active reminder highlight so row snaps back to normal cells
+        if (row) {
+            row.classList.remove('has-active-reminder');
+        }
+
+        fetch(`/reminder/${reminderId}/snooze/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ minutes: minutes })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.reminder) {
+                const idx = window.allActiveReminders.findIndex(r => r.id === parseInt(reminderId, 10));
+                if (idx !== -1) {
+                    window.allActiveReminders[idx] = data.reminder;
+                } else {
+                    window.allActiveReminders.push(data.reminder);
+                }
+
+                updateRowBannerState(itemId);
+                updateRowBellBadge(itemId, window.allActiveReminders.filter(r => r.item_id === parseInt(itemId, 10)).length);
+            } else {
+                if (row) row.classList.add('has-active-reminder');
+                alert('Could not snooze reminder: ' + (data.error || 'Server error'));
+            }
+        })
+        .catch(err => {
+            if (row) row.classList.add('has-active-reminder');
+            alert('Network error: ' + err.message);
+        });
+    };
+
+    window.snoozePartyReminder = function(reminderId, itemId, minutes) {
+        fetch(`/reminder/${reminderId}/snooze/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ minutes: minutes })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.reminder) {
+                loadPartyReminders(itemId);
+                checkDueReminders();
+            } else {
+                alert('Failed to snooze reminder: ' + (data.error || 'Server error'));
+            }
+        })
+        .catch(err => {
+            alert('Network error: ' + err.message);
+        });
+    };
+
+    window.checkDueReminders = function() {
+        if (!window.allActiveReminders || !Array.isArray(window.allActiveReminders)) return;
+        const now = new Date();
+
+        const itemIds = [...new Set(window.allActiveReminders.map(r => r.item_id))];
+        itemIds.forEach(itemId => {
+            updateRowBannerState(itemId);
+        });
+    };
+
+    setInterval(checkDueReminders, 10000);
+    document.addEventListener('DOMContentLoaded', () => {
+        checkDueReminders();
+    });
+    checkDueReminders();
 </script>
 {% endblock %}

@@ -1047,28 +1047,29 @@ def save_excel_mapped_rows(rows_ctx_list, excel_file_to_write, target_sheet_name
 
 
 @eel.expose
-def get_schedule_time(days=0, hours=7, minutes=15):
+def get_schedule_time(days=0, hours=0, minutes=15):
     """
-    US/Pacific टाइमस्टैम्प (eBay / Marketplace listing schedule format: YYYY-MM-DDTHH:MM:SS) 
-    कैलकुलेट करता है। By default 0 days, 7 hours, 15 minutes add karta hai.
+    UTC / eBay Listing Schedule timestamp (format: YYYY-MM-DDTHH:MM:SS) 
+    calculates from current UTC with default 15 minutes buffer offset.
     """
     try:
         days = int(days)
         hours = int(hours)
         minutes = int(minutes)
     except (ValueError, TypeError):
-        days, hours, minutes = 0, 7, 15
+        days, hours, minutes = 0, 0, 15
     utc_now = datetime.now(pytz.utc)
     pdt_tz = pytz.timezone('US/Pacific')
     pdt_now = utc_now.astimezone(pdt_tz)
-    new_date = pdt_now + timedelta(days=days, hours=hours, minutes=minutes)
+    new_date = utc_now + timedelta(days=days, hours=hours, minutes=minutes)
     new_date = new_date.replace(microsecond=0)
     formatted = new_date.strftime('%Y-%m-%dT%H:%M:%S')
     return {
         'status': 'success',
         'schedule_time': formatted,
+        'current_utc': utc_now.strftime('%Y-%m-%d %H:%M:%S UTC'),
         'current_pdt': pdt_now.strftime('%Y-%m-%d %I:%M:%S %p %Z'),
-        'target_pdt': new_date.strftime('%Y-%m-%d %I:%M:%S %p %Z'),
+        'target_utc': new_date.strftime('%Y-%m-%d %H:%M:%S UTC'),
         'days': days,
         'hours': hours,
         'minutes': minutes

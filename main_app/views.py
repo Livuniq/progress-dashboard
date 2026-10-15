@@ -346,15 +346,15 @@ def download_output_file(request):
 @csrf_exempt
 def get_schedule_time_view(request):
     """
-    Returns US/Pacific schedule timestamp for eBay / Marketplace listings.
-    Supports query parameters ?days=0&hours=7&minutes=15
+    Returns UTC schedule timestamp for eBay / Marketplace listings.
+    Supports query parameters ?days=0&hours=0&minutes=15
     """
     try:
         days = int(request.GET.get('days', 0))
-        hours = int(request.GET.get('hours', 7))
+        hours = int(request.GET.get('hours', 0))
         minutes = int(request.GET.get('minutes', 15))
     except (ValueError, TypeError):
-        days, hours, minutes = 0, 7, 15
+        days, hours, minutes = 0, 0, 15
 
     data = MAIN.get_schedule_time(days=days, hours=hours, minutes=minutes)
     return JsonResponse(data)

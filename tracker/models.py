@@ -73,6 +73,17 @@ class ProcessItem(models.Model):
         return diff is not None and diff > 0
 
     @property
+    def active_due_reminder(self):
+        """Returns the first active reminder that has reached its remind_at time"""
+        from django.utils import timezone
+        now = timezone.now()
+        return self.reminders.filter(is_active=True, remind_at__lte=now).order_by('remind_at').first()
+
+    @property
+    def active_reminders_count(self):
+        return self.reminders.filter(is_active=True).count()
+
+    @property
     def dynamic_status(self):
         """
         If user manually selected the status (is_status_manual is True),
@@ -184,6 +195,17 @@ class ProcessItem(models.Model):
                         count += 1
 
         return count
+
+    @property
+    def active_due_reminder(self):
+        """Returns earliest active reminder that is already due."""
+        from django.utils import timezone
+        return self.reminders.filter(is_active=True, remind_at__lte=timezone.now()).first()
+
+    @property
+    def active_reminders_count(self):
+        return self.reminders.filter(is_active=True).count()
+
 
 
 class ProcessItemHistory(models.Model):
@@ -747,7 +769,45 @@ class UserAccessProfile(models.Model):
             profile.can_delete_party = True
             profile.can_import_excel = True
             profile.can_manage_settings = True
-            profile.save()
         return profile
+
+
+class PartyReminder(models.Model):
+    item = models.ForeignKey(ProcessItem, on_delete=models.CASCADE, related_name='reminders')
+    title = models.CharField(max_length=255, default='', blank=True, verbose_name="Reminder Message / Title")
+    remind_at = models.DateTimeField(db_index=True, verbose_name="Remind At (Date & Time)")
+    is_active = models.BooleanField(default=True, db_index=True, verbose_name="Is Active")
+    created_at = models.DateTimeField(auto_now_add=True)
+    dismissed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['remind_at']
+        verbose_name = "Party Reminder"
+        verbose_name_plural = "Party Reminders"
+
+    def __str__(self):
+        return f"{self.item.client_name} - {self.remind_at} ({'Active' if self.is_active else 'Off'})"
+
+    @property
+    def local_remind_at(self):
+        from django.utils import timezone
+        return timezone.localtime(self.remind_at)
+
+    @property
+    def local_dismissed_at(self):
+        if not self.dismissed_at:
+            return None
+        from django.utils import timezone
+        return timezone.localtime(self.dismissed_at)
+
+    @property
+    def formatted_local_time(self):
+        return self.local_remind_at.strftime('%d %b %Y, %I:%M %p')
+
+    @property
+    def is_due(self):
+        from django.utils import timezone
+        return self.is_active and timezone.now() >= self.remind_at
+
 
 

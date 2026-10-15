@@ -1079,88 +1079,225 @@
                 </ul>
 
                 <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
-                    <!-- Schedule Time (PDT) Quick Action Widget (Replaces legacy Schedule time.py) -->
+                    <!-- Schedule Time (UTC / eBay) Quick Action Widget (Replaces legacy Schedule time.py) -->
                     <div class="dropdown" id="scheduleTimeNavWidget">
                         <div class="btn-group shadow-sm" role="group">
-                            <button type="button" class="btn btn-sm btn-white bg-white border d-inline-flex align-items-center gap-1.5 px-2.5 py-1 text-dark" id="btnQuickScheduleCopy" onclick="window.copyCurrentScheduleTime(event)" title="1-Click Copy PDT Schedule Time (+7h 15m) to Clipboard" style="border-radius: 9999px 0 0 9999px; font-size: 0.8rem; border-color: #cbd5e1 !important;">
+                            <button type="button" class="btn btn-sm btn-white bg-white border d-inline-flex align-items-center gap-1.5 px-2.5 py-1 text-dark" id="btnQuickScheduleCopy" onclick="window.copyCurrentScheduleTime(event)" title="1-Click Copy UTC Schedule Time (+15m Buffer) to Clipboard" style="border-radius: 9999px 0 0 9999px; font-size: 0.8rem; border-color: #cbd5e1 !important;">
                                 <i class="bi bi-clock-history" style="color: #6366f1;"></i>
-                                <span class="d-none d-xl-inline text-muted fw-semibold" style="font-size: 0.7rem; text-transform: uppercase;">PDT:</span>
+                                <span class="d-none d-xl-inline text-muted fw-semibold" style="font-size: 0.7rem; text-transform: uppercase;">UTC:</span>
                                 <span id="navScheduleTimeText" class="font-monospace fw-bold text-primary" style="font-size: 0.78rem;">--:--:--</span>
                                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-1.5 py-0.5 rounded-pill ms-1" style="font-size: 0.65rem;" title="1-Click Copy"><i class="bi bi-copy"></i> Copy</span>
                             </button>
                             <button type="button" class="btn btn-sm btn-white bg-white border border-start-0 px-2 py-1 text-secondary" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Customize Time Offset (Days/Hours/Minutes)" style="border-radius: 0 9999px 9999px 0; border-color: #cbd5e1 !important;">
                                 <i class="bi bi-chevron-down" style="font-size: 0.7rem;"></i>
                             </button>
-                            <div class="dropdown-menu dropdown-menu-end shadow-lg p-3 border-0 rounded-4" style="min-width: 320px; z-index: 1055;">
+                            <div class="dropdown-menu dropdown-menu-end shadow-lg p-3 border-0 rounded-4" style="min-width: 380px; max-width: 420px; z-index: 1055;">
                                 <div class="d-flex align-items-center justify-content-between pb-2 mb-2 border-bottom">
                                     <div class="d-flex align-items-center gap-2">
                                         <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; background: rgba(99, 102, 241, 0.12); color: #6366f1;">
                                             <i class="bi bi-clock-history"></i>
                                         </div>
                                         <div>
-                                            <div class="fw-bold text-dark" style="font-size: 0.85rem;">Schedule Time (PDT)</div>
-                                            <div class="text-muted" style="font-size: 0.68rem;">US/Pacific &bull; Marketplace Listing Time</div>
+                                            <div class="fw-bold text-dark" style="font-size: 0.85rem;">Schedule Time (UTC / eBay)</div>
+                                            <div class="text-muted" style="font-size: 0.68rem;">Current: <span id="popupCurrentPdtTime" class="fw-semibold text-primary font-monospace">--:--:--</span></div>
                                         </div>
                                     </div>
                                     <span class="badge bg-light text-secondary border" style="font-size: 0.68rem;">eBay Format</span>
                                 </div>
 
-                                <!-- Current PDT Live Clock -->
-                                <div class="p-2 mb-2.5 rounded-3 bg-light border d-flex align-items-center justify-content-between" style="font-size: 0.75rem;">
-                                    <span class="text-muted"><i class="bi bi-geo-alt me-1"></i>Current Pacific Time:</span>
-                                    <span id="popupCurrentPdtTime" class="fw-semibold text-dark font-monospace">--:--:--</span>
-                                </div>
+                                <!-- Mode Tabs: Single vs Excel Batch -->
+                                <ul class="nav nav-pills nav-fill bg-light p-1 rounded-3 mb-2.5" role="tablist" style="font-size: 0.75rem;">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active py-1 px-2 fw-semibold rounded-2" id="tab-single-sched" data-bs-toggle="pill" data-bs-target="#panel-single-sched" type="button" role="tab">
+                                             ⚡ Single Time
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link py-1 px-2 fw-semibold rounded-2" id="tab-batch-sched" data-bs-toggle="pill" data-bs-target="#panel-batch-sched" type="button" role="tab" onclick="window.generateBatchSchedule()">
+                                             📊 Excel Batch (10 / 2)
+                                        </button>
+                                    </li>
+                                </ul>
 
-                                <!-- Offset Controls -->
-                                <div class="mb-2">
-                                    <label class="form-label text-muted fw-semibold mb-1" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px;">Schedule Offset</label>
-                                    <div class="row g-1">
-                                        <div class="col-4">
-                                            <div class="input-group input-group-sm">
-                                                <input type="number" id="schedOffsetDays" class="form-control text-center font-monospace fw-bold" value="0" min="0" max="365" oninput="window.updateScheduleCalculation()">
-                                                <span class="input-group-text px-1 text-muted" style="font-size: 0.7rem;">Days</span>
+                                <div class="tab-content">
+                                    <!-- TAB 1: SINGLE TIME -->
+                                    <div class="tab-pane fade show active" id="panel-single-sched" role="tabpanel">
+                                        <!-- Offset Controls -->
+                                        <div class="mb-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <label class="form-label text-muted fw-bold mb-0" style="font-size: 0.68rem; text-transform: uppercase;">Buffer Offset From Now</label>
+                                                <span id="popupTargetHuman" class="text-secondary small" style="font-size: 0.68rem;">--</span>
+                                            </div>
+                                            <div class="row g-1">
+                                                <div class="col-4">
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" id="schedOffsetDays" class="form-control text-center font-monospace fw-bold" value="0" min="0" max="365" oninput="window.updateScheduleCalculation()">
+                                                        <span class="input-group-text px-1 text-muted" style="font-size: 0.7rem;">Days</span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-4">
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" id="schedOffsetHours" class="form-control text-center font-monospace fw-bold" value="0" min="0" max="23" oninput="window.updateScheduleCalculation()">
+                                                        <span class="input-group-text px-1 text-muted" style="font-size: 0.7rem;">Hrs</span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-4">
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" id="schedOffsetMinutes" class="form-control text-center font-monospace fw-bold" value="15" min="0" max="59" oninput="window.updateScheduleCalculation()">
+                                                        <span class="input-group-text px-1 text-muted" style="font-size: 0.7rem;">Min</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div class="col-4">
-                                            <div class="input-group input-group-sm">
-                                                <input type="number" id="schedOffsetHours" class="form-control text-center font-monospace fw-bold" value="7" min="0" max="23" oninput="window.updateScheduleCalculation()">
-                                                <span class="input-group-text px-1 text-muted" style="font-size: 0.7rem;">Hrs</span>
-                                            </div>
+
+                                        <!-- Quick Presets -->
+                                        <div class="d-flex align-items-center gap-1 mb-2.5 flex-wrap">
+                                            <span class="text-muted small me-1" style="font-size: 0.68rem;">Presets:</span>
+                                            <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1.5 rounded" style="font-size: 0.7rem;" onclick="window.setScheduleOffset(0, 0, 15)">+15m (Default)</button>
+                                            <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1.5 rounded" style="font-size: 0.7rem;" onclick="window.setScheduleOffset(0, 0, 30)">+30m</button>
+                                            <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1.5 rounded" style="font-size: 0.7rem;" onclick="window.setScheduleOffset(0, 1, 0)">+1h</button>
+                                            <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1.5 rounded" style="font-size: 0.7rem;" onclick="window.setScheduleOffset(1, 0, 0)">+1 Day</button>
+                                            <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1.5 rounded" style="font-size: 0.7rem;" onclick="window.setScheduleOffset(0, 0, 0)">Now</button>
                                         </div>
-                                        <div class="col-4">
+
+                                        <!-- Output Box & Copy Button -->
+                                        <div class="p-2 rounded-3 border bg-white shadow-sm mb-2">
                                             <div class="input-group input-group-sm">
-                                                <input type="number" id="schedOffsetMinutes" class="form-control text-center font-monospace fw-bold" value="15" min="0" max="59" oninput="window.updateScheduleCalculation()">
-                                                <span class="input-group-text px-1 text-muted" style="font-size: 0.7rem;">Min</span>
+                                                <input type="text" id="popupFormattedOutput" class="form-control font-monospace fw-bold bg-light text-primary" readonly value="" style="font-size: 0.82rem; letter-spacing: 0.3px;">
+                                                <button class="btn btn-primary px-3 fw-semibold d-flex align-items-center gap-1" type="button" id="btnPopupCopySched" onclick="window.copyCustomScheduleTime()">
+                                                    <i class="bi bi-clipboard-check"></i> Copy
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <!-- Quick Presets -->
-                                <div class="d-flex align-items-center gap-1 mb-3 flex-wrap">
-                                    <span class="text-muted small me-1" style="font-size: 0.68rem;">Presets:</span>
-                                    <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1.5 rounded" style="font-size: 0.7rem;" onclick="window.setScheduleOffset(0, 7, 15)">+7h 15m (Default)</button>
-                                    <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1.5 rounded" style="font-size: 0.7rem;" onclick="window.setScheduleOffset(0, 1, 0)">+1h</button>
-                                    <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1.5 rounded" style="font-size: 0.7rem;" onclick="window.setScheduleOffset(1, 0, 0)">+1 Day</button>
-                                    <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1.5 rounded" style="font-size: 0.7rem;" onclick="window.setScheduleOffset(0, 0, 0)">Now (PDT)</button>
-                                </div>
+                                    <!-- TAB 2: EXCEL BATCH GENERATOR -->
+                                    <div class="tab-pane fade" id="panel-batch-sched" role="tabpanel">
+                                        <div class="bg-light p-2.5 rounded-3 border mb-2">
+                                            <!-- Schedule Distribution Strategy -->
+                                            <div class="mb-2">
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <label class="form-label text-muted fw-bold mb-0" style="font-size: 0.68rem; text-transform: uppercase;">Schedule Mode</label>
+                                                    <span id="batchSummaryBadge" class="badge bg-indigo-subtle text-primary border border-indigo-subtle" style="font-size: 0.65rem;">15 Days &bull; 10 Rows</span>
+                                                </div>
+                                                <div class="btn-group btn-group-sm w-100" role="group">
+                                                    <input type="radio" class="btn-check" name="batchStrategy" id="stratSpread" value="spread" checked onchange="window.toggleBatchStrategyUI(); window.generateBatchSchedule();">
+                                                    <label class="btn btn-outline-primary py-1 px-1 text-nowrap" for="stratSpread" style="font-size: 0.68rem;" title="Auto day skip so items end in target days">
+                                                        <i class="bi bi-arrows-expand me-1"></i> Spread in Days
+                                                    </label>
+                                                    
+                                                    <input type="radio" class="btn-check" name="batchStrategy" id="stratPerDay" value="per_day" onchange="window.toggleBatchStrategyUI(); window.generateBatchSchedule();">
+                                                    <label class="btn btn-outline-primary py-1 px-1 text-nowrap" for="stratPerDay" style="font-size: 0.68rem;" title="Fixed items per day">
+                                                        <i class="bi bi-calendar-day me-1"></i> Per Day
+                                                    </label>
 
-                                <!-- Output Box & Big Copy Button -->
-                                <div class="p-2.5 rounded-3 border bg-white shadow-sm mb-2">
-                                    <div class="d-flex align-items-center justify-content-between mb-1" style="font-size: 0.7rem;">
-                                        <span class="text-muted fw-semibold">Target Timestamp:</span>
-                                        <span id="popupTargetHuman" class="text-secondary">--</span>
-                                    </div>
-                                    <div class="input-group input-group-sm">
-                                        <input type="text" id="popupFormattedOutput" class="form-control font-monospace fw-bold bg-light text-primary" readonly value="" style="font-size: 0.82rem; letter-spacing: 0.3px;">
-                                        <button class="btn btn-primary px-3 fw-semibold d-flex align-items-center gap-1" type="button" id="btnPopupCopySched" onclick="window.copyCustomScheduleTime()">
-                                            <i class="bi bi-clipboard-check"></i> Copy
+                                                    <input type="radio" class="btn-check" name="batchStrategy" id="stratSkip" value="skip" onchange="window.toggleBatchStrategyUI(); window.generateBatchSchedule();">
+                                                    <label class="btn btn-outline-primary py-1 px-1 text-nowrap" for="stratSkip" style="font-size: 0.68rem;" title="Skip days interval between posts">
+                                                        <i class="bi bi-skip-forward me-1"></i> Day Skip
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            <!-- Row Count & Target Inputs -->
+                                            <div class="row g-2 mb-2">
+                                                <div class="col-6">
+                                                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; text-transform: uppercase;">Total Items (Rows)</label>
+                                                    <div class="input-group input-group-sm">
+                                                         <span class="input-group-text px-1.5 text-muted"><i class="bi bi-hash"></i></span>
+                                                         <input type="number" id="batchTotalItems" class="form-control font-monospace fw-bold text-center" value="10" min="1" max="500" oninput="window.generateBatchSchedule()">
+                                                    </div>
+                                                </div>
+
+                                                <!-- 1. Spread over X Days (Default) -->
+                                                <div class="col-6" id="boxStratSpread">
+                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                        <label class="form-label text-muted fw-bold mb-0" style="font-size: 0.68rem; text-transform: uppercase;">End in (Total Days)</label>
+                                                        <span class="text-primary fw-semibold" id="lblSelectedEndDate" style="font-size: 0.65rem; cursor: pointer;" onclick="window.openBatchEndDatePicker()" title="Click to pick End Date from Calendar">Ends: -- <i class="bi bi-calendar-event"></i></span>
+                                                    </div>
+                                                    <div class="input-group input-group-sm position-relative">
+                                                        <button type="button" class="input-group-text px-2 bg-white border text-primary" id="btnBatchCalendarTrigger" onclick="window.openBatchEndDatePicker()" title="Click to open calendar and select End Date" style="cursor: pointer; z-index: 2;">
+                                                            <i class="bi bi-calendar-event text-primary"></i>
+                                                        </button>
+                                                        <input type="date" id="batchEndDatePicker" class="position-absolute" style="opacity: 0; width: 30px; height: 30px; left: 0; top: 0; z-index: 1; pointer-events: none;" onchange="window.onEndDatePicked(this.value)">
+                                                        <input type="number" id="batchTotalDays" class="form-control font-monospace fw-bold text-center" value="15" min="1" max="365" oninput="window.syncEndDatePickerFromDays(); window.generateBatchSchedule();">
+                                                        <span class="input-group-text px-1 text-muted" style="font-size: 0.68rem;">Days</span>
+                                                    </div>
+                                                </div>
+
+                                                <!-- 2. Count Per Day -->
+                                                <div class="col-6" id="boxStratPerDay" style="display: none;">
+                                                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; text-transform: uppercase;">Per Day (Count)</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <span class="input-group-text px-1.5 text-muted"><i class="bi bi-calendar-day"></i></span>
+                                                        <input type="number" id="batchItemsPerDay" class="form-control font-monospace fw-bold text-center" value="2" min="1" max="100" oninput="window.generateBatchSchedule()">
+                                                        <span class="input-group-text px-1 text-muted" style="font-size: 0.68rem;">/day</span>
+                                                    </div>
+                                                </div>
+
+                                                <!-- 3. Day Skip (Interval) -->
+                                                <div class="col-6" id="boxStratSkip" style="display: none;">
+                                                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; text-transform: uppercase;">Skip Days (Interval)</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <span class="input-group-text px-1.5 text-muted"><i class="bi bi-forward"></i></span>
+                                                        <input type="number" id="batchDaySkip" class="form-control font-monospace fw-bold text-center" value="1" min="1" max="30" oninput="window.generateBatchSchedule()">
+                                                        <span class="input-group-text px-1 text-muted" style="font-size: 0.68rem;">skip</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Start Date & Start Time -->
+                                            <div class="row g-2 mb-2">
+                                                <div class="col-6">
+                                                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; text-transform: uppercase;">Start Date (UTC)</label>
+                                                    <input type="date" id="batchStartDate" class="form-control form-control-sm font-monospace" onchange="window.generateBatchSchedule()">
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label text-muted fw-bold mb-1" style="font-size: 0.68rem; text-transform: uppercase;">Base Time (HH:MM)</label>
+                                                    <input type="time" id="batchStartTime" class="form-control form-control-sm font-monospace" value="16:22" onchange="window.generateBatchSchedule()">
+                                                </div>
+                                            </div>
+
+                                            <!-- Timing Mode -->
+                                            <div class="mb-1">
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <label class="form-label text-muted fw-bold mb-0" style="font-size: 0.68rem; text-transform: uppercase;">Intra-Day Timing (Hours & Mins)</label>
+                                                </div>
+                                                <select id="batchTimingMode" class="form-select form-select-sm" onchange="window.toggleBatchModeUI(); window.generateBatchSchedule();" style="font-size: 0.72rem;">
+                                                    <option value="dynamic">Dynamic Varied Times (~16:22, 16:44 / 16:20, 16:35)</option>
+                                                    <option value="interval">Fixed Minute Gap (+15m, +20m)</option>
+                                                    <option value="same">Same Time Everyday (e.g. 16:22:00)</option>
+                                                </select>
+                                            </div>
+
+                                            <!-- Optional Minute Gap Input -->
+                                            <div id="batchIntervalBox" class="mt-2" style="display: none;">
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text px-2 text-muted" style="font-size: 0.7rem;">Gap between items:</span>
+                                                    <input type="number" id="batchIntervalMinutes" class="form-control text-center font-monospace fw-bold" value="20" min="1" max="300" oninput="window.generateBatchSchedule()">
+                                                    <span class="input-group-text px-2 text-muted" style="font-size: 0.7rem;">Mins</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Textarea Output for Excel -->
+                                        <div class="mb-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="text-muted fw-semibold" style="font-size: 0.68rem;">Excel Ready (1 per row):</span>
+                                                <span class="text-success fw-bold font-monospace" id="batchOutputCount" style="font-size: 0.68rem;">10 lines</span>
+                                            </div>
+                                            <textarea id="batchFormattedOutput" class="form-control font-monospace bg-white text-dark border shadow-sm" rows="5" readonly style="font-size: 0.72rem; line-height: 1.45; resize: none;"></textarea>
+                                        </div>
+
+                                        <!-- Copy Button for Excel -->
+                                        <button type="button" class="btn btn-primary w-100 fw-bold py-1.5 d-flex align-items-center justify-content-center gap-1.5 shadow-sm" id="btnCopyBatchExcel" onclick="window.copyBatchScheduleForExcel()">
+                                            <i class="bi bi-clipboard2-data-fill"></i>
+                                            <span id="btnCopyBatchExcelText">Copy All for Excel (Paste in Column)</span>
                                         </button>
                                     </div>
                                 </div>
 
-                                <div class="text-center" style="font-size: 0.68rem; color: #94a3b8;">
-                                    <i class="bi bi-info-circle me-1"></i> Formatted as <code>YYYY-MM-DDTHH:MM:SS</code> for direct Excel paste.
+                                <div class="text-center mt-2" style="font-size: 0.65rem; color: #94a3b8;">
+                                    <i class="bi bi-info-circle me-1"></i> Formatted as <code>YYYY-MM-DDTHH:MM:SS</code> &bull; Ready for direct Excel paste.
                                 </div>
                             </div>
                         </div>
@@ -1349,35 +1486,22 @@
         })();
     </script>
 
-    <!-- Schedule Time (PDT) Quick Helper Script (Replaces legacy Schedule time.py) -->
+    <!-- Schedule Time (UTC / eBay) Quick Helper Script (Replaces legacy Schedule time.py) -->
     <script>
         (function() {
-            var schedDays = 0, schedHours = 7, schedMinutes = 15;
-
-            function getPacificNow() {
-                try {
-                    var now = new Date();
-                    var parts = new Intl.DateTimeFormat('en-US', {
-                        timeZone: 'America/Los_Angeles',
-                        year: 'numeric', month: '2-digit', day: '2-digit',
-                        hour: '2-digit', minute: '2-digit', second: '2-digit',
-                        hour12: false
-                    }).formatToParts(now);
-                    var map = {};
-                    parts.forEach(function(p) { map[p.type] = p.value; });
-                    return new Date(Date.UTC(+map.year, +map.month - 1, +map.day, +map.hour, +map.minute, +map.second));
-                } catch(e) {
-                    return new Date();
-                }
-            }
+            var schedDays = 0, schedHours = 0, schedMinutes = 15;
 
             function calculateTimestamp(days, hours, minutes) {
-                var pdt = getPacificNow();
-                pdt.setUTCDate(pdt.getUTCDate() + parseInt(days || 0, 10));
-                pdt.setUTCHours(pdt.getUTCHours() + parseInt(hours || 0, 10));
-                pdt.setUTCMinutes(pdt.getUTCMinutes() + parseInt(minutes || 0, 10));
-                pdt.setUTCSeconds(0);
-                return pdt.toISOString().slice(0, 19);
+                var now = new Date();
+                var utc = new Date(Date.UTC(
+                    now.getUTCFullYear(),
+                    now.getUTCMonth(),
+                    now.getUTCDate() + parseInt(days || 0, 10),
+                    now.getUTCHours() + parseInt(hours || 0, 10),
+                    now.getUTCMinutes() + parseInt(minutes || 0, 10),
+                    0
+                ));
+                return utc.toISOString().slice(0, 19);
             }
 
             window.updateScheduleCalculation = function() {
@@ -1397,15 +1521,27 @@
                 var navText = document.getElementById('navScheduleTimeText');
                 if (navText) navText.textContent = ts;
 
-                var livePdt = getPacificNow().toISOString().slice(0, 19).replace('T', ' ');
+                var now = new Date();
+                var liveUtc = now.toISOString().slice(0, 19).replace('T', ' ');
+                var pdtStr = '';
+                try {
+                    pdtStr = new Intl.DateTimeFormat('en-US', {
+                        timeZone: 'America/Los_Angeles',
+                        hour: '2-digit', minute: '2-digit', second: '2-digit',
+                        hour12: false
+                    }).format(now);
+                } catch(e) {}
+
                 var currPdtEl = document.getElementById('popupCurrentPdtTime');
-                if (currPdtEl) currPdtEl.textContent = livePdt + ' PDT';
+                if (currPdtEl) {
+                    currPdtEl.textContent = liveUtc + ' UTC' + (pdtStr ? ' (PDT: ' + pdtStr + ')' : '');
+                }
 
                 var humanEl = document.getElementById('popupTargetHuman');
                 if (humanEl) {
                     try {
                         var dt = new Date(ts + 'Z');
-                        humanEl.textContent = dt.toUTCString().replace('GMT', 'PDT');
+                        humanEl.textContent = dt.toUTCString().replace('GMT', 'UTC');
                     } catch(e) {
                         humanEl.textContent = ts;
                     }
@@ -1479,10 +1615,281 @@
                 }
             };
 
+            // Sync End Date preview label and picker min/value from Total Days
+            window.syncEndDatePickerFromDays = function() {
+                var startInput = document.getElementById('batchStartDate');
+                var daysInput = document.getElementById('batchTotalDays');
+                var picker = document.getElementById('batchEndDatePicker');
+                var lbl = document.getElementById('lblSelectedEndDate');
+                if (!startInput || !daysInput) return;
+
+                var startStr = startInput.value;
+                if (!startStr) {
+                    var now = new Date();
+                    startStr = now.toISOString().slice(0, 10);
+                }
+                var days = parseInt(daysInput.value, 10) || 15;
+                if (days < 1) days = 1;
+
+                var parts = startStr.split('-');
+                var sDate = new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+                var eDate = new Date(sDate.getTime() + (days - 1) * 86400000);
+                var eStr = eDate.toISOString().slice(0, 10);
+
+                if (picker) {
+                    picker.value = eStr;
+                    picker.min = startStr;
+                }
+                if (lbl) {
+                    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                    lbl.innerHTML = 'Ends: <span class="fw-bold text-primary">' + eDate.getUTCDate() + ' ' + months[eDate.getUTCMonth()] + '</span> <i class="bi bi-calendar3 ms-1"></i>';
+                }
+            };
+
+            // Open native calendar datepicker
+            window.openBatchEndDatePicker = function() {
+                window.syncEndDatePickerFromDays();
+                var picker = document.getElementById('batchEndDatePicker');
+                if (picker) {
+                    try {
+                        picker.showPicker();
+                    } catch(e) {
+                        picker.focus();
+                        picker.click();
+                    }
+                }
+            };
+
+            // When a date is selected from calendar, calculate diff days automatically
+            window.onEndDatePicked = function(endVal) {
+                if (!endVal) return;
+                var startInput = document.getElementById('batchStartDate');
+                var daysInput = document.getElementById('batchTotalDays');
+                if (!startInput || !daysInput) return;
+
+                var startStr = startInput.value;
+                if (!startStr) {
+                    var now = new Date();
+                    startStr = now.toISOString().slice(0, 10);
+                    startInput.value = startStr;
+                }
+
+                var sParts = startStr.split('-');
+                var eParts = endVal.split('-');
+                var sDate = new Date(Date.UTC(parseInt(sParts[0], 10), parseInt(sParts[1], 10) - 1, parseInt(sParts[2], 10)));
+                var eDate = new Date(Date.UTC(parseInt(eParts[0], 10), parseInt(eParts[1], 10) - 1, parseInt(eParts[2], 10)));
+
+                var diffTime = eDate.getTime() - sDate.getTime();
+                var diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                if (diffDays < 1) diffDays = 1;
+
+                daysInput.value = diffDays;
+                window.syncEndDatePickerFromDays();
+                window.generateBatchSchedule();
+            };
+
+            // Toggle Strategy inputs visibility
+            window.toggleBatchStrategyUI = function() {
+                var strat = document.querySelector('input[name="batchStrategy"]:checked');
+                var val = strat ? strat.value : 'spread';
+                var boxSpread = document.getElementById('boxStratSpread');
+                var boxPerDay = document.getElementById('boxStratPerDay');
+                var boxSkip = document.getElementById('boxStratSkip');
+                if (boxSpread) boxSpread.style.display = (val === 'spread') ? 'block' : 'none';
+                if (boxPerDay) boxPerDay.style.display = (val === 'per_day') ? 'block' : 'none';
+                if (boxSkip) boxSkip.style.display = (val === 'skip') ? 'block' : 'none';
+            };
+
+            // Toggle Interval Input visibility
+            window.toggleBatchModeUI = function() {
+                var modeEl = document.getElementById('batchTimingMode');
+                var intervalBox = document.getElementById('batchIntervalBox');
+                if (modeEl && intervalBox) {
+                    intervalBox.style.display = (modeEl.value === 'interval') ? 'block' : 'none';
+                }
+            };
+
+            // Generate Batch Schedule Timestamps for Excel
+            window.generateBatchSchedule = function() {
+                var totalItemsInput = document.getElementById('batchTotalItems');
+                var totalDaysInput = document.getElementById('batchTotalDays');
+                var itemsPerDayInput = document.getElementById('batchItemsPerDay');
+                var daySkipInput = document.getElementById('batchDaySkip');
+                var startDateInput = document.getElementById('batchStartDate');
+                var startTimeInput = document.getElementById('batchStartTime');
+                var modeInput = document.getElementById('batchTimingMode');
+                var intervalInput = document.getElementById('batchIntervalMinutes');
+                var outputArea = document.getElementById('batchFormattedOutput');
+                var summaryBadge = document.getElementById('batchSummaryBadge');
+                var countLabel = document.getElementById('batchOutputCount');
+
+                if (!outputArea) return;
+
+                var totalItems = parseInt(totalItemsInput ? totalItemsInput.value : 10, 10) || 10;
+                if (totalItems < 1) totalItems = 1;
+
+                var stratRadio = document.querySelector('input[name="batchStrategy"]:checked');
+                var strategy = stratRadio ? stratRadio.value : 'spread';
+
+                // Default Start Date to Today UTC if empty
+                if (startDateInput && !startDateInput.value) {
+                    var now = new Date();
+                    var y = now.getUTCFullYear();
+                    var m = String(now.getUTCMonth() + 1).padStart(2, '0');
+                    var d = String(now.getUTCDate()).padStart(2, '0');
+                    startDateInput.value = y + '-' + m + '-' + d;
+                }
+
+                window.syncEndDatePickerFromDays();
+
+                var startDateStr = startDateInput ? startDateInput.value : '';
+                var startTimeStr = startTimeInput ? startTimeInput.value : '16:22';
+                var mode = modeInput ? modeInput.value : 'dynamic';
+                var intervalMinutes = parseInt(intervalInput ? intervalInput.value : 20, 10) || 20;
+
+                // Parse Base Date & Time
+                var startParts = startDateStr.split('-');
+                var timeParts = startTimeStr.split(':');
+                var year = parseInt(startParts[0], 10) || 2026;
+                var month = (parseInt(startParts[1], 10) || 1) - 1;
+                var baseDay = parseInt(startParts[2], 10) || 1;
+                var baseHour = parseInt(timeParts[0], 10) || 16;
+                var baseMinute = parseInt(timeParts[1], 10) || 22;
+
+                var totalDaysVal = parseInt(totalDaysInput ? totalDaysInput.value : 15, 10) || 15;
+                if (totalDaysVal < 1) totalDaysVal = 1;
+
+                var itemsPerDayVal = parseInt(itemsPerDayInput ? itemsPerDayInput.value : 2, 10) || 2;
+                if (itemsPerDayVal < 1) itemsPerDayVal = 1;
+
+                var daySkipVal = parseInt(daySkipInput ? daySkipInput.value : 1, 10) || 1;
+                if (daySkipVal < 1) daySkipVal = 1;
+
+                var results = [];
+                var dayCountMap = {};
+                var maxDayOffset = 0;
+
+                for (var i = 0; i < totalItems; i++) {
+                    var dayOffset = 0;
+
+                    if (strategy === 'spread') {
+                        // Spread over X days (Auto Day Skip to end on target day)
+                        if (totalItems === 1) {
+                            dayOffset = 0;
+                        } else if (totalItems <= totalDaysVal) {
+                            dayOffset = Math.round(i * (totalDaysVal - 1) / (totalItems - 1));
+                        } else {
+                            dayOffset = Math.floor(i * totalDaysVal / totalItems);
+                        }
+                    } else if (strategy === 'per_day') {
+                        // Fixed items per day
+                        dayOffset = Math.floor(i / itemsPerDayVal);
+                    } else if (strategy === 'skip') {
+                        // Custom day skip
+                        dayOffset = i * (1 + daySkipVal);
+                    }
+
+                    if (dayOffset > maxDayOffset) maxDayOffset = dayOffset;
+
+                    var itemInDay = dayCountMap[dayOffset] || 0;
+                    dayCountMap[dayOffset] = itemInDay + 1;
+
+                    var curDate = new Date(Date.UTC(year, month, baseDay + dayOffset));
+                    var yStr = curDate.getUTCFullYear();
+                    var mStr = String(curDate.getUTCMonth() + 1).padStart(2, '0');
+                    var dStr = String(curDate.getUTCDate()).padStart(2, '0');
+
+                    var h = baseHour;
+                    var min = baseMinute;
+
+                    if (mode === 'same') {
+                        h = baseHour;
+                        min = baseMinute;
+                    } else if (mode === 'interval') {
+                        var totalM = baseMinute + (itemInDay * intervalMinutes);
+                        h = baseHour + Math.floor(totalM / 60);
+                        min = totalM % 60;
+                    } else if (mode === 'dynamic') {
+                        var dayPattern = dayOffset % 3;
+                        if (dayPattern === 0) {
+                            var mVal = baseMinute + (itemInDay * 22);
+                            h = baseHour + Math.floor(mVal / 60);
+                            min = mVal % 60;
+                        } else if (dayPattern === 1) {
+                            var mVal = Math.max(0, baseMinute - 2) + (itemInDay * 15);
+                            h = baseHour + Math.floor(mVal / 60);
+                            min = mVal % 60;
+                        } else {
+                            var mVal = Math.max(0, baseMinute - 2) + (itemInDay * 15);
+                            h = baseHour + Math.floor(mVal / 60);
+                            min = mVal % 60;
+                        }
+                    }
+
+                    var hStr = String(h % 24).padStart(2, '0');
+                    var minStr = String(min % 60).padStart(2, '0');
+                    results.push(yStr + '-' + mStr + '-' + dStr + 'T' + hStr + ':' + minStr + ':00');
+                }
+
+                // Calculate Last Scheduled Date for summary badge
+                var lastDate = new Date(Date.UTC(year, month, baseDay + maxDayOffset));
+                var endMonthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                var endFormatted = lastDate.getUTCDate() + ' ' + endMonthNames[lastDate.getUTCMonth()];
+
+                if (summaryBadge) {
+                    var totalDaysSpan = maxDayOffset + 1;
+                    summaryBadge.textContent = totalDaysSpan + ' Days (Ends: ' + endFormatted + ') • ' + results.length + ' Rows';
+                }
+
+                outputArea.value = results.join('\n');
+                if (countLabel) {
+                    countLabel.textContent = results.length + ' rows generated';
+                }
+            };
+
+            // Copy Batch for Excel
+            window.copyBatchScheduleForExcel = function() {
+                var outputArea = document.getElementById('batchFormattedOutput');
+                if (!outputArea || !outputArea.value.trim()) {
+                    window.generateBatchSchedule();
+                }
+                var text = outputArea ? outputArea.value : '';
+                if (!text) return;
+
+                var totalRows = text.split('\n').filter(Boolean).length;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(function() {
+                        window.showScheduleToast(totalRows + ' Timestamps for Excel');
+                        var btn = document.getElementById('btnCopyBatchExcel');
+                        var btnText = document.getElementById('btnCopyBatchExcelText');
+                        if (btn && btnText) {
+                            btn.classList.replace('btn-primary', 'btn-success');
+                            btnText.textContent = 'Copied ' + totalRows + ' Rows for Excel!';
+                            setTimeout(function() {
+                                btn.classList.replace('btn-success', 'btn-primary');
+                                btnText.textContent = 'Copy All for Excel (Paste in Column)';
+                            }, 2000);
+                        }
+                    }).catch(function() {
+                        outputArea.select();
+                        document.execCommand('copy');
+                        window.showScheduleToast(totalRows + ' Timestamps for Excel');
+                    });
+                } else {
+                    outputArea.select();
+                    document.execCommand('copy');
+                    window.showScheduleToast(totalRows + ' Timestamps for Excel');
+                }
+            };
+
             setInterval(window.updateScheduleCalculation, 10000);
-            document.addEventListener('DOMContentLoaded', window.updateScheduleCalculation);
+            document.addEventListener('DOMContentLoaded', function() {
+                window.updateScheduleCalculation();
+                window.generateBatchSchedule();
+            });
             if (document.readyState !== 'loading') {
                 window.updateScheduleCalculation();
+                window.generateBatchSchedule();
             }
         })();
     </script>
