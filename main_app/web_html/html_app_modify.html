@@ -720,7 +720,38 @@
                 if (emptyState) emptyState.style.display = 'none';
 
                 const iframe = document.getElementById('previewFrame');
-                if (iframe) iframe.srcdoc = currentModifiedHTML;
+                if (iframe) {
+                    iframe.onload = function() {
+                        try {
+                            const doc = iframe.contentDocument || iframe.contentWindow.document;
+                            if (!doc) return;
+                            const purgeBrokenThumbs = () => {
+                                doc.querySelectorAll('img').forEach(img => {
+                                    const src = (img.getAttribute('src') || '').trim();
+                                    const isPlaceholder = !src || src === '#' || src.indexOf('THUMB_') !== -1 || src.indexOf('IMG_') !== -1;
+                                    const wrapper = img.closest('label, li, .imgSmIn') || img;
+                                    if (isPlaceholder) {
+                                        wrapper.style.setProperty('display', 'none', 'important');
+                                    } else {
+                                        img.onerror = function() {
+                                            const target = this.closest('label, li, .imgSmIn') || this;
+                                            target.style.setProperty('display', 'none', 'important');
+                                        };
+                                        if (img.complete && img.naturalWidth === 0) {
+                                            wrapper.style.setProperty('display', 'none', 'important');
+                                        }
+                                    }
+                                });
+                            };
+                            purgeBrokenThumbs();
+                            setTimeout(purgeBrokenThumbs, 300);
+                            setTimeout(purgeBrokenThumbs, 1000);
+                        } catch(e) {
+                            console.warn('Iframe thumb purge error:', e);
+                        }
+                    };
+                    iframe.srcdoc = currentModifiedHTML;
+                }
 
                 const codeEditor = document.getElementById('codeEditor');
                 if (codeEditor) codeEditor.value = currentModifiedHTML;
@@ -887,6 +918,14 @@
                     document.body.style.userSelect = '';
                 }
             });
+        }
+
+        if (window.eel && window.eel.expose) {
+            window.eel.expose(function(updatedHtml) {
+                if (updatedHtml && updatedHtml !== 'ERROR' && updatedHtml !== 'EMPTY_INPUT') {
+                    handleResponse(updatedHtml, 'Modify');
+                }
+            }, 'notify_main_updated');
         }
     </script>
 </body>

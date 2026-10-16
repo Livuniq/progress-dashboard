@@ -1870,6 +1870,108 @@ def imgDict(images_list):
         big_imgs_list.append(big_img)
     return {'main': big_imgs_list, 'thumb': thumb_imgs_list}
 
+def add_hide_style(tag):
+    if re.search(r'display\s*:\s*none', tag, re.I):
+        return tag
+    if re.search(r'\bstyle=["\']', tag, re.I):
+        return re.sub(r'(\bstyle=["\'])([^"\']*)', r'\1display:none !important; \2', tag, flags=re.I)
+    else:
+        if re.search(r'/\s*>$', tag):
+            return re.sub(r'(/\s*>)$', r' style="display:none !important;" />', tag)
+        return re.sub(r'(>)$', r' style="display:none !important;">', tag)
+
+def clean_unavailable_thumbnails(html, available_count=None):
+    if not html:
+        return html
+
+    # 1. If available_count is provided, hide elements for slots > available_count
+    if available_count is not None and available_count >= 0:
+        for slot in range(available_count + 1, 25):
+            # Hide labels targeting this slot
+            label_pat = re.compile(
+                rf'(<label\b[^>]*?\bfor=["\']?[^"\'>\s]*?(?:img|thumb|thumbnail|slide|gallery|photo|pic|g)[\-_]?0*{slot}["\']?[^>]*>)',
+                re.I
+            )
+            html = label_pat.sub(lambda m: add_hide_style(m.group(1)), html)
+
+            # Hide input radios targeting this slot and uncheck them
+            radio_pat = re.compile(
+                rf'(<input\b[^>]*?\bid=["\']?[^"\'>\s]*?(?:img|thumb|thumbnail|slide|gallery|photo|pic|g)[\-_]?0*{slot}["\']?[^>]*>)',
+                re.I
+            )
+            def clean_radio(m):
+                tag = m.group(1)
+                tag = re.sub(r'\bchecked(?:\s*=\s*["\']?[^"\'\s>]*["\']?)?', '', tag, flags=re.I)
+                return add_hide_style(tag)
+            html = radio_pat.sub(clean_radio, html)
+
+            # Hide large slide container targeting this slot
+            slide_pat = re.compile(
+                rf'(<(?:div|li|section)\b[^>]*?\bclass=["\']?[^"\'>]*?(?:slide[\-_]?|hkj-slide-|lrgImg)0*{slot}[^"\'>]*?["\']?[^>]*>)',
+                re.I
+            )
+            html = slide_pat.sub(lambda m: add_hide_style(m.group(1)), html)
+
+            # Direct replace for backward compatibility with templates having literal for="img{slot}"
+            html = html.replace(f'for="img{slot}"', f'for="img{slot}" style="display:none !important;"')
+
+    # 2. General sweep for ANY HTML: Hide any label / container containing an empty/placeholder img
+    def hide_empty_wrapper(m):
+        full_block = m.group(0)
+        # Check if the img tag inside has empty src, src="#", or unreplaced placeholder
+        if re.search(r'<img\b[^>]*?\bsrc=["\']?(?:|#|THUMB_\d+|IMG_\d+)["\']?(?:[\s>]|$)|<img\b(?![^>]*\bsrc=)[^>]*>', full_block, re.I):
+            open_tag_match = re.match(r'^(<[a-zA-Z0-9]+\b[^>]*>)', full_block)
+            if open_tag_match:
+                open_tag = open_tag_match.group(1)
+                new_open_tag = add_hide_style(open_tag)
+                return new_open_tag + full_block[len(open_tag):]
+        return full_block
+
+    html = re.sub(r'<label\b[^>]*>[\s\S]*?<\/label>', hide_empty_wrapper, html, flags=re.I)
+    html = re.sub(r'<li\b[^>]*>[\s\S]*?<\/li>', hide_empty_wrapper, html, flags=re.I)
+    html = re.sub(
+        r'<div\b[^>]*?\bclass=["\']?[^"\'>]*?imgSmIn[^"\'>]*?["\']?[^>]*>[\s\S]*?<\/div>',
+        hide_empty_wrapper,
+        html,
+        flags=re.I
+    )
+
+    # Also hide empty/placeholder <img> tags themselves as extra defense
+    def hide_empty_img(m):
+        img_tag = m.group(0)
+        return add_hide_style(img_tag)
+
+    html = re.sub(
+        r'<img\b[^>]*?\bsrc=["\']?(?:|#|THUMB_\d+|IMG_\d+)["\']?(?:[\s>]|$)[^>]*>',
+        hide_empty_img,
+        html,
+        flags=re.I
+    )
+
+    # 3. Inject CSS :has() rules into template for modern browsers
+    css_injection = (
+        '\n<style id="auto-hide-unavailable-thumbs">\n'
+        '  /* Universal thumbnail cleaner for unavailable / broken images */\n'
+        '  img[src=""], img[src="#"], img:not([src]), img[src*="THUMB_"], img[src*="IMG_"] {\n'
+        '    display: none !important;\n'
+        '  }\n'
+        '  label:has(img[src=""]), label:has(img[src="#"]), label:has(img:not([src])), label:has(img[src*="THUMB_"]),\n'
+        '  .imgSmIn:has(img[src=""]), .imgSmIn:has(img[src="#"]), .imgSmIn:has(img:not([src])),\n'
+        '  li:has(img[src=""]), li:has(img[src="#"]), li:has(img:not([src])) {\n'
+        '    display: none !important;\n'
+        '  }\n'
+        '</style>\n'
+    )
+    if '</head>' in html:
+        html = html.replace('</head>', css_injection + '</head>', 1)
+    elif '<style' in html:
+        idx = html.find('<style')
+        html = html[:idx] + css_injection + html[idx:]
+    else:
+        html = css_injection + html
+
+    return html
+
 @eel.expose
 def modify(html, replace_from, replace_to, remove_video=None):
     try:
@@ -1899,78 +2001,33 @@ def modify(html, replace_from, replace_to, remove_video=None):
 
         if for_new_code in code:
             print("Processing new code format (|x|)")
-            parts = code.split(for_new_code)
+            parts = [p for p in code.split(for_new_code) if p.strip()]
             if len(parts) < 2:
                 return 'ERROR'
 
             HTML = {
-                'imgs_code': replace_image_format(parts[1]),
-                'ebay_template_code': parts[0]
+                'imgs_code': replace_image_format(parts[-1]),
+                'ebay_template_code': for_new_code.join(parts[:-1])
             }
 
             pattern = r'https.*?2\.JPG'
-            images_dict = imgDict(re.findall(pattern, HTML['imgs_code']))
+            found_imgs = re.findall(pattern, HTML['imgs_code'])
+            if not found_imgs:
+                found_imgs = re.findall(r'https://i\.ebayimg\.com/images/g/[^\s"\'<>]*/s-l[^\s"\'<>]*', HTML['imgs_code'], flags=re.I)
+            images_dict = imgDict(found_imgs)
+            available_count = len(images_dict.get('main', []))
 
-            try:
-                IMG_1 = images_dict['main'][0]
-                THUMB_1 = images_dict['thumb'][0]
-                d1 = None
-            except IndexError:
-                IMG_1 = ''
-                THUMB_1 = ''
-                d1 = 'for="img1" style="display:none"'
-
-            try:
-                IMG_2 = images_dict['main'][1]
-                THUMB_2 = images_dict['thumb'][1]
-                d2 = None
-            except IndexError:
-                IMG_2 = ''
-                THUMB_2 = ''
-                d2 = 'for="img2" style="display:none"'
-
-            try:
-                IMG_3 = images_dict['main'][2]
-                THUMB_3 = images_dict['thumb'][2]
-                d3 = None
-            except IndexError:
-                IMG_3 = ''
-                THUMB_3 = ''
-                d3 = 'for="img3" style="display:none"'
-
-            try:
-                IMG_4 = images_dict['main'][3]
-                THUMB_4 = images_dict['thumb'][3]
-                d4 = None
-            except IndexError:
-                IMG_4 = ''
-                THUMB_4 = ''
-                d4 = 'for="img4" style="display:none"'
-
-            try:
-                IMG_5 = images_dict['main'][4]
-                THUMB_5 = images_dict['thumb'][4]
-                d5 = None
-            except IndexError:
-                IMG_5 = ''
-                THUMB_5 = ''
-                d5 = 'for="img5" style="display:none"'
-
-            replacements = {
-                'IMG_1': IMG_1, 'THUMB_1': THUMB_1,
-                'IMG_2': IMG_2, 'THUMB_2': THUMB_2,
-                'IMG_3': IMG_3, 'THUMB_3': THUMB_3,
-                'IMG_4': IMG_4, 'THUMB_4': THUMB_4,
-                'IMG_5': IMG_5, 'THUMB_5': THUMB_5,
-            }
+            replacements = {}
+            for i in range(1, 25):
+                if i <= available_count:
+                    replacements[f'IMG_{i}'] = images_dict['main'][i - 1]
+                    replacements[f'THUMB_{i}'] = images_dict['thumb'][i - 1]
+                else:
+                    replacements[f'IMG_{i}'] = ''
+                    replacements[f'THUMB_{i}'] = ''
 
             ebay_template_code = apply_replacements(HTML['ebay_template_code'], replacements)
-
-            if d1 is not None: ebay_template_code = ebay_template_code.replace('for="img1"', d1)
-            if d2 is not None: ebay_template_code = ebay_template_code.replace('for="img2"', d2)
-            if d3 is not None: ebay_template_code = ebay_template_code.replace('for="img3"', d3)
-            if d4 is not None: ebay_template_code = ebay_template_code.replace('for="img4"', d4)
-            if d5 is not None: ebay_template_code = ebay_template_code.replace('for="img5"', d5)
+            ebay_template_code = clean_unavailable_thumbnails(ebay_template_code, available_count=available_count)
 
             retrn = ebay_template_code
             try:
@@ -1988,6 +2045,8 @@ def modify(html, replace_from, replace_to, remove_video=None):
             def get_new_token(text):
                 pattern = r"https[^\s]*2\.(?:jpg|png|webp)"
                 links = re.findall(pattern, text, flags=re.IGNORECASE)
+                if not links:
+                    links = re.findall(r"https://i\.ebayimg\.com/images/g/[^\s\"\'<>]*/s-l[^\s\"\'<>]*", text, flags=re.IGNORECASE)
                 return [url.split('/')[-2] if '/' in url else None for url in links]
 
             def replace_links(text, pattern, replacements):
@@ -2008,8 +2067,12 @@ def modify(html, replace_from, replace_to, remove_video=None):
                 return 'ERROR'
 
             tokens = get_new_token(full_html[1])
+            valid_tokens = [t for t in tokens if t]
+            available_count = len(valid_tokens)
+
             res_html = replace_links(full_html[0], main_pattern, tokens)
             res_html = replace_links(res_html, thumb_pattern, tokens)
+            res_html = clean_unavailable_thumbnails(res_html, available_count=available_count)
 
             try:
                 pyperclip.copy(res_html)
@@ -2049,6 +2112,8 @@ def replace_only(html, replace_from, replace_to, remove_video=None):
                 if from_item:
                     to_item = to_list[i] if i < len(to_list) else ""
                     code = code.replace(from_item, to_item)
+
+        code = clean_unavailable_thumbnails(code, available_count=None)
 
         try:
             pyperclip.copy(code)
