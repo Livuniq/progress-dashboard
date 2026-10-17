@@ -2577,12 +2577,22 @@
             badgeEl.textContent = clientName || 'Catalog Data';
         }
 
+        if (typeof window.showGlobalLoading === 'function') {
+            window.showGlobalLoading('Loading Catalog Data', (clientName ? clientName + ' SKU catalog' : 'Catalog data') + ' is loading... Please wait', 'bi-journal-text');
+        }
+
         const loader = document.getElementById('catalogFrameLoader');
         if (loader) loader.style.display = 'block';
 
         if (catalogFrame) {
             // Load embedded version without double navbar/header
             catalogFrame.src = `/party/${itemId}/data/?embedded=1`;
+            catalogFrame.onload = function() {
+                if (loader) loader.style.display = 'none';
+                if (typeof window.hideGlobalLoading === 'function') {
+                    setTimeout(window.hideGlobalLoading, 200);
+                }
+            };
         }
 
         const mainAppView = document.getElementById('mainAppView');
@@ -2664,8 +2674,17 @@
         if (mainAppView) mainAppView.classList.remove('d-none');
 
         if (mainAppFrame && (mainAppFrame.src === 'about:blank' || !mainAppFrame.src.includes('/main-app/'))) {
+            if (typeof window.showGlobalLoading === 'function') {
+                window.showGlobalLoading('Loading Main App Engine', 'Initializing React components, Babel & API database... Please wait', 'bi-cpu-fill');
+            }
             if (loader) loader.style.display = 'block';
             mainAppFrame.src = '/main-app/?embedded=1';
+            mainAppFrame.onload = function() {
+                if (loader) loader.style.display = 'none';
+                if (typeof window.hideGlobalLoading === 'function') {
+                    setTimeout(window.hideGlobalLoading, 250);
+                }
+            };
         } else if (mainAppFrame && mainAppFrame.contentWindow) {
             try {
                 mainAppFrame.contentWindow.postMessage({ type: 'REFRESH_COMPANIES' }, '*');
@@ -2692,8 +2711,17 @@
         const mainAppFrame = document.getElementById('mainAppFrame');
         const loader = document.getElementById('mainAppFrameLoader');
         if (mainAppFrame) {
+            if (typeof window.showGlobalLoading === 'function') {
+                window.showGlobalLoading('Reloading Main App', 'Refreshing components and data...', 'bi-arrow-clockwise');
+            }
             if (loader) loader.style.display = 'block';
             mainAppFrame.src = '/main-app/?embedded=1&t=' + new Date().getTime();
+            mainAppFrame.onload = function() {
+                if (loader) loader.style.display = 'none';
+                if (typeof window.hideGlobalLoading === 'function') {
+                    setTimeout(window.hideGlobalLoading, 250);
+                }
+            };
         }
     };
 
