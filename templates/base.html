@@ -1068,6 +1068,12 @@
                         </a>
                     </li>
                     {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-pill-custom {% if request.resolver_match.url_name == 'etsy_sku_copier' %}active{% endif %}" href="{% url 'tracker:etsy_sku_copier' %}" title="Etsy SKU Copier & Quick-Copy Hub">
+                            <i class="bi bi-clipboard-check-fill" style="color: #ea580c !important;"></i>
+                            <span>Etsy SKU Copier</span>
+                        </a>
+                    </li>
                     {% if is_admin %}
                     <li class="nav-item">
                         <a class="nav-pill-custom {% if request.resolver_match.url_name == 'admin_panel' %}active-admin{% endif %}" href="{% url 'tracker:admin_panel' %}">

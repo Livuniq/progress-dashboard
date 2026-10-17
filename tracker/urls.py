@@ -65,5 +65,11 @@ urlpatterns = [
     path('reminder/<int:reminder_id>/update/', views.update_party_reminder_api, name='update_party_reminder_api'),
     path('reminder/<int:reminder_id>/snooze/', views.snooze_party_reminder_api, name='snooze_party_reminder_api'),
     path('reminder/<int:reminder_id>/delete/', views.delete_party_reminder_api, name='delete_party_reminder_api'),
+    # Etsy SKU Copier & Quick-Copy Hub
+    path('etsy-sku-copier/', views.etsy_sku_copier_view, name='etsy_sku_copier'),
+    path('api/sku-lookup/', views.api_sku_lookup, name='api_sku_lookup'),
+    path('api/sku-search/', views.api_sku_search, name='api_sku_search'),
+    path('api/sku-update-status/', views.api_sku_update_status, name='api_sku_update_status'),
+    path('api/party-skus/', views.api_party_skus, name='api_party_skus'),
 ]
 

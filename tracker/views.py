@@ -2467,6 +2467,13 @@ def parse_catalog_file(uploaded_file):
             detected_sheet_names.append('General')
     elif filename.endswith(('.xlsx', '.xls')):
         try:
+            try:
+                import openpyxl.styles.fonts
+                import openpyxl.cell.text
+                openpyxl.styles.fonts.Font.family.max = 1000
+                openpyxl.cell.text.InlineFont.family.max = 1000
+            except Exception:
+                pass
             wb = openpyxl.load_workbook(uploaded_file, data_only=True)
             non_catalog_names = ['backend', 'config', 'settings', 'calculation', 'calculations', 'formula', 'formulas', 'lookup', 'lookups']
             for sheet_name in wb.sheetnames:
@@ -2490,8 +2497,8 @@ def parse_catalog_file(uploaded_file):
 
     recognized_headers = [
         'sku', 'style', 'category', 'lot', 'selling_price_usd', 'cost_usd',
-        'cost', 'selling', 'gold_kt', 'gold_weight', 'center_stone_shape',
-        'gold_color', 'certified', 'diamond', 'setting'
+        'cost', 'selling', 'price', 'gold_kt', 'gold_weight', 'center_stone_shape',
+        'gold_color', 'certified', 'diamond', 'setting', 'title', 'item'
     ]
 
     records = []
@@ -2499,9 +2506,11 @@ def parse_catalog_file(uploaded_file):
 
     for sheet_name, rows in sheet_data_list:
         header_idx = -1
-        for idx, row in enumerate(rows[:12]):
-            clean_row = [str(c).strip().lower() for c in row if c]
-            if any(h in clean_row for h in recognized_headers):
+        for idx, row in enumerate(rows[:15]):
+            clean_row = [str(c).strip().lower() for c in row if c is not None and str(c).strip()]
+            if not clean_row:
+                continue
+            if any(any(h in cell for h in recognized_headers) for cell in clean_row):
                 header_idx = idx
                 break
 
@@ -2554,9 +2563,9 @@ def parse_catalog_file(uploaded_file):
             }
 
             for orig_key, val in row_dict.items():
-                k_norm = orig_key.lower().replace(' ', '_').replace('-', '_').replace('#', '').strip()
+                k_norm = orig_key.lower().replace(' ', '_').replace('-', '_').replace('#', '').replace('(', '').replace(')', '').strip()
 
-                if k_norm in ['sku', 'style', 'style_code', 'item_code', 'design_no']:
+                if k_norm in ['sku', 'style', 'style_code', 'item_code', 'design_no', 'custom_label_sku', 'custom_label', 'style_no', 'item_sku']:
                     mapped['sku'] = val
                 elif k_norm in ['lot', 'lot_no', 'lot_num']:
                     mapped['lot'] = val
@@ -2593,10 +2602,11 @@ def parse_catalog_file(uploaded_file):
                 elif k_norm in ['selling_price_usd', 'selling_price', 'selling', 'price', 'sale_usd', 'retail_usd']:
                     mapped['selling_price_usd'] = val
                 else:
-                    if val and orig_key:
-                        mapped['extra_data'][orig_key] = val
-                        if orig_key not in all_extra_keys:
-                            all_extra_keys.append(orig_key)
+                    if orig_key and str(orig_key).strip():
+                        clean_col = str(orig_key).strip()
+                        mapped['extra_data'][clean_col] = val
+                        if clean_col not in all_extra_keys:
+                            all_extra_keys.append(clean_col)
 
             # Auto-assign category from sheet name if category is empty
             if not mapped['category'] and mapped['sheet_name']:
@@ -2794,17 +2804,23 @@ def party_data_import(request, pk):
         import_mode = request.POST.get('import_mode', 'append').strip().lower()
 
         try:
-            records_data, _, detected_sheets = parse_catalog_file(uploaded_file)
+            records_data, all_extra_keys, detected_sheets = parse_catalog_file(uploaded_file)
             if not records_data:
                 messages.error(request, "No valid data rows found in the uploaded file. Please check file format.")
                 return redirect('tracker:party_data', pk=item.pk)
 
-            # Store detected Excel sheets in party custom_fields for persistent tab ordering
+            # Store detected Excel sheets and all columns in party custom_fields for persistent tracking
+            if not isinstance(item.custom_fields, dict):
+                item.custom_fields = {}
             if detected_sheets:
-                if not isinstance(item.custom_fields, dict):
-                    item.custom_fields = {}
                 item.custom_fields['catalog_sheets'] = detected_sheets
-                item.save(update_fields=['custom_fields'])
+            if all_extra_keys:
+                known_cols = list(item.custom_fields.get('catalog_columns', []))
+                for k in all_extra_keys:
+                    if k not in known_cols:
+                        known_cols.append(k)
+                item.custom_fields['catalog_columns'] = known_cols
+            item.save(update_fields=['custom_fields'])
 
             fields_to_compare = [
                 'lot', 'category', 'certified', 'gold_kt', 'gold_color', 'gold_weight',
@@ -2899,18 +2915,31 @@ def party_data_import(request, pk):
                                 is_identical = False
                                 break
 
-                        if is_identical:
+                        has_extra_diff = False
+                        new_extra = r_data.get('extra_data') or {}
+                        old_extra = target_rec.extra_data if isinstance(target_rec.extra_data, dict) else {}
+                        for k, v in new_extra.items():
+                            if str(old_extra.get(k, '')).strip() != str(v).strip():
+                                has_extra_diff = True
+                                break
+
+                        if is_identical and not has_extra_diff:
                             # Exact identical duplicate in same category: do not append!
                             skipped_duplicates += 1
                             continue
                         else:
-                            # Same SKU & Category with updated attributes: update existing record
+                            # Same SKU & Category with updated attributes or extra columns: update existing record
                             for f in fields_to_compare:
                                 setattr(target_rec, f, r_data.get(f, ''))
                             if r_data.get('sheet_name'):
                                 target_rec.sheet_name = r_data['sheet_name']
                             if r_data.get('extra_data'):
-                                target_rec.extra_data = r_data['extra_data']
+                                if isinstance(target_rec.extra_data, dict):
+                                    merged_extra = dict(target_rec.extra_data)
+                                    merged_extra.update(r_data['extra_data'])
+                                    target_rec.extra_data = merged_extra
+                                else:
+                                    target_rec.extra_data = r_data['extra_data']
                             target_rec.save()
                             updated_count += 1
                             continue
@@ -3616,6 +3645,322 @@ def snooze_party_reminder_api(request, reminder_id):
             'is_due': reminder.is_due
         }
     })
+
+
+# ==============================================================================
+# ETSY SKU COPIER & DATA CLIPBOARD HUB
+# ==============================================================================
+
+STANDARD_CATALOG_FIELDS = [
+    ('sku', 'SKU / Style Code'),
+    ('cost_usd', 'Cost (USD)'),
+    ('selling_price_usd', 'Selling Price (USD)'),
+    ('category', 'Category'),
+    ('gold_kt', 'Gold KT'),
+    ('gold_color', 'Gold Color'),
+    ('gold_weight', 'Gold Weight'),
+    ('center_diamond_clarity', 'Center Diamond Clarity'),
+    ('center_diamond_color', 'Center Diamond Color'),
+    ('center_stone_shape', 'Center Stone Shape'),
+    ('center_stone_weight', 'Center Stone Weight'),
+    ('side_stone_shape', 'Side Stone Shape'),
+    ('side_stone_weight', 'Side Stone Weight'),
+    ('side_stone_color_clarity', 'Side Stone Color/Clarity'),
+    ('setting', 'Setting'),
+    ('total_diamond_pcs', 'Total Diamond Pcs'),
+    ('certified', 'Certified'),
+    ('lot', 'LOT'),
+    ('sheet_name', 'Sheet Name'),
+]
+
+@login_required
+def etsy_sku_copier_view(request):
+    """
+    Dedicated Etsy SKU Copier page:
+    - Lists only parties whose name contains 'etsy'
+    - Instant SKU lookup from PartyDataRecord catalog
+    - 5-6 customizable 1-click clipboard copy buttons
+    - Uploaded on Etsy toggle switch
+    """
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+
+    # Filter only non-hidden parties whose client_name contains 'etsy' (case-insensitive)
+    etsy_parties_qs = ProcessItem.objects.filter(client_name__icontains='etsy', is_hidden=False)
+
+    # Apply party permissions if restricted
+    if not (profile.is_admin or request.user.is_superuser):
+        allowed_ids = profile.allowed_parties.values_list('id', flat=True)
+        if allowed_ids.exists():
+            etsy_parties_qs = etsy_parties_qs.filter(id__in=allowed_ids)
+
+    etsy_parties = []
+    for p in etsy_parties_qs.order_by('client_name'):
+        count = p.data_records.count()
+        etsy_parties.append({
+            'id': p.id,
+            'client_name': p.client_name,
+            'records_count': count,
+            'status': p.status or 'Active'
+        })
+
+    # Pick default party (prefer one with catalog records)
+    default_party = next((p for p in etsy_parties if p['records_count'] > 0), etsy_parties[0] if etsy_parties else None)
+
+    context = {
+        'etsy_parties': etsy_parties,
+        'default_party': default_party,
+        'standard_fields': STANDARD_CATALOG_FIELDS,
+    }
+    return render(request, 'tracker/etsy_sku_copier.html', context)
+
+
+@login_required
+def api_sku_lookup(request):
+    """
+    API: Fetch complete catalog data for a specific Party and SKU.
+    Returns standard fields, dynamic extra fields, and Etsy upload status.
+    """
+    party_id = request.GET.get('party_id', '').strip()
+    sku_query = request.GET.get('sku', '').strip()
+
+    if not party_id or not sku_query:
+        return JsonResponse({'success': False, 'error': 'Both Party and SKU are required.'}, status=400)
+
+    try:
+        party = ProcessItem.objects.get(pk=party_id)
+    except ProcessItem.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Party not found.'}, status=404)
+
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not profile.is_party_allowed(party.id):
+        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+
+    # 1. Exact match search (case-insensitive)
+    record = PartyDataRecord.objects.filter(party=party, sku__iexact=sku_query).first()
+
+    # 2. If not found, try stripped match
+    if not record:
+        cleaned_sku = sku_query.replace(' ', '').replace('-', '').lower()
+        candidates = PartyDataRecord.objects.filter(party=party)
+        for c in candidates:
+            if c.sku and c.sku.replace(' ', '').replace('-', '').lower() == cleaned_sku:
+                record = c
+                break
+
+    # 3. If still not found, try contains match
+    if not record:
+        record = PartyDataRecord.objects.filter(party=party, sku__icontains=sku_query).first()
+
+    if not record:
+        return JsonResponse({
+            'success': False,
+            'error': f'SKU "{sku_query}" not found in {party.client_name} catalog.'
+        }, status=404)
+
+    # Extract all standard fields
+    data = {}
+    for field_name, label in STANDARD_CATALOG_FIELDS:
+        val = getattr(record, field_name, '')
+        data[field_name] = str(val) if val is not None else ''
+
+    # Extract extra_data fields
+    extra_fields = []
+    if isinstance(record.extra_data, dict):
+        for k, v in record.extra_data.items():
+            if k not in ['etsy_status', 'etsy_uploaded_at']:
+                data[k] = str(v) if v is not None else ''
+                extra_fields.append((k, k.replace('_', ' ').title()))
+
+    # Also include any known catalog columns for this party from imports
+    if isinstance(party.custom_fields, dict) and 'catalog_columns' in party.custom_fields:
+        for col in party.custom_fields['catalog_columns']:
+            if col not in ['etsy_status', 'etsy_uploaded_at']:
+                if col not in data:
+                    data[col] = ''
+                if not any(ef[0] == col for ef in extra_fields):
+                    extra_fields.append((col, col.replace('_', ' ').title()))
+
+    # Etsy Upload Status
+    etsy_status = 'Not Uploaded'
+    etsy_uploaded_at = None
+    if isinstance(record.extra_data, dict):
+        etsy_status = record.extra_data.get('etsy_status', 'Not Uploaded')
+        etsy_uploaded_at = record.extra_data.get('etsy_uploaded_at')
+
+    # Available fields for mapping (standard + dynamic extra fields)
+    all_fields = list(STANDARD_CATALOG_FIELDS) + extra_fields
+
+    return JsonResponse({
+        'success': True,
+        'record_id': record.id,
+        'party_id': party.id,
+        'party_name': party.client_name,
+        'sku': record.sku,
+        'data': data,
+        'etsy_status': etsy_status,
+        'etsy_uploaded_at': etsy_uploaded_at,
+        'available_fields': [{'key': k, 'label': l} for k, l in all_fields]
+    })
+
+
+@login_required
+def api_sku_search(request):
+    """
+    API: Autocomplete suggestions for SKU input box.
+    Returns up to 15 matching SKUs for the selected party.
+    """
+    party_id = request.GET.get('party_id', '').strip()
+    query = request.GET.get('q', '').strip()
+
+    if not party_id:
+        return JsonResponse({'success': False, 'skus': []})
+
+    qs = PartyDataRecord.objects.filter(party_id=party_id)
+    if query:
+        qs = qs.filter(sku__icontains=query)
+
+    results = qs.values('id', 'sku', 'category', 'cost_usd', 'selling_price_usd')[:15]
+    skus = []
+    for r in results:
+        if r['sku']:
+            skus.append({
+                'id': r['id'],
+                'sku': r['sku'],
+                'category': r['category'] or '',
+                'cost': r['cost_usd'] or '',
+                'selling': r['selling_price_usd'] or ''
+            })
+
+    return JsonResponse({'success': True, 'skus': skus})
+
+
+@login_required
+def api_sku_update_status(request):
+    """
+    API: Update Etsy Upload Status for a record.
+    Toggles between 'Uploaded on Etsy' and 'Not Uploaded'.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
+
+    try:
+        import json
+        data = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        data = request.POST
+
+    record_id = data.get('record_id')
+    party_id = data.get('party_id')
+    sku = data.get('sku')
+    is_uploaded = data.get('is_uploaded', False)
+    if isinstance(is_uploaded, str):
+        is_uploaded = is_uploaded.lower() in ['true', '1', 'yes']
+
+    record = None
+    if record_id:
+        record = PartyDataRecord.objects.filter(pk=record_id).first()
+    elif party_id and sku:
+        record = PartyDataRecord.objects.filter(party_id=party_id, sku__iexact=sku.strip()).first()
+
+    if not record:
+        return JsonResponse({'success': False, 'error': 'Record not found.'}, status=404)
+
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not profile.is_party_allowed(record.party_id):
+        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+
+    if not isinstance(record.extra_data, dict):
+        record.extra_data = {}
+
+    if is_uploaded:
+        record.extra_data['etsy_status'] = 'Uploaded on Etsy'
+        now_str = timezone.localtime(timezone.now()).strftime('%d-%b-%Y %I:%M %p')
+        record.extra_data['etsy_uploaded_at'] = now_str
+    else:
+        record.extra_data['etsy_status'] = 'Not Uploaded'
+        record.extra_data['etsy_uploaded_at'] = None
+
+    record.save(update_fields=['extra_data', 'updated_at'])
+
+    return JsonResponse({
+        'success': True,
+        'record_id': record.id,
+        'sku': record.sku,
+        'etsy_status': record.extra_data['etsy_status'],
+        'etsy_uploaded_at': record.extra_data.get('etsy_uploaded_at')
+    })
+
+
+@login_required
+def api_party_skus(request):
+    """
+    API: Fetch categories, LOTs, and SKUs list for a selected party.
+    Allows filtering by category and lot, and reports etsy_status for each SKU.
+    """
+    party_id = request.GET.get('party_id', '').strip()
+    category_filter = request.GET.get('category', '').strip()
+    lot_filter = request.GET.get('lot', '').strip()
+
+    if not party_id:
+        return JsonResponse({'success': False, 'error': 'Party ID required.'}, status=400)
+
+    try:
+        party = ProcessItem.objects.get(pk=party_id)
+    except ProcessItem.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Party not found.'}, status=404)
+
+    profile = UserAccessProfile.get_or_create_for_user(request.user)
+    if not profile.is_party_allowed(party.id):
+        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+
+    all_records = PartyDataRecord.objects.filter(party=party).order_by('order_index', 'id')
+
+    # Collect distinct categories and LOTs across all records of this party
+    categories = sorted(list(set(r.category.strip() for r in all_records if r.category and r.category.strip())))
+    lots = sorted(list(set(r.lot.strip() for r in all_records if r.lot and r.lot.strip())))
+
+    # Filter records based on selected category and LOT
+    filtered_records = all_records
+    if category_filter:
+        filtered_records = filtered_records.filter(category__iexact=category_filter)
+    if lot_filter:
+        filtered_records = filtered_records.filter(lot__iexact=lot_filter)
+
+    skus = []
+    total_uploaded = 0
+    for r in filtered_records:
+        is_up = False
+        up_time = None
+        if isinstance(r.extra_data, dict):
+            is_up = (r.extra_data.get('etsy_status') == 'Uploaded on Etsy')
+            up_time = r.extra_data.get('etsy_uploaded_at')
+
+        if is_up:
+            total_uploaded += 1
+
+        skus.append({
+            'id': r.id,
+            'sku': r.sku,
+            'lot': r.lot or '',
+            'category': r.category or '',
+            'sheet_name': r.sheet_name or '',
+            'cost': r.cost_usd or '',
+            'selling': r.selling_price_usd or '',
+            'is_uploaded': is_up,
+            'uploaded_at': up_time
+        })
+
+    return JsonResponse({
+        'success': True,
+        'party_id': party.id,
+        'party_name': party.client_name,
+        'categories': categories,
+        'lots': lots,
+        'total_count': len(skus),
+        'uploaded_count': total_uploaded,
+        'skus': skus
+    })
+
 
 
 

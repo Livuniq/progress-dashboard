@@ -707,6 +707,15 @@
             </div>
             {% endif %}
 
+            <!-- Etsy SKU Copier Quick Access -->
+            <a href="{% url 'tracker:etsy_sku_copier' %}" class="sidebar-nav-tab w-100 border-0 bg-transparent text-start text-decoration-none d-flex align-items-center justify-content-between mb-1" title="Etsy SKU Copier & Quick-Copy Hub">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="nav-tab-icon" style="background: #fff7ed; color: #ea580c;"><i class="bi bi-clipboard-check-fill"></i></div>
+                    <span class="small fw-semibold text-dark">Etsy SKU Copier</span>
+                </div>
+                <span class="badge rounded-pill" style="background: #ffedd5; color: #c2410c; font-size: 9px;">Quick</span>
+            </a>
+
             <!-- 4. Custom Tabs & Tables (Gated by can_view_party_details) -->
             {% if can_view_party_details %}
             <div class="dropdown mb-1">
