@@ -8,19 +8,19 @@
     .catalog-top-panel {
         background: #ffffff;
         border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 6px 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-        margin-bottom: 6px;
+        border-radius: 6px;
+        padding: 4px 8px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        margin-bottom: 4px;
     }
 
     .kpi-mini-pill {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        padding: 2px 8px;
-        border-radius: 5px;
-        font-size: 0.74rem;
+        gap: 3px;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 0.71rem;
         background: #f8fafc;
         border: 1px solid #e2e8f0;
         color: #475569;
@@ -33,9 +33,9 @@
     }
 
     .sheet-tab-pill {
-        font-size: 0.74rem;
-        padding: 3px 9px;
-        border-radius: 5px;
+        font-size: 0.71rem;
+        padding: 2px 7px;
+        border-radius: 4px;
         font-weight: 600;
         border: 1px solid #cbd5e1;
         background: #ffffff;
@@ -44,7 +44,7 @@
         transition: all 0.15s ease;
         display: inline-flex;
         align-items: center;
-        gap: 4px;
+        gap: 3px;
         white-space: nowrap;
         cursor: pointer;
     }
@@ -59,25 +59,25 @@
         box-shadow: 0 1px 2px rgba(0,0,0,0.12);
     }
     .sheet-tab-pill .badge {
-        font-size: 0.68rem;
-        padding: 1px 5px;
+        font-size: 0.65rem;
+        padding: 1px 4px;
     }
 
     /* Table Container fills full remaining screen height */
     .catalog-table-wrapper {
         background: #ffffff;
         border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-        height: calc(100vh - 128px);
-        max-height: calc(100vh - 128px);
+        border-radius: 6px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        height: calc(100vh - 100px);
+        max-height: calc(100vh - 100px);
         overflow: auto;
         position: relative;
     }
 
     .catalog-table {
         margin-bottom: 0;
-        font-size: 0.78rem;
+        font-size: 0.74rem;
         width: 100%;
         border-collapse: separate;
         border-spacing: 0;
@@ -88,10 +88,10 @@
         background: #0f172a !important;
         color: #f8fafc !important;
         font-weight: 700;
-        font-size: 0.72rem;
-        letter-spacing: 0.5px;
+        font-size: 0.68rem;
+        letter-spacing: 0.3px;
         text-transform: uppercase;
-        padding: 7px 10px;
+        padding: 5px 6px !important;
         border: none;
         white-space: nowrap;
         position: sticky;
@@ -103,13 +103,13 @@
     }
 
     .catalog-table td {
-        padding: 5px 10px;
+        padding: 3px 6px !important;
         vertical-align: middle !important;
         text-align: center !important;
         border-bottom: 1px solid #f1f5f9;
         color: #1e293b;
         white-space: nowrap;
-        line-height: 1.35;
+        line-height: 1.25 !important;
     }
 
     .catalog-table tbody tr:hover {
@@ -170,6 +170,10 @@
         box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
     }
 
+    .col-toggle-item:hover {
+        background-color: #f1f5f9;
+    }
+
     {% if request.GET.embedded %}
     body {
         background-color: #ffffff !important;
@@ -182,8 +186,8 @@
         margin-bottom: 2px !important;
     }
     .catalog-table-wrapper {
-        height: calc(100vh - 72px) !important;
-        max-height: calc(100vh - 72px) !important;
+        height: calc(100vh - 56px) !important;
+        max-height: calc(100vh - 56px) !important;
         border-radius: 0 !important;
         border-left: none !important;
         border-right: none !important;
@@ -196,142 +200,197 @@
 {% block content %}
 <div class="container-fluid {% if request.GET.embedded %}p-0 m-0{% else %}px-3 py-1{% endif %}">
 
-    <!-- Unified Ultra-Compact Top Control Panel (Only 2 slim rows, ~68px total height) -->
+    <!-- Unified Minimal Top Control Panel (Maximum Table View, Only 2 Slim Rows, ~56px) -->
     <div class="catalog-top-panel">
-        <!-- Row 1: Breadcrumb + Inline KPIs + Action Buttons -->
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1 pb-1 border-bottom">
-            <!-- Left: Breadcrumb & KPIs -->
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-                <a href="{% url 'tracker:dashboard' %}" class="btn btn-sm btn-light border py-0 px-2 text-muted" style="font-size: 0.76rem; height: 26px; display: inline-flex; align-items: center;" title="Back to Dashboard" onclick="if(window.parent && window.parent.showProcessTableView){ window.parent.showProcessTableView(); return false; }">
-                    <i class="bi bi-arrow-left me-1"></i>Dashboard
+        <!-- Row 1: Nav + Sheet Tabs + Summary Dropdown + Actions -->
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-1 pb-1 border-bottom flex-wrap">
+            <!-- Left: Breadcrumb / Party + Sheet Tabs -->
+            <div class="d-flex align-items-center gap-2 overflow-auto">
+                <a href="{% url 'tracker:dashboard' %}" class="btn btn-sm btn-light border py-0 px-2 text-muted" style="font-size: 0.74rem; height: 24px; display: inline-flex; align-items: center;" title="Back to Dashboard" onclick="if(window.parent && window.parent.showProcessTableView){ window.parent.showProcessTableView(); return false; }">
+                    <i class="bi bi-arrow-left"></i>
                 </a>
-                <span class="text-muted small">/</span>
-                <a href="{% url 'tracker:party_detail' item.id %}" class="fw-bold text-dark text-decoration-none small">
-                    {{ item.client_name }}
-                </a>
-                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0 small" style="font-size: 0.72rem; line-height: 20px;">
-                    Catalog Data
-                </span>
+                <span class="fw-bold text-dark small text-nowrap">{{ item.client_name }}</span>
                 {% if item.lot_progress %}
-                <span class="badge bg-secondary-subtle text-secondary border px-2 py-0 small" style="font-size: 0.72rem; line-height: 20px;">
-                    LOT: {{ item.lot_progress }}
-                </span>
+                <span class="badge bg-secondary-subtle text-secondary border px-1" style="font-size: 0.68rem; line-height: 18px;">LOT {{ item.lot_progress }}</span>
                 {% endif %}
 
-                <!-- Inline KPI Stats Strip -->
-                <div class="d-flex align-items-center gap-1 ms-1 flex-wrap">
-                    <span class="kpi-mini-pill"><i class="bi bi-upc-scan text-primary"></i> <b id="kpiTotalSkus">{{ metrics.total_items }}</b> SKUs</span>
-                    <span class="kpi-mini-pill"><i class="bi bi-currency-dollar text-success"></i> Selling: <b id="kpiTotalSelling" class="text-success">${{ metrics.total_selling|floatformat:2 }}</b></span>
-                    <span class="kpi-mini-pill"><i class="bi bi-wallet2 text-warning"></i> Cost: <b id="kpiTotalCost" class="text-warning-emphasis">${{ metrics.total_cost|floatformat:2 }}</b></span>
-                    <span class="kpi-mini-pill"><i class="bi bi-speedometer2 text-info"></i> Gold: <b id="kpiTotalGold" class="text-info">{{ metrics.total_gold_wt|floatformat:2 }}g</b></span>
-                    <span class="kpi-mini-pill"><i class="bi bi-gem text-danger"></i> Dia: <b id="kpiTotalDiamonds" class="text-danger">{{ metrics.total_diamonds }}</b></span>
+                <div class="vr my-1 text-muted" style="height: 14px;"></div>
+
+                <!-- Sheet Tabs -->
+                <div class="d-flex align-items-center gap-1">
+                    {% for t in catalog_tabs %}
+                    <button type="button" 
+                            class="sheet-tab-pill {% if t.is_active %}active{% endif %}"
+                            data-tab-name="{{ t.name }}"
+                            onclick="switchCatalogTab('{{ t.name }}')">
+                        <i class="bi {% if t.name == 'All' %}bi-grid-fill{% elif 'ring' in t.name|lower %}bi-circle{% elif 'earring' in t.name|lower %}bi-flower1{% elif 'pendant' in t.name|lower %}bi-gem{% elif 'bracelet' in t.name|lower %}bi-link-45deg{% else %}bi-folder-fill{% endif %}"></i>
+                        <span>{{ t.display }}</span>
+                        <span class="badge {% if t.is_active %}bg-white text-dark{% else %}bg-secondary-subtle text-secondary{% endif %} rounded-pill">
+                            {{ t.count }}
+                        </span>
+                    </button>
+                    {% endfor %}
                 </div>
             </div>
 
-            <!-- Right: Action Buttons in One Compact Line -->
-            <div class="d-flex align-items-center gap-1 flex-wrap">
-                {% if can_import %}
-                <button type="button" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1 py-0 px-2 fw-semibold" style="height: 26px; font-size: 0.76rem;" data-bs-toggle="modal" data-bs-target="#importDataModal">
-                    <i class="bi bi-cloud-arrow-up-fill"></i>
-                    <span>Import File</span>
-                </button>
-                {% endif %}
+            <!-- Right: Summary Metric Pill + Primary Actions -->
+            <div class="d-flex align-items-center gap-1 ms-auto text-nowrap">
+                <!-- Compact Summary Dropdown (Click to view full financial & diamond stats) -->
+                <div class="dropdown d-inline-block">
+                    <button class="btn btn-sm btn-light border py-0 px-2 text-secondary d-flex align-items-center gap-1" style="height: 24px; font-size: 0.72rem;" type="button" id="btnMetricsSummary" data-bs-toggle="dropdown" aria-expanded="false" title="Click to view KPI & financial details">
+                        <i class="bi bi-bar-chart-fill text-primary"></i>
+                        <b id="kpiTotalSkus" class="text-dark">{{ metrics.total_items }}</b> SKUs
+                        <span class="text-muted">•</span>
+                        <span class="text-success fw-bold" id="kpiTotalSellingMini">${{ metrics.total_selling|floatformat:0 }}</span>
+                        <i class="bi bi-chevron-down text-muted ms-1" style="font-size: 0.55rem;"></i>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end shadow border p-2" style="min-width: 240px; font-size: 0.74rem;" aria-labelledby="btnMetricsSummary">
+                        <div class="fw-bold text-dark border-bottom pb-1 mb-2 d-flex align-items-center justify-content-between">
+                            <span><i class="bi bi-pie-chart-fill text-primary me-1"></i> Catalog Summary</span>
+                            <span class="badge bg-primary-subtle text-primary">{{ item.client_name }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-1 border-bottom border-light">
+                            <span class="text-muted">Total SKUs:</span>
+                            <b id="kpiTotalSkusDropdown" class="text-dark">{{ metrics.total_items }}</b>
+                        </div>
+                        <div class="d-flex justify-content-between py-1 border-bottom border-light">
+                            <span class="text-muted">Total Selling:</span>
+                            <b class="text-success" id="kpiTotalSelling">${{ metrics.total_selling|floatformat:2 }}</b>
+                        </div>
+                        <div class="d-flex justify-content-between py-1 border-bottom border-light">
+                            <span class="text-muted">Total Cost:</span>
+                            <b class="text-warning-emphasis" id="kpiTotalCost">${{ metrics.total_cost|floatformat:2 }}</b>
+                        </div>
+                        <div class="d-flex justify-content-between py-1 border-bottom border-light">
+                            <span class="text-muted">Total Gold Weight:</span>
+                            <b class="text-info" id="kpiTotalGold">{{ metrics.total_gold_wt|floatformat:2 }}g</b>
+                        </div>
+                        <div class="d-flex justify-content-between py-1">
+                            <span class="text-muted">Total Diamonds:</span>
+                            <b class="text-danger" id="kpiTotalDiamonds">{{ metrics.total_diamonds }} pcs</b>
+                        </div>
+                    </div>
+                </div>
 
-                {% if all_records_count > 0 %}
-                <a href="{% url 'tracker:party_data_export' item.id %}" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1 py-0 px-2" style="height: 26px; font-size: 0.76rem;" title="Export multi-sheet Excel file">
-                    <i class="bi bi-file-earmark-excel"></i>
-                    <span>Export</span>
-                </a>
+                {% if can_import %}
+                <button type="button" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1 py-0 px-2 fw-semibold" style="height: 24px; font-size: 0.74rem;" data-bs-toggle="modal" data-bs-target="#importDataModal" title="Import Excel or CSV">
+                    <i class="bi bi-cloud-arrow-up-fill"></i>
+                    <span>Import</span>
+                </button>
                 {% endif %}
 
                 {% if can_edit %}
-                <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 py-0 px-2" style="height: 26px; font-size: 0.76rem;" data-bs-toggle="modal" data-bs-target="#addRecordModal">
-                    <i class="bi bi-plus-circle"></i>
-                    <span>Add Item</span>
+                <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 py-0 px-2" style="height: 24px; font-size: 0.74rem;" data-bs-toggle="modal" data-bs-target="#addRecordModal" title="Add SKU record">
+                    <i class="bi bi-plus-lg"></i>
+                    <span>Add</span>
                 </button>
                 {% endif %}
+
+                <!-- More Options Menu -->
+                <div class="dropdown d-inline-block">
+                    <button class="btn btn-sm btn-outline-secondary py-0 px-2 dropdown-toggle d-flex align-items-center gap-1" style="height: 24px; font-size: 0.74rem;" type="button" id="btnMoreCatalogActions" data-bs-toggle="dropdown" aria-expanded="false" title="More catalog options">
+                        <i class="bi bi-three-dots"></i>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end shadow border p-1" style="font-size: 0.75rem;" aria-labelledby="btnMoreCatalogActions">
+                        {% if all_records_count > 0 %}
+                        <a href="{% url 'tracker:party_data_export' item.id %}" class="dropdown-item py-1 px-2 d-flex align-items-center gap-2">
+                            <i class="bi bi-file-earmark-excel text-success"></i> Export Excel (.xlsx)
+                        </a>
+                        {% endif %}
+                        {% if can_import and all_records_count > 0 %}
+                        <button type="button" class="dropdown-item py-1 px-2 d-flex align-items-center gap-2" onclick="document.getElementById('formCleanDuplicates').submit();">
+                            <i class="bi bi-magic text-info"></i> Clean Duplicate SKUs
+                        </button>
+                        {% endif %}
+                        <a href="{% url 'tracker:party_detail' item.id %}" class="dropdown-item py-1 px-2 d-flex align-items-center gap-2">
+                            <i class="bi bi-folder2-open text-primary"></i> Custom Tabs & Tables
+                        </a>
+                        {% if can_clear and all_records_count > 0 %}
+                        <div class="dropdown-divider my-1"></div>
+                        <button type="button" class="dropdown-item py-1 px-2 text-danger d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#clearDataModal" onclick="generateRandomCaptcha()">
+                            <i class="bi bi-trash3-fill"></i> Clear All Data
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
 
                 {% if can_import and all_records_count > 0 %}
-                <form action="{% url 'tracker:party_data_deduplicate' item.id %}" method="POST" class="d-inline" onsubmit="return confirm('Clean duplicate SKUs? Different categories will be preserved.');">
+                <form id="formCleanDuplicates" action="{% url 'tracker:party_data_deduplicate' item.id %}" method="POST" class="d-none" onsubmit="return confirm('Clean duplicate SKUs? Different categories will be preserved.');">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 py-0 px-2" style="height: 26px; font-size: 0.76rem;" title="Clean exact duplicate rows">
-                        <i class="bi bi-magic"></i>
-                        <span>Clean Dups</span>
-                    </button>
                 </form>
-                {% endif %}
-
-                <a href="{% url 'tracker:party_detail' item.id %}" class="btn btn-sm btn-outline-secondary py-0 px-2 d-inline-flex align-items-center gap-1" style="height: 26px; font-size: 0.76rem;" title="View Custom Tabs & Tables">
-                    <i class="bi bi-folder2-open"></i>
-                    <span>Custom Tabs</span>
-                </a>
-
-                {% if can_clear and all_records_count > 0 %}
-                <button type="button" class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1 py-0 px-2" style="height: 26px; font-size: 0.76rem;" data-bs-toggle="modal" data-bs-target="#clearDataModal" onclick="generateRandomCaptcha()" title="Clear all catalog items for this party">
-                    <i class="bi bi-trash3-fill"></i>
-                    <span>Clear Data</span>
-                </button>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Row 2: Sheet Tabs (Left) + Search & Filter Controls (Right) in One Single Line -->
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <!-- Left: Sheet Tabs -->
-            <div class="d-flex align-items-center gap-1 overflow-auto">
-                <span class="small fw-bold text-muted text-uppercase me-1" style="font-size: 0.7rem;">Sheets:</span>
-                {% for t in catalog_tabs %}
-                <button type="button" 
-                        class="sheet-tab-pill {% if t.is_active %}active{% endif %}"
-                        data-tab-name="{{ t.name }}"
-                        onclick="switchCatalogTab('{{ t.name }}')">
-                    <i class="bi {% if t.name == 'All' %}bi-grid-fill{% elif 'ring' in t.name|lower %}bi-circle{% elif 'earring' in t.name|lower %}bi-flower1{% elif 'pendant' in t.name|lower %}bi-gem{% elif 'bracelet' in t.name|lower %}bi-link-45deg{% else %}bi-folder-fill{% endif %}"></i>
-                    <span>{{ t.display }}</span>
-                    <span class="badge {% if t.is_active %}bg-white text-dark{% else %}bg-secondary-subtle text-secondary{% endif %} rounded-pill">
-                        {{ t.count }}
+        <!-- Row 2: Search + Filters + Column Visibility Toggle in One Slim Line -->
+        <div class="d-flex align-items-center justify-content-between gap-1 flex-wrap">
+            <!-- Left: Search and Dropdown Filters -->
+            <div class="d-flex align-items-center gap-1 flex-wrap">
+                <div class="input-group input-group-sm" style="width: 175px;">
+                    <span class="input-group-text bg-white border-end-0 text-primary py-0 px-2" style="height: 26px;">
+                        <i class="bi bi-search" style="font-size: 0.7rem;"></i>
                     </span>
-                </button>
-                {% endfor %}
-            </div>
-
-            <!-- Right: Search + Filters in compact horizontal row -->
-            <div class="d-flex align-items-center gap-1 flex-wrap ms-auto">
-                <div class="input-group input-group-sm" style="width: 210px;">
-                    <span class="input-group-text bg-white border-end-0 text-primary py-0 px-2" style="height: 28px;">
-                        <i class="bi bi-search" style="font-size: 0.75rem;"></i>
-                    </span>
-                    <input type="text" id="skuSearchInput" class="form-control border-start-0 ps-0 fw-semibold" style="height: 28px; font-size: 0.78rem;" placeholder="Search SKU or detail..." value="{{ search_query }}" autocomplete="off">
-                    <button class="btn btn-outline-secondary py-0 px-2" style="height: 28px;" type="button" id="btnClearSearch" title="Clear search">
-                        <i class="bi bi-x-lg" style="font-size: 0.7rem;"></i>
+                    <input type="text" id="skuSearchInput" class="form-control border-start-0 ps-0 fw-semibold" style="height: 26px; font-size: 0.75rem;" placeholder="Search SKU, lot, detail..." value="{{ search_query }}" autocomplete="off">
+                    <button class="btn btn-outline-secondary py-0 px-2" style="height: 26px;" type="button" id="btnClearSearch" title="Clear search">
+                        <i class="bi bi-x-lg" style="font-size: 0.65rem;"></i>
                     </button>
                 </div>
 
-                <select id="filterCategory" class="form-select form-select-sm" style="width: 135px; height: 28px; font-size: 0.76rem; padding-top: 2px; padding-bottom: 2px;">
-                    <option value="">All Categories ({{ categories|length }})</option>
+                <select id="filterCategory" class="form-select form-select-sm" style="width: 120px; height: 26px; font-size: 0.74rem; padding-top: 2px; padding-bottom: 2px;">
+                    <option value="">Categories ({{ categories|length }})</option>
                     {% for cat in categories %}
                     <option value="{{ cat }}" {% if category_filter == cat %}selected{% endif %}>{{ cat }}</option>
                     {% endfor %}
                 </select>
 
-                <select id="filterColor" class="form-select form-select-sm" style="width: 120px; height: 28px; font-size: 0.76rem; padding-top: 2px; padding-bottom: 2px;">
-                    <option value="">All Gold Colors</option>
+                <select id="filterColor" class="form-select form-select-sm" style="width: 100px; height: 26px; font-size: 0.74rem; padding-top: 2px; padding-bottom: 2px;">
+                    <option value="">Gold Colors</option>
                     {% for col in gold_colors %}
                     <option value="{{ col }}" {% if color_filter == col %}selected{% endif %}>{{ col }}</option>
                     {% endfor %}
                 </select>
 
-                <select id="filterShape" class="form-select form-select-sm" style="width: 110px; height: 28px; font-size: 0.76rem; padding-top: 2px; padding-bottom: 2px;">
-                    <option value="">All Shapes</option>
+                <select id="filterShape" class="form-select form-select-sm" style="width: 95px; height: 26px; font-size: 0.74rem; padding-top: 2px; padding-bottom: 2px;">
+                    <option value="">Shapes</option>
                     {% for shp in shapes %}
                     <option value="{{ shp }}" {% if shape_filter == shp %}selected{% endif %}>{{ shp }}</option>
                     {% endfor %}
                 </select>
 
-                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" style="height: 28px; font-size: 0.76rem;" id="btnResetFilters" title="Reset all filters">
-                    <i class="bi bi-arrow-counterclockwise"></i> Reset
+                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" style="height: 26px; font-size: 0.74rem;" id="btnResetFilters" title="Reset all filters">
+                    <i class="bi bi-arrow-counterclockwise"></i>
                 </button>
+            </div>
 
-                <span class="badge bg-light text-dark border px-2" style="height: 28px; display: inline-flex; align-items: center; font-size: 0.75rem;">
+            <!-- Right: Column Manager + Row Count Badge -->
+            <div class="d-flex align-items-center gap-1 ms-auto text-nowrap">
+                <!-- Columns Hide / Show Dropdown -->
+                <div class="dropdown d-inline-block">
+                    <button class="btn btn-sm btn-outline-secondary py-0 px-2 dropdown-toggle d-flex align-items-center gap-1" style="height: 26px; font-size: 0.74rem;" type="button" id="btnColumnManager" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Show or hide table columns">
+                        <i class="bi bi-layout-three-columns"></i>
+                        <span>Columns</span>
+                        <span id="hiddenColCountBadge" class="badge bg-primary text-white rounded-pill ms-1" style="display:none; font-size: 0.62rem; padding: 1px 4px;">0</span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end shadow border p-2" style="width: 280px; max-height: 400px; overflow-y: auto; font-size: 0.75rem; z-index: 1050;" aria-labelledby="btnColumnManager">
+                        <div class="d-flex align-items-center justify-content-between pb-2 mb-2 border-bottom">
+                            <span class="fw-bold text-dark"><i class="bi bi-sliders me-1 text-primary"></i> Column Visibility</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" class="btn btn-link p-0 text-decoration-none text-primary" style="font-size: 0.72rem;" onclick="toggleAllColumnsVisibility(true)">Show All</button>
+                                <span class="text-muted" style="font-size: 0.7rem;">•</span>
+                                <button type="button" class="btn btn-link p-0 text-decoration-none text-danger" style="font-size: 0.72rem;" onclick="resetColumnsToDefault()">Reset</button>
+                            </div>
+                        </div>
+                        <div class="input-group input-group-sm mb-2">
+                            <span class="input-group-text py-0 px-2 bg-light border-end-0" style="height: 24px;"><i class="bi bi-search" style="font-size: 0.68rem;"></i></span>
+                            <input type="text" id="columnFilterSearch" class="form-control border-start-0 py-0 px-2" style="height: 24px; font-size: 0.72rem;" placeholder="Search columns..." oninput="filterColumnList(this.value)">
+                        </div>
+                        <div id="columnChecklistContainer" class="d-flex flex-column gap-1">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <span class="badge bg-light text-dark border px-2" style="height: 26px; display: inline-flex; align-items: center; font-size: 0.73rem;">
                     <span id="filteredCountBadge" class="fw-bold">{{ filtered_count }}</span>&nbsp;/ {{ all_records_count }}
                 </span>
             </div>
@@ -360,30 +419,30 @@
         <table class="catalog-table table table-hover align-middle mb-0" id="catalogMainTable">
             <thead>
                 <tr>
-                    <th class="text-center" style="width: 45px;">#</th>
-                    <th class="text-center">LOT</th>
-                    <th class="text-center">CATEGORY</th>
-                    <th class="text-center">SKU</th>
-                    <th class="text-center">Certified</th>
-                    <th class="text-center">GOLD_KT</th>
-                    <th class="text-center">GOLD_COLOR</th>
-                    <th class="text-center">GOLD_WEIGHT</th>
-                    <th class="text-center">CENTER_DIAMOND_CLARITY</th>
-                    <th class="text-center">CENTER_DIAMOND_COLOR</th>
-                    <th class="text-center">CENTER_STONE_SHAPE</th>
-                    <th class="text-center">CENTER_STONE_WEIGHT</th>
-                    <th class="text-center">SIDE_STONE_SHAPE</th>
-                    <th class="text-center">SIDE_STONE_WEIGHT</th>
-                    <th class="text-center">SIDE_STONE_COLOR_CLARITY</th>
-                    <th class="text-center">SETTING</th>
-                    <th class="text-center">TOTAL_DIAMOND_PCS</th>
-                    <th class="text-center">COST_USD</th>
-                    <th class="text-center">SELLING_PRICE_USD</th>
+                    <th class="text-center col-row-num" style="width: 45px;">#</th>
+                    <th class="text-center col-lot">LOT</th>
+                    <th class="text-center col-category">CATEGORY</th>
+                    <th class="text-center col-sku">SKU</th>
+                    <th class="text-center col-certified">Certified</th>
+                    <th class="text-center col-gold-kt">GOLD_KT</th>
+                    <th class="text-center col-gold-color">GOLD_COLOR</th>
+                    <th class="text-center col-gold-weight">GOLD_WEIGHT</th>
+                    <th class="text-center col-center-clarity">CENTER_DIAMOND_CLARITY</th>
+                    <th class="text-center col-center-color">CENTER_DIAMOND_COLOR</th>
+                    <th class="text-center col-center-shape">CENTER_STONE_SHAPE</th>
+                    <th class="text-center col-center-weight">CENTER_STONE_WEIGHT</th>
+                    <th class="text-center col-side-shape">SIDE_STONE_SHAPE</th>
+                    <th class="text-center col-side-weight">SIDE_STONE_WEIGHT</th>
+                    <th class="text-center col-side-clarity">SIDE_STONE_COLOR_CLARITY</th>
+                    <th class="text-center col-setting">SETTING</th>
+                    <th class="text-center col-dia-pcs">TOTAL_DIAMOND_PCS</th>
+                    <th class="text-center col-cost">COST_USD</th>
+                    <th class="text-center col-selling">SELLING_PRICE_USD</th>
                     {% for xk in extra_keys %}
-                    <th class="text-center">{{ xk|upper }}</th>
+                    <th class="text-center col-extra-{{ forloop.counter }}">{{ xk|upper }}</th>
                     {% endfor %}
                     {% if can_edit %}
-                    <th class="text-center" style="width: 75px;">ACTIONS</th>
+                    <th class="text-center col-actions" style="width: 75px;">ACTIONS</th>
                     {% endif %}
                 </tr>
             </thead>
@@ -402,9 +461,9 @@
                     data-gold="{{ r.gold_weight_numeric }}" 
                     data-dia="{{ r.diamond_pcs_numeric }}" 
                     data-search="{{ r.sku }} {{ r.category }} {{ r.lot }} {{ r.center_stone_shape }} {{ r.certified }} {{ r.gold_color }} {{ r.gold_kt }} {{ r.sheet_name }}">
-                    <td class="text-center text-muted small fw-medium row-num">{{ forloop.counter }}</td>
-                    <td class="text-center"><span class="badge bg-light text-secondary border">{{ r.lot|default:"-" }}</span></td>
-                    <td class="text-center cell-category">
+                    <td class="text-center text-muted small fw-medium row-num col-row-num">{{ forloop.counter }}</td>
+                    <td class="text-center col-lot"><span class="badge bg-light text-secondary border">{{ r.lot|default:"-" }}</span></td>
+                    <td class="text-center cell-category col-category">
                         <span class="fw-semibold text-dark cell-category-text">{{ r.category|default:"-" }}</span>
                         {% if r.sheet_name and r.sheet_name|lower != r.category|lower %}
                         <span class="badge bg-light text-secondary border ms-1" style="font-size: 0.68rem;">
@@ -412,20 +471,20 @@
                         </span>
                         {% endif %}
                     </td>
-                    <td class="text-center">
+                    <td class="text-center col-sku">
                         <span class="sku-badge cell-sku" title="Click to copy SKU" onclick="copySku('{{ r.sku }}')">
                             {{ r.sku|default:"-" }}
                         </span>
                     </td>
-                    <td class="text-center">
+                    <td class="text-center col-certified">
                         {% if r.certified %}
                         <span class="badge bg-info-subtle text-info border border-info-subtle">{{ r.certified }}</span>
                         {% else %}
                         <span class="text-muted">-</span>
                         {% endif %}
                     </td>
-                    <td class="text-center">{{ r.gold_kt|default:"-" }}</td>
-                    <td class="text-center">
+                    <td class="text-center col-gold-kt">{{ r.gold_kt|default:"-" }}</td>
+                    <td class="text-center col-gold-color">
                         {% if r.gold_color|lower == 'yellow' %}
                         <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">Yellow</span>
                         {% elif r.gold_color|lower == 'white' %}
@@ -436,33 +495,33 @@
                         {{ r.gold_color|default:"-" }}
                         {% endif %}
                     </td>
-                    <td class="text-center font-monospace">{{ r.gold_weight_display|default:"-" }}</td>
-                    <td class="text-center">{{ r.center_diamond_clarity|default:"-" }}</td>
-                    <td class="text-center">{{ r.center_diamond_color|default:"-" }}</td>
-                    <td class="text-center">
+                    <td class="text-center font-monospace col-gold-weight">{{ r.gold_weight_display|default:"-" }}</td>
+                    <td class="text-center col-center-clarity">{{ r.center_diamond_clarity|default:"-" }}</td>
+                    <td class="text-center col-center-color">{{ r.center_diamond_color|default:"-" }}</td>
+                    <td class="text-center col-center-shape">
                         {% if r.center_stone_shape %}
                         <span class="fw-semibold text-secondary cell-shape">{{ r.center_stone_shape }}</span>
                         {% else %}
                         <span class="text-muted">-</span>
                         {% endif %}
                     </td>
-                    <td class="text-center font-monospace">{{ r.center_stone_weight_display|default:"-" }}</td>
-                    <td class="text-center">{{ r.side_stone_shape|default:"-" }}</td>
-                    <td class="text-center font-monospace">{{ r.side_stone_weight_display|default:"-" }}</td>
-                    <td class="text-center">{{ r.side_stone_color_clarity|default:"-" }}</td>
-                    <td class="text-center">{{ r.setting|default:"-" }}</td>
-                    <td class="text-center font-monospace">{{ r.total_diamond_pcs|default:"-" }}</td>
-                    <td class="text-center text-muted font-monospace">
+                    <td class="text-center font-monospace col-center-weight">{{ r.center_stone_weight_display|default:"-" }}</td>
+                    <td class="text-center col-side-shape">{{ r.side_stone_shape|default:"-" }}</td>
+                    <td class="text-center font-monospace col-side-weight">{{ r.side_stone_weight_display|default:"-" }}</td>
+                    <td class="text-center col-side-clarity">{{ r.side_stone_color_clarity|default:"-" }}</td>
+                    <td class="text-center col-setting">{{ r.setting|default:"-" }}</td>
+                    <td class="text-center font-monospace col-dia-pcs">{{ r.total_diamond_pcs|default:"-" }}</td>
+                    <td class="text-center text-muted font-monospace col-cost">
                         {% if r.cost_usd_display %}${{ r.cost_usd_display }}{% else %}-{% endif %}
                     </td>
-                    <td class="text-center fw-bold text-success font-monospace">
+                    <td class="text-center fw-bold text-success font-monospace col-selling">
                         {% if r.selling_price_usd_display %}${{ r.selling_price_usd_display }}{% else %}-{% endif %}
                     </td>
                     {% for val in r.extra_values %}
-                    <td class="text-center small text-muted">{{ val }}</td>
+                    <td class="text-center small text-muted col-extra-{{ forloop.counter }}">{{ val }}</td>
                     {% endfor %}
                     {% if can_edit %}
-                    <td class="text-center text-nowrap">
+                    <td class="text-center text-nowrap col-actions">
                         <div class="btn-group btn-group-sm">
                             <button type="button" class="btn btn-light text-primary py-0 px-2" onclick="openEditRecordModal({{ r.id }})" title="Edit SKU record">
                                 <i class="bi bi-pencil-square"></i>
@@ -975,11 +1034,17 @@
             }
         });
 
-        // Update live KPI summary ribbon
+        // Update live KPI summary ribbon & mini badge
         const kpiSkus = document.getElementById('kpiTotalSkus');
         if (kpiSkus) kpiSkus.textContent = visibleCount;
+        const kpiSkusDropdown = document.getElementById('kpiTotalSkusDropdown');
+        if (kpiSkusDropdown) kpiSkusDropdown.textContent = visibleCount;
+
         const kpiSelling = document.getElementById('kpiTotalSelling');
         if (kpiSelling) kpiSelling.textContent = '$' + totalSelling.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const kpiSellingMini = document.getElementById('kpiTotalSellingMini');
+        if (kpiSellingMini) kpiSellingMini.textContent = '$' + Math.round(totalSelling).toLocaleString();
+
         const kpiCost = document.getElementById('kpiTotalCost');
         if (kpiCost) kpiCost.textContent = '$' + totalCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         const kpiGold = document.getElementById('kpiTotalGold');
@@ -1035,22 +1100,22 @@
         document.getElementById('m_sku').value = row.querySelector('.cell-sku')?.getAttribute('data-original') || row.querySelector('.cell-sku')?.textContent.trim() || '';
         document.getElementById('m_category').value = row.querySelector('.cell-category-text')?.textContent.trim() || row.getAttribute('data-cat') || '';
         document.getElementById('m_sheet_name').value = row.getAttribute('data-sheet') || '';
-        document.getElementById('m_lot').value = row.children[1]?.textContent.trim().replace('-', '') || '';
-        document.getElementById('m_certified').value = row.children[4]?.textContent.trim().replace('-', '') || '';
-        document.getElementById('m_gold_kt').value = row.children[5]?.textContent.trim().replace('-', '') || '';
+        document.getElementById('m_lot').value = (row.querySelector('.col-lot')?.textContent || row.children[1]?.textContent || '').trim().replace('-', '');
+        document.getElementById('m_certified').value = (row.querySelector('.col-certified')?.textContent || row.children[4]?.textContent || '').trim().replace('-', '');
+        document.getElementById('m_gold_kt').value = (row.querySelector('.col-gold-kt')?.textContent || row.children[5]?.textContent || '').trim().replace('-', '');
         document.getElementById('m_gold_color').value = row.getAttribute('data-color') || '';
-        document.getElementById('m_gold_weight').value = row.children[7]?.textContent.trim().replace('-', '') || '';
-        document.getElementById('m_center_clarity').value = row.children[8]?.textContent.trim().replace('-', '') || '';
-        document.getElementById('m_center_color').value = row.children[9]?.textContent.trim().replace('-', '') || '';
+        document.getElementById('m_gold_weight').value = (row.querySelector('.col-gold-weight')?.textContent || row.children[7]?.textContent || '').trim().replace('-', '');
+        document.getElementById('m_center_clarity').value = (row.querySelector('.col-center-clarity')?.textContent || row.children[8]?.textContent || '').trim().replace('-', '');
+        document.getElementById('m_center_color').value = (row.querySelector('.col-center-color')?.textContent || row.children[9]?.textContent || '').trim().replace('-', '');
         document.getElementById('m_center_shape').value = row.querySelector('.cell-shape')?.textContent.trim() || '';
-        document.getElementById('m_center_wt').value = row.children[11]?.textContent.trim().replace('-', '') || '';
-        document.getElementById('m_side_shape').value = row.children[12]?.textContent.trim().replace('-', '') || '';
-        document.getElementById('m_side_wt').value = row.children[13]?.textContent.trim().replace('-', '') || '';
-        document.getElementById('m_side_clarity').value = row.children[14]?.textContent.trim().replace('-', '') || '';
-        document.getElementById('m_setting').value = row.children[15]?.textContent.trim().replace('-', '') || '';
-        document.getElementById('m_dia_pcs').value = row.children[16]?.textContent.trim().replace('-', '') || '';
-        document.getElementById('m_cost_usd').value = row.children[17]?.textContent.trim().replace('$', '').replace('-', '') || '';
-        document.getElementById('m_selling_usd').value = row.children[18]?.textContent.trim().replace('$', '').replace('-', '') || '';
+        document.getElementById('m_center_wt').value = (row.querySelector('.col-center-weight')?.textContent || row.children[11]?.textContent || '').trim().replace('-', '');
+        document.getElementById('m_side_shape').value = (row.querySelector('.col-side-shape')?.textContent || row.children[12]?.textContent || '').trim().replace('-', '');
+        document.getElementById('m_side_wt').value = (row.querySelector('.col-side-weight')?.textContent || row.children[13]?.textContent || '').trim().replace('-', '');
+        document.getElementById('m_side_clarity').value = (row.querySelector('.col-side-clarity')?.textContent || row.children[14]?.textContent || '').trim().replace('-', '');
+        document.getElementById('m_setting').value = (row.querySelector('.col-setting')?.textContent || row.children[15]?.textContent || '').trim().replace('-', '');
+        document.getElementById('m_dia_pcs').value = (row.querySelector('.col-dia-pcs')?.textContent || row.children[16]?.textContent || '').trim().replace('-', '');
+        document.getElementById('m_cost_usd').value = (row.querySelector('.col-cost')?.textContent || row.children[17]?.textContent || '').trim().replace('$', '').replace('-', '');
+        document.getElementById('m_selling_usd').value = (row.querySelector('.col-selling')?.textContent || row.children[18]?.textContent || '').trim().replace('$', '').replace('-', '');
 
         const modal = new bootstrap.Modal(document.getElementById('addRecordModal'));
         modal.show();
@@ -1131,5 +1196,149 @@
         })
         .catch(err => alert('Network error: ' + err));
     }
+
+    // ==========================================
+    // Dynamic Column Hide/Show Manager with LocalStorage
+    // ==========================================
+    const CATALOG_COLUMNS = [
+        { key: 'col-row-num', label: '# (Row Number)', locked: false },
+        { key: 'col-lot', label: 'LOT', locked: false },
+        { key: 'col-category', label: 'CATEGORY', locked: false },
+        { key: 'col-sku', label: 'SKU (Locked)', locked: true },
+        { key: 'col-certified', label: 'Certified', locked: false },
+        { key: 'col-gold-kt', label: 'GOLD_KT', locked: false },
+        { key: 'col-gold-color', label: 'GOLD_COLOR', locked: false },
+        { key: 'col-gold-weight', label: 'GOLD_WEIGHT', locked: false },
+        { key: 'col-center-clarity', label: 'CENTER_DIAMOND_CLARITY', locked: false },
+        { key: 'col-center-color', label: 'CENTER_DIAMOND_COLOR', locked: false },
+        { key: 'col-center-shape', label: 'CENTER_STONE_SHAPE', locked: false },
+        { key: 'col-center-weight', label: 'CENTER_STONE_WEIGHT', locked: false },
+        { key: 'col-side-shape', label: 'SIDE_STONE_SHAPE', locked: false },
+        { key: 'col-side-weight', label: 'SIDE_STONE_WEIGHT', locked: false },
+        { key: 'col-side-clarity', label: 'SIDE_STONE_COLOR_CLARITY', locked: false },
+        { key: 'col-setting', label: 'SETTING', locked: false },
+        { key: 'col-dia-pcs', label: 'TOTAL_DIAMOND_PCS', locked: false },
+        { key: 'col-cost', label: 'COST_USD', locked: false },
+        { key: 'col-selling', label: 'SELLING_PRICE_USD', locked: false },
+    ];
+
+    {% for xk in extra_keys %}
+    CATALOG_COLUMNS.push({ key: 'col-extra-{{ forloop.counter }}', label: '{{ xk|escapejs|upper }}', locked: false });
+    {% endfor %}
+
+    const STORAGE_KEY_COLUMNS = 'party_catalog_hidden_columns_v2';
+
+    function getSavedHiddenColumns() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY_COLUMNS);
+            if (raw) {
+                const arr = JSON.parse(raw);
+                if (Array.isArray(arr)) return arr;
+            }
+        } catch (e) {}
+        return [];
+    }
+
+    function saveHiddenColumns(hiddenCols) {
+        try {
+            localStorage.setItem(STORAGE_KEY_COLUMNS, JSON.stringify(hiddenCols));
+        } catch (e) {}
+    }
+
+    function applyColumnVisibility() {
+        const hiddenCols = getSavedHiddenColumns();
+        let styleTag = document.getElementById('catalogColDynamicStyles');
+        if (!styleTag) {
+            styleTag = document.createElement('style');
+            styleTag.id = 'catalogColDynamicStyles';
+            document.head.appendChild(styleTag);
+        }
+
+        if (hiddenCols.length === 0) {
+            styleTag.textContent = '';
+        } else {
+            const selector = hiddenCols.map(c => `.${c}`).join(',\n');
+            styleTag.textContent = `${selector} {\n    display: none !important;\n}`;
+        }
+
+        // Update badge
+        const badge = document.getElementById('hiddenColCountBadge');
+        if (badge) {
+            if (hiddenCols.length > 0) {
+                badge.textContent = `${hiddenCols.length} hidden`;
+                badge.style.display = 'inline-block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        // Sync checkboxes in dropdown
+        CATALOG_COLUMNS.forEach(col => {
+            const chk = document.getElementById(`chk_${col.key}`);
+            if (chk) {
+                chk.checked = !hiddenCols.includes(col.key);
+            }
+        });
+    }
+
+    function toggleColumn(key, isVisible) {
+        let hidden = getSavedHiddenColumns();
+        if (isVisible) {
+            hidden = hidden.filter(k => k !== key);
+        } else {
+            if (!hidden.includes(key)) hidden.push(key);
+        }
+        saveHiddenColumns(hidden);
+        applyColumnVisibility();
+    }
+
+    function toggleAllColumnsVisibility(showAll) {
+        if (showAll) {
+            saveHiddenColumns([]);
+        } else {
+            const hideAll = CATALOG_COLUMNS.filter(c => !c.locked).map(c => c.key);
+            saveHiddenColumns(hideAll);
+        }
+        applyColumnVisibility();
+    }
+
+    function resetColumnsToDefault() {
+        saveHiddenColumns([]);
+        applyColumnVisibility();
+    }
+
+    function filterColumnList(query) {
+        const q = (query || '').trim().toLowerCase();
+        const items = document.querySelectorAll('.col-toggle-item');
+        items.forEach(el => {
+            const name = (el.getAttribute('data-name') || '').toLowerCase();
+            el.style.display = (name.includes(q)) ? '' : 'none';
+        });
+    }
+
+    function renderColumnManagerDropdown() {
+        const container = document.getElementById('columnChecklistContainer');
+        if (!container) return;
+        const hiddenCols = getSavedHiddenColumns();
+
+        let html = '';
+        CATALOG_COLUMNS.forEach(col => {
+            const isChecked = !hiddenCols.includes(col.key);
+            html += `
+                <div class="col-toggle-item p-1 rounded d-flex align-items-center justify-content-between" data-name="${col.label} ${col.key}">
+                    <label class="form-check-label d-flex align-items-center gap-2 w-100 cursor-pointer m-0" for="chk_${col.key}" style="cursor: pointer; user-select: none;">
+                        <input class="form-check-input m-0" type="checkbox" id="chk_${col.key}" ${isChecked ? 'checked' : ''} ${col.locked ? 'disabled' : ''} onchange="toggleColumn('${col.key}', this.checked)">
+                        <span class="${col.locked ? 'fw-bold text-muted' : 'text-dark'}">${col.label}</span>
+                    </label>
+                    ${col.locked ? '<i class="bi bi-lock-fill text-muted" title="SKU cannot be hidden" style="font-size: 0.7rem;"></i>' : ''}
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+
+    // Initialize Column Manager
+    renderColumnManagerDropdown();
+    applyColumnVisibility();
 </script>
 {% endblock %}
