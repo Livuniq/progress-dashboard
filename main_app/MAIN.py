@@ -1948,28 +1948,7 @@ def clean_unavailable_thumbnails(html, available_count=None):
         flags=re.I
     )
 
-    # 3. Inject CSS :has() rules into template for modern browsers
-    css_injection = (
-        '\n<style id="auto-hide-unavailable-thumbs">\n'
-        '  /* Universal thumbnail cleaner for unavailable / broken images */\n'
-        '  img[src=""], img[src="#"], img:not([src]), img[src*="THUMB_"], img[src*="IMG_"] {\n'
-        '    display: none !important;\n'
-        '  }\n'
-        '  label:has(img[src=""]), label:has(img[src="#"]), label:has(img:not([src])), label:has(img[src*="THUMB_"]),\n'
-        '  .imgSmIn:has(img[src=""]), .imgSmIn:has(img[src="#"]), .imgSmIn:has(img:not([src])),\n'
-        '  li:has(img[src=""]), li:has(img[src="#"]), li:has(img:not([src])) {\n'
-        '    display: none !important;\n'
-        '  }\n'
-        '</style>\n'
-    )
-    if '</head>' in html:
-        html = html.replace('</head>', css_injection + '</head>', 1)
-    elif '<style' in html:
-        idx = html.find('<style')
-        html = html[:idx] + css_injection + html[idx:]
-    else:
-        html = css_injection + html
-
+    # (External CSS used for thumbnail cleaner)
     return html
 
 @eel.expose
